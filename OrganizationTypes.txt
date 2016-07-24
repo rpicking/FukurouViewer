@@ -1,0 +1,24 @@
+----------
+Artist
+	Comic
+		Image
+		Image
+----------
+Series
+	Chapter
+		Image
+		Image
+	Chapter
+		Image
+		Image
+Comic
+	Image
+	Image
+----------
+Series
+	Image
+	Image
+Comic
+	Image
+	Image
+----------
