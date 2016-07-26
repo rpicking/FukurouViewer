@@ -6,13 +6,21 @@
     <ProjectGuid>{6cccb675-dbd8-49b2-9fef-416805194dbd}</ProjectGuid>
     <ProjectHome>..\</ProjectHome>
     <StartupFile>program.py</StartupFile>
-    <SearchPath />
-    <WorkingDirectory>.</WorkingDirectory>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>
+    </WorkingDirectory>
     <OutputPath>.</OutputPath>
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <InterpreterId />
-    <InterpreterVersion />
+    <InterpreterId>
+    </InterpreterId>
+    <InterpreterVersion>
+    </InterpreterVersion>
+    <IsWindowsApplication>False</IsWindowsApplication>
+    <CommandLineArguments>
+    </CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
@@ -23,42 +31,41 @@
   <ItemGroup>
     <Content Include="Icon.png" />
     <Content Include="Icon2.png" />
-    <Content Include="Images\006 %282%29.jpg" />
-    <Content Include="Images\1450435211141.jpg" />
-    <Content Include="Images\1451715455938.jpg" />
-    <Content Include="Images\20.jpg" />
-    <Content Include="Images\A58FE0D.jpg" />
-    <Content Include="Images\B4E07DC.jpg" />
-    <Content Include="Images\epic_deepthroat_50105892.gif" />
-    <Content Include="Images\F500D98.gif" />
-    <Content Include="Images\FLi61OG.gif" />
-    <Content Include="Images\ibg3wR0nVoeSmg.gif" />
-    <Content Include="Images\Icon.jpg" />
-    <Content Include="Images\laala10.jpg" />
-    <Content Include="Images\laala18.jpg" />
-    <Content Include="Images\lusciousnet_shanalane01_1403964782.gif" />
-    <Content Include="Images\pqKJkdx.gif" />
-    <Content Include="Images\SecondIcon.png" />
-    <Content Include="Images\Sparrow_401455_Goat_Gal_Gets_Got_P2.jpg" />
-    <Content Include="Images\tumblr_m7mzq7FHBi1qidi3qo1_500.jpg" />
-    <Content Include="Images\tumblr_n8hh4pSYJn1s9kohyo1_400.gif" />
-    <Content Include="Images\tumblr_nyybub9n1Y1r9jdzvo1_540.jpg" />
+    <Content Include="imgs\icon.ico" />
+    <Content Include="imgs\Icon.png" />
+    <Content Include="imgs\Icon2.png" />
+    <Content Include="imgs\OwlIcon3.png" />
+    <Content Include="imgs\OwlIcon3a.png" />
     <Content Include="Manga Viewer.txt" />
     <Content Include="Methods.txt" />
-    <Content Include="OwlIcon3.png" />
-    <Content Include="OwlIcon3a.png" />
+    <Content Include="other\CodeSnippets.txt" />
+    <Content Include="other\db.sqlite" />
+    <Content Include="other\fukuroudb.db" />
+    <Content Include="other\Manga Viewer.txt" />
+    <Content Include="other\Methods.txt" />
+    <Content Include="other\OrganizationTypes.txt" />
+    <Content Include="other\Settings.ini" />
+    <Content Include="other\settingsPANDA.ini" />
     <Content Include="qml\fontawesome.js" />
     <Content Include="qml\MyTheme.js" />
     <Content Include="Settings.ini" />
     <Content Include="settingsPANDA.ini" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="config.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="FukurouViewerBACKUP.py" />
     <Compile Include="program.py" />
+    <Compile Include="utils.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="__init__.py" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Images" />
+    <Folder Include="imgs\" />
+    <Folder Include="misc\" />
+    <Folder Include="other\" />
     <Folder Include="qml" />
   </ItemGroup>
   <Import Project="$(PtvsTargetsFile)" Condition="Exists($(PtvsTargetsFile))" />

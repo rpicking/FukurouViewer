@@ -37,3 +37,7 @@ Makefile*
 CMakeLists.txt.user
 
 Images/
+__pycache__/
+Examples/
+misc/
+.fv - Shortcut.lnk

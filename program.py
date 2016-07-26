@@ -2,12 +2,21 @@ import sys
 import os
 from enum import Enum
 
+try:
+    from .utils import Utils
+    from .config import Config
+except Exception: #ImportError workaround for vs
+    from utils import Utils
+    from config import Config
+
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
 
+
 class Program(QtWidgets.QApplication):
-    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-    QML_PATH = os.path.join(BASE_PATH, "qml")
+    BASE_PATH = Utils.base_path()
+    QML_DIR = os.path.join(BASE_PATH, "qml")
+    THUMB_DIR = Utils.fv_path("thumbs")
 
     class SortMethodMap(Enum):
         NameSort = "sort_name"
@@ -24,16 +33,29 @@ class Program(QtWidgets.QApplication):
         self.setup()
     
     def setup(self):
-		#check and create thumb dir
-        self.setFont(QtGui.QFont(os.path.join(self.QML_PATH, "fonts/Lato-Regular.ttf")))
+        if not os.path.exists(self.THUMB_DIR):
+            os.makedirs(self.THUMB_DIR)        
+        
+        self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
         self.engine = QtQml.QQmlApplicationEngine()
-        self.engine.addImportPath(self.QML_PATH)
-        self.engine.load(os.path.join(self.QML_PATH, "main.qml"))
+        self.engine.addImportPath(self.QML_DIR)
+        self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
         self.win = self.engine.rootObjects()[0]
+
+        #------------
         #SIGNALS FROM UI GO HERE
+        #------------
+
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
+
+        print("TESTING")
         #load configs HERE
+        configtest = Config()
+        print("WTFMATE")
+
         self.win.show()
+
+        print("BUTTS")
 
 
 if __name__ == '__main__':
