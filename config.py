@@ -1,4 +1,5 @@
 from configparser import SafeConfigParser
+import json
 
 try:
     from .utils import Utils
@@ -46,17 +47,14 @@ class Config(SafeConfigParser):
 
     def __init__(self):
         super().__init__()
-        print("HERE")
         try:
             self.load()
         except FileNotFoundError:
-            print("WTF")
             self.save()
         self.build()
         self.save()
 
     def build(self):
-        print("BUILDING")
         for section in self.SETTINGS:
             if not self.has_section(section):
                 self.add_section(section)
@@ -71,3 +69,30 @@ class Config(SafeConfigParser):
     def load(self):
         with open(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
             self.read_file(f)
+
+    @property
+    def folders(self):
+        folders = self.get("General", "folders") or "[]"
+        return list(map(Utils.norm_path, json.loads(folders)))
+
+    @folders.setter
+    def folders(self, folder):
+        self.set("General", "folders", json.dumps(folder, ensure_ascii=False))
+
+    @property
+    def ex_member_id(self):
+        return self.get("Online", "ex_member_id")
+
+    @ex_member_id.setter
+    def ex_member_id(self, id):
+        self.set("Online", "ex_member_id", str(id))
+
+    @property
+    def ex_pass_hash(self):
+        return self.get("Online", "ex_pass_hash")
+    
+    @ex_pass_hash.setter
+    def ex_pass_hash(self, hash):
+        self.set("Online", "ex_pass_hash", str(hash))
+
+Config = Config()

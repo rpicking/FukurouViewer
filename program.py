@@ -5,9 +5,11 @@ from enum import Enum
 try:
     from .utils import Utils
     from .config import Config
+    from .search import Search
 except Exception: #ImportError workaround for vs
     from utils import Utils
     from config import Config
+    from search import Search
 
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
@@ -48,14 +50,10 @@ class Program(QtWidgets.QApplication):
 
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
 
-        print("TESTING")
         #load configs HERE
-        configtest = Config()
-        print("WTFMATE")
-
+        Search.search_ex_gallery()
         self.win.show()
 
-        print("BUTTS")
 
 
 if __name__ == '__main__':
