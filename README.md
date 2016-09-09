@@ -31,5 +31,7 @@ Requirements
 We plan on being as cross-platform compatible as possible.  Currently no major features limit this plan.
 * Python 3.xx
 * install python modules from requirements.txt
-        pip install -r requirements.txt
+```
+pip install -r requirements.txt
+```
 * TODO: compiling platform specific executable or including all modules with release
