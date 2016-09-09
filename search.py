@@ -19,7 +19,8 @@ class Search():
         title = "bullock"
         file = "C:/Users/Robert/Downloads/New folder/(C88) [狼狽亭 (atahuta)] BULLOCK (ストライクウィッチーズ)[English]/001.jpg"
         file2 = "C:/Users/Robert/Downloads/New folder/(C87) [Fatalpulse (Asanagi)] VictimGirlsR  JK de Refre -Flesh & Refresh-  [English] [Doujin-Moe]/0001.jpg"
-        sha_hash = Utils.generate_sha_hash(file)
+        
+        sha_hash = Utils.generate_sha_hash(file1)
         cls.ex_search(title=title, sha_hash=sha_hash, page_num=0, cover_only=1)
         sha_hash = Utils.generate_sha_hash(file2)
         cls.ex_search(sha_hash=sha_hash, page_num=0, cover_only=1)
@@ -35,10 +36,10 @@ class Search():
         url = cls.BASE_EX_URL % (title, sha_hash, page_num, cover_only)
         response = exRequestManager.get(url)
         html_results = bs4.BeautifulSoup(response, "html.parser")
-        results = html_results.findAll("div", attrs={"class": "it5"})
-        result_urls = [r.find('a')['href'] for r in results]
+        results = [div.a for div in html_results.findAll("div", attrs={"class": "it5"})]
+        result_urls = [r['href'] for r in results]
 
-        print("HERE")
+        yield result_urls
 
         # get all galleries matching
         # splice out galid & galtoken

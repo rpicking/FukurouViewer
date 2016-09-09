@@ -1,9 +1,10 @@
-from copy import deepcopy
-import threading
 import json
 import time
 import random
 import requests
+import threading
+from copy import deepcopy
+from FukurouViewer import exceptions
 
 try:
     from .config import Config
@@ -83,9 +84,9 @@ class ExRequestManager(RequestManager):
         if super().valid_response(response):
             content_type = response.headers["content-type"]
             if "image/gif" in content_type:
-                print("bad login")  # log
+                raise exceptions.BadCredentials
             if "text/html" in content_type and "Your IP address" in response.text:
-                print("ip banned") # log
+                raise exceptions.UserBanned
             try:
                 if response.json().get("error") is not None:
                     print("error message")  #log

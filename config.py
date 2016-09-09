@@ -1,5 +1,5 @@
-from configparser import SafeConfigParser
 import json
+from configparser import SafeConfigParser
 
 try:
     from .utils import Utils
