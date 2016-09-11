@@ -55,4 +55,30 @@ class BaseThread(threading.Thread):
 
 
 class GalleryThread(BaseThread):
-    print("THREAD")
+    running = False
+    
+    def setup(self):
+        super().setup()
+        # signals for find galleries done in program.py
+        # signal for set scan folder in program.py
+
+    def _run(self):
+        self.running = False
+        path = self.queue.get()
+        self.running = True
+        with FukurouViewer.app.gallery_lock:
+
+            
+
+
+gallery_thread = GalleryThread()
+
+
+THREADS = [
+    gallery_thread,
+]
+
+def setup():
+    for thread in THREADS:
+        thread.setup()
+        thread.start()

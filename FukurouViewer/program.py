@@ -1,15 +1,16 @@
 import os
 import sys
 from enum import Enum
+from threading import RLock
 
 try:
     from .utils import Utils
     from .config import Config
     from .search import Search
-except Exception: #ImportError workaround for vs
-    from utils import Utils
-    from config import Config
-    from search import Search
+#except Exception: #ImportError workaround for vs
+#    from utils import Utils
+#    from config import Config
+#    from search import Search
 
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
@@ -19,6 +20,7 @@ class Program(QtWidgets.QApplication):
     BASE_PATH = Utils.base_path()
     QML_DIR = os.path.join(BASE_PATH, "qml")
     THUMB_DIR = Utils.fv_path("thumbs")
+    gallery_lock = RLock()
 
     class SortMethodMap(Enum):
         NameSort = "sort_name"
@@ -56,6 +58,6 @@ class Program(QtWidgets.QApplication):
 
 
 
-if __name__ == '__main__':
-    app = Program(sys.argv)
-    sys.exit(app.exec_())
+#if __name__ == '__main__':
+#    app = Program(sys.argv)
+#    sys.exit(app.exec_())

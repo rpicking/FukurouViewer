@@ -3,8 +3,8 @@ from configparser import SafeConfigParser
 
 try:
     from .utils import Utils
-except Exception: #ImportError workaround for vs
-    from utils import Utils
+#except Exception: #ImportError workaround for vs
+#    from utils import Utils
 
 class Config(SafeConfigParser):
 
