@@ -1,5 +1,6 @@
 import os
 import hashlib
+from typing import List
 
 class Utils():
 
@@ -13,7 +14,7 @@ class Utils():
 
     @staticmethod
     def norm_path(path: str) -> str:
-        return os.path.normpath(os.path.realpath(os.path.expanduser(path)))
+        return os.path.normpath(os.path.expanduser(path))
 
     @classmethod
     def generate_sha_hash(cls, filepath) -> str:

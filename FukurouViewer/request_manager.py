@@ -6,11 +6,8 @@ import threading
 from copy import deepcopy
 from FukurouViewer import exceptions
 
+from .config import Config
 
-try:
-    from .config import Config
-#except Exception: #ImportError workaround for VS
-#    from config import Config
 
 class RequestManager():
     API_WAIT_TIME = 3

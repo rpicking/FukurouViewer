@@ -1,10 +1,11 @@
+import os
 import json
 from configparser import SafeConfigParser
 
-try:
-    from .utils import Utils
-#except Exception: #ImportError workaround for vs
-#    from utils import Utils
+import FukurouViewer
+from FukurouViewer.utils import Utils
+
+
 
 class Config(SafeConfigParser):
 
@@ -73,7 +74,9 @@ class Config(SafeConfigParser):
     @property
     def folders(self):
         folders = self.get("General", "folders") or "[]"
-        return list(map(Utils.norm_path, json.loads(folders)))
+        if isinstance(folders, str):
+            return [Utils.norm_path(folders).strip('"')]
+        return [ Utils.norm_path(x).strip('"') for x in folders ]
 
     @folders.setter
     def folders(self, folder):

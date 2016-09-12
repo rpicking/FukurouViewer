@@ -4,12 +4,16 @@ import threading
 import FukurouViewer
 from collections import namedtuple
 from FukurouViewer import exceptions
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
+from .config import Config
+from .utils import Utils
 
 class BaseThread(threading.Thread):
     THREAD_COUNT = 4
 
-    def __init(self, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__()
         self.daemon = True
         self.queue = queue.Queue()
@@ -63,22 +67,66 @@ class GalleryThread(BaseThread):
         # signal for set scan folder in program.py
 
     def _run(self):
-        self.running = False
-        path = self.queue.get()
-        self.running = True
-        with FukurouViewer.app.gallery_lock:
-
-            
-
+        while True:
+            self.running = False
+            path = self.queue.get()
+            self.running = True
+            with FukurouViewer.app.gallery_lock:
+                print("HUH")
 
 gallery_thread = GalleryThread()
 
 
+class WatcherThread(BaseThread):
+    observer = None
+
+    class Handler(FileSystemEventHandler):
+        def on_any_event(self, event):
+            event_thread.queue.put([event])
+
+    def setup(self):
+        super().setup()
+        self.observer = Observer()
+        self.observer.start()
+        self.schedule_folders()
+
+    def schedule_folders(self):
+        self.observer.unschedule_all()
+        for folder in Config.folders:
+            self.observer.schedule(self.Handler(), folder, recursive=True)
+
+watcher_thread = WatcherThread()
+
+
+class EventThread(BaseThread):
+
+    def _run(self):
+        while True:
+            self.process_events(self.queue.get())
+
+    def process_events(self, events):
+        for event in events:
+            source = Utils.norm_path(event.src_path)
+            if event.event_type == "moved":
+                print("moved")
+            elif event.event_type == "deleted":
+                print("deleted")
+            elif event.event_type == "created":
+                print("created")
+            elif event.event_type == "modified":
+                print("modified")
+
+event_thread = EventThread()
+
+
 THREADS = [
     gallery_thread,
+    watcher_thread,
+    event_thread,
 ]
 
 def setup():
     for thread in THREADS:
+        print("STARTING")
         thread.setup()
         thread.start()

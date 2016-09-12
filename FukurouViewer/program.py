@@ -1,16 +1,13 @@
 import os
 import sys
+import time
 from enum import Enum
 from threading import RLock
 
-try:
-    from .utils import Utils
-    from .config import Config
-    from .search import Search
-#except Exception: #ImportError workaround for vs
-#    from utils import Utils
-#    from config import Config
-#    from search import Search
+
+from .utils import Utils
+from .config import Config
+from .search import Search
 
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
@@ -32,6 +29,7 @@ class Program(QtWidgets.QApplication):
         TagSort = "sort_tag"
 
     def __init__(self, args):
+        self.addLibraryPath(os.path.dirname(__file__))  #not sure
         super().__init__(args)
         self.setApplicationName("FukurouViewer")
         self.setup()
@@ -43,9 +41,10 @@ class Program(QtWidgets.QApplication):
         self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
         self.engine = QtQml.QQmlApplicationEngine()
         self.engine.addImportPath(self.QML_DIR)
+        self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True)
         self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
         self.win = self.engine.rootObjects()[0]
-
+        self.win.show()
         #------------
         #SIGNALS FROM UI GO HERE
         #------------
@@ -53,11 +52,12 @@ class Program(QtWidgets.QApplication):
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
 
         #load configs HERE
-        Search.search_ex_gallery()
-        self.win.show()
+        #Search.search_ex_gallery()
+        #time.sleep(5)
+        #self.win.show()
 
 
 
-#if __name__ == '__main__':
-#    app = Program(sys.argv)
-#    sys.exit(app.exec_())
+if __name__ == '__main__':
+    app = Program(sys.argv)
+    sys.exit(app.exec_())
