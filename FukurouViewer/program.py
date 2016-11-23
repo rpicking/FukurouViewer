@@ -4,13 +4,11 @@ import time
 from enum import Enum
 from threading import RLock
 
-
 from .utils import Utils
 from .config import Config
 from .search import Search
 
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
-
 
 
 class Program(QtWidgets.QApplication):

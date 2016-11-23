@@ -1,0 +1,13 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+{
+  "name": "vangard.fukurou.ext.msg",
+  "description": "Chrome Native Messaging API Host for Fukurou",
+  "path": "fukurou_msg_host.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://knldjmfmopnpolahpmmgbagdohdnhkik/"
+  ]
+}
