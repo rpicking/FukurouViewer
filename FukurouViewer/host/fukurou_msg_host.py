@@ -1,6 +1,9 @@
+import os
+import re
 import sys
 import json
 import struct
+import requests
 
 
 # Function to send a message to chrome.
@@ -25,12 +28,31 @@ def read_message():
     text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
     text_dict = json.loads(text_decoded)
     return text_dict
-    send_message(text_undecoded + 'big red dog')
-    # [...] Then use the data.
 
-
-#test = {"name": "response1", "text": "Hello, extension."}
-
-test = read_message()
-test['text'] = test.get('text') + "big red dog"
-send_message(test)
+# srcUrl: url to item that is being downloaded
+# pageUrl: url of the page that item downloaded from
+# comicLink: *CUSTOM* url of comic that item is from
+# comicName: *CUSTOM* name of comic
+# comicPage: *CUSTOM* page number of item
+# cookies: cookies from pageUrl domain
+if __name__ == '__main__':
+    dir = 'C:/Users/Robert/Sync/New folder/'
+    msg = read_message()
+    url = msg.get('srcUrl').strip('"')
+    headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
+    cookies = {}
+    for item in msg.get('cookies'):
+        cookies[item[0]] = item[1]
+    try:
+        r = requests.get(url, headers=headers, cookies=cookies)
+    except:
+        with open('squirrel.txt', "w") as file:
+            file.write(e)
+            sys.exit(0)
+    headers = r.headers
+    if 'Content-Disposition' in headers:
+        filename = re.findall("filename=(.+)", headers['content-disposition'])[0]
+    else:
+        filename = url.split('/')[-1]
+    with open(os.path.join(dir, filename), "wb") as file:
+        file.write(r.content)
