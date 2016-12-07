@@ -2,48 +2,25 @@ import os
 import json
 from configparser import SafeConfigParser
 
-import FukurouViewer
-from FukurouViewer.utils import Utils
-
+from utils import Utils
 
 
 class Config(SafeConfigParser):
+    """Configs for FukurouViewer host application
 
-    SETTINGS_FILE = Utils.fv_path("settings.ini")
+    """
+
+    SETTINGS_FILE = "settings.ini"
 
     SETTINGS = {
         "General": [
             "folders",
             "folder_options",
-            "sort_type",
-            "sort_direction",
-            "confirm_delete",
-            "size",
-            "recent_imgs",
-            "recent_galleries",
-        ],
-        "Archive": [
-            "extract_zip",
-            "extract_cbz",
-            "extract_rar",
-            "extract_cbr",
-            "extract_7z",
-            "extract_cb7",
-            "delete_after_extract",
-            "backup",
-            "backup_dir",
-        ],
-        "Online": [
-            "ex_member_id",
-            "ex_pass_hash",
         ],
     }
     
-    AUTO_METADATA = "auto_metadata"
-    INDIVIDUAL = "individual"
     FOLDER_OPTIONS = [
-        "individual",
-        "auto_metadata",
+        "name",
     ]
 
     def __init__(self):
@@ -82,27 +59,12 @@ class Config(SafeConfigParser):
 
     @property
     def folder_options(self):
-        options = self.get("General", "folder_options") or {}
+        options = self.get("General", "folder_options") or "{}"
         return json.loads(options)
 
     @folder_options.setter
     def folder_options(self, value):
         self.set("General", "folder_options", json.dumps(value, ensure_ascii=False))
 
-    @property
-    def ex_member_id(self):
-        return self.get("Online", "ex_member_id")
-
-    @ex_member_id.setter
-    def ex_member_id(self, id):
-        self.set("Online", "ex_member_id", str(id))
-
-    @property
-    def ex_pass_hash(self):
-        return self.get("Online", "ex_pass_hash")
-    
-    @ex_pass_hash.setter
-    def ex_pass_hash(self, hash):
-        self.set("Online", "ex_pass_hash", str(hash))
 
 Config = Config()
