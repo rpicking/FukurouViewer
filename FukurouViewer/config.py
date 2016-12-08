@@ -82,7 +82,7 @@ class Config(SafeConfigParser):
 
     @property
     def folder_options(self):
-        options = self.get("General", "folder_options") or {}
+        options = self.get("General", "folder_options") or "{}"
         return json.loads(options)
 
     @folder_options.setter

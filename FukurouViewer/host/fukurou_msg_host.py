@@ -32,9 +32,7 @@ def read_message():
     text_length = struct.unpack("i", text_length_bytes)[0]
     # Reads and decodes the text (which is JSON) of the message.
     text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
-    text_dict = json.loads(text_decoded)
-    return text_dict
-
+    return json.loads(text_decoded)
 
 def fix_extensions(ext):
     if ext in {'.jpeg', '.jpe'}:
@@ -56,29 +54,32 @@ def create_folder(path, name):
 
 # srcUrl: url to item that is being downloaded
 # pageUrl: url of the page that item downloaded from
-# comicLink: *CUSTOM* url of comic that item is from
-# comicName: *CUSTOM* name of comic
-# comicPage: *CUSTOM* page number of item
+# comicLink: *OPTIONAL* url of comic that item is from
+# comicName: *OPTIONAL* name of comic
+# comicPage: *OPTIONAL* page number of item
 # cookies: cookies from pageUrl domain
 if __name__ == '__main__':
+    logging.basicConfig(filename='log.log', level=logging.DEBUG)
     try:
-        logging.basicConfig(filename='log.log', level=logging.ERROR)
         dir = Config.folders[0]
         dirname = Config.folder_options[dir]["name"]
+
         headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
         cookies = {}
         filename = ""
+
+        # process message from extension
         msg = read_message()
-        url = msg.get('srcUrl').strip('"')
+        srcUrl = msg.get('srcUrl')
+        pageUrl = msg.get('pageUrl')
+        comicLink = msg.get('comicLink')
+        comicName = msg.get('comicName')
+        comicPage = msg.get('comicPage')
+        artist = msg.get('artist')
         for item in msg.get('cookies'):
             cookies[item[0]] = item[1]
-        try:
-            r = requests.get(url, headers=headers, cookies=cookies, stream=True)
-        except: # request failed
-            with open('squirrel.txt', "w") as file:
-                file.write(time.strftime('%a %H:%M:%S'))
-                sys.exit(0)
 
+        r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
 
         headers = r.headers
         # get filename
@@ -87,7 +88,7 @@ if __name__ == '__main__':
             if len(contdisp) > 0:
                 filename = contdisp[0]
         if not filename:    # if filename still empty
-            filename = url.split('/')[-1]   # get filename from url
+            filename = srcUrl.split('/')[-1]   # get filename from srcUrl
             filename = filename.split('?')[0]   # strip query string parameters
 
         # get file extension from header of not already found
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         if not ext:
             ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
 
-        #  bad extension naming
+        # bad extension naming
         ext = fix_extensions(ext)
 
         filepath = os.path.join(dir, ''.join((filename, ext)))
@@ -116,5 +117,15 @@ if __name__ == '__main__':
                             os.path.basename(filepath) + " added to " + dirname,
                             icon_path=icon,
                             duration=4)
-    except Exception as e:
-        logging.error("main crashed {0}".format(str(e)))
+    except requests.exceptions.Timeout:
+        logging.error("Request for " + srcUrl + "timed out")
+        if os.path.isfile(filepath):
+            os.remove(filepath)
+    #except Exception as e:
+        #logging.error("main crashed {0}".format(str(e)))
+
+
+# TODO
+# -----
+# max retries
+# send message on failure to extension
