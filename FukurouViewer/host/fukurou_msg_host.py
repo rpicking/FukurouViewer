@@ -3,14 +3,18 @@ import re
 import sys
 import time
 import json
+import imghdr
 import struct
 import logging
 import requests
+from threading import Thread
 from mimetypes import guess_extension
 from win10notification import WindowsBalloonTip
 
 from config import Config
 from utils import Utils
+
+logging.basicConfig(filename='log.log', level=logging.ERROR)
 
 # Function to send a message to chrome.
 def send_message(MSG_DICT):
@@ -34,10 +38,18 @@ def read_message():
     text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
     return json.loads(text_decoded)
 
-def fix_extensions(ext):
+# rename extension based on personal naming convention
+def ext_convention(ext):
     if ext in {'.jpeg', '.jpe'}:
         return '.jpg'
     return ext
+
+# checks image file headers and renames to proper extension when necessary
+def fix_extension(file):  
+    format = ext_convention(''.join(('.', imghdr.what(file))))
+    filename, ext = os.path.splitext(file)
+    if ext != format:
+        os.rename(file, os.path.join(os.path.dirname(file), '.'.join((filename, format))))
 
 def create_folder(path, name):
     path = Utils.norm_path(path)
@@ -58,8 +70,7 @@ def create_folder(path, name):
 # comicName: *OPTIONAL* name of comic
 # comicPage: *OPTIONAL* page number of item
 # cookies: cookies from pageUrl domain
-if __name__ == '__main__':
-    logging.basicConfig(filename='log.log', level=logging.DEBUG)
+def main():
     try:
         dir = Config.folders[0]
         dirname = Config.folder_options[dir]["name"]
@@ -97,7 +108,7 @@ if __name__ == '__main__':
             ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
 
         # bad extension naming
-        ext = fix_extensions(ext)
+        ext = ext_convention(ext)
 
         filepath = os.path.join(dir, ''.join((filename, ext)))
         # check and rename if file already exists
@@ -110,6 +121,8 @@ if __name__ == '__main__':
             for chunk in r.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
+        
+        fix_extension(filepath)
 
         balloon = WindowsBalloonTip()
         icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
@@ -123,6 +136,20 @@ if __name__ == '__main__':
             os.remove(filepath)
     #except Exception as e:
         #logging.error("main crashed {0}".format(str(e)))
+
+class FukurouHost():
+    # not necessary each download item will have everything from 1 message
+    def __init__(self):
+        print("DOGS")
+
+
+class DownloadItem():
+
+    def __init__(self, msg):
+        print("things")
+    
+if __name__ == '__main__':
+    main()
 
 
 # TODO
