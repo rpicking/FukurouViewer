@@ -110,6 +110,7 @@ def process_message(msg):
                                     os.path.basename(filepath) + " added to " + dirname,
                                     icon_path=icon,
                                     duration=4)
+                MAX_RETRIES = 0
                 return
             except requests.exceptions.Timeout:
                 logging.error("Request for " + srcUrl + "timed out. " + MAX_RETRIES)
@@ -118,6 +119,8 @@ def process_message(msg):
                 MAX_RETRIES -= 1
             except Exception as e:
                 log_exception()
+
+
 
 def log_exception():
     exc_type, exc_obj, tb = sys.exc_info()
