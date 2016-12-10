@@ -20,7 +20,7 @@ class Config(SafeConfigParser):
     }
     
     FOLDER_OPTIONS = [
-        "name",
+        "path",
     ]
 
     def __init__(self):
