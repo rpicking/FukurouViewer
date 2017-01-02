@@ -52,73 +52,70 @@ def process_message(msg):
         send_message(payload)
     elif task == 'save':
         MAX_RETRIES = 3
-        while MAX_RETRIES > 0:
-            try:
-                headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
-                cookies = {}
-                filename = ""
+        try:
+            headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
+            cookies = {}
+            filename = ""
 
-                # process message from extension
-                dirname = msg.get('folder')
-                dir = Config.folder_options.get(dirname).get('path')
-                srcUrl = msg.get('srcUrl')
-                pageUrl = msg.get('pageUrl')
-                comicLink = msg.get('comicLink')
-                comicName = msg.get('comicName')
-                comicPage = msg.get('comicPage')
-                artist = msg.get('artist')
-                for item in msg.get('cookies'):
-                    cookies[item[0]] = item[1]
+            # process message from extension
+            dirname = msg.get('folder')
+            dir = Config.folder_options.get(dirname).get('path')
+            srcUrl = msg.get('srcUrl')
+            pageUrl = msg.get('pageUrl')
+            comicLink = msg.get('comicLink')
+            comicName = msg.get('comicName')
+            comicPage = msg.get('comicPage')
+            artist = msg.get('artist')
+            for item in msg.get('cookies'):
+                cookies[item[0]] = item[1]
 
-                r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
+            r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
+            headers = r.headers
 
-                headers = r.headers
-                # get filename
-                if 'Content-Disposition' in headers:    # check for content-disposition header, if exists try and set filename
-                    contdisp = re.findall("filename=(.+)", headers['content-disposition'])
-                    if len(contdisp) > 0:
-                        filename = contdisp[0]
-                if not filename:    # if filename still empty
-                    filename = srcUrl.split('/')[-1]   # get filename from srcUrl
-                    filename = filename.split('?')[0]   # strip query string parameters
+            # get filename
+            if 'Content-Disposition' in headers:    # check for content-disposition header, if exists try and set filename
+                contdisp = re.findall("filename=(.+)", headers['content-disposition'])
+                if len(contdisp) > 0:
+                    filename = contdisp[0]
+            if not filename:    # if filename still empty
+                filename = srcUrl.split('/')[-1]   # get filename from srcUrl
+                filename = filename.split('?')[0]   # strip query string parameters
+                filename = filename.split('#')[0]   # strip anchor
 
-                # get file extension from header of not already found
-                filename, ext = os.path.splitext(filename)
-                if not ext:
-                    ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
+            # get file extension from header of not already found
+            filename, ext = os.path.splitext(filename)
+            if not ext:
+                ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
 
-                # bad extension naming
-                ext = ext_convention(ext)
+            # bad extension naming
+            ext = ext_convention(ext)
+            filepath = os.path.join(dir, ''.join((filename, ext)))
 
-                filepath = os.path.join(dir, ''.join((filename, ext)))
-                # check and rename if file already exists
-                count = 1
-                while os.path.isfile(filepath):
-                    filepath = os.path.join(dir, ''.join((filename, ' (', str(count), ')', ext)))
-                    count += 1
+            # check and rename if file already exists
+            count = 1
+            while os.path.isfile(filepath):
+                filepath = os.path.join(dir, ''.join((filename, ' (', str(count), ')', ext)))
+                count += 1
 
-                with open(filepath, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=1024):
-                        if chunk:
-                            f.write(chunk)
-        
-                fix_extension(filepath)
-
-                balloon = WindowsBalloonTip()
-                icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
-                balloon.balloon_tip("Fukurou Downloader",
-                                    os.path.basename(filepath) + " added to " + dirname,
-                                    icon_path=icon,
-                                    duration=4)
-                MAX_RETRIES = 0
-                return
-            except requests.exceptions.Timeout:
-                logging.error("Request for " + srcUrl + "timed out. " + MAX_RETRIES)
-                if os.path.isfile(filepath):
-                    os.remove(filepath)
-                MAX_RETRIES -= 1
-            except Exception as e:
-                log_exception()
+            with open(filepath, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+            fix_extension(filepath)
+            MAX_RETRIES = 0
+            balloon = WindowsBalloonTip()
+            icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
+            balloon.balloon_tip("Fukurou Downloader",
+                                os.path.basename(filepath) + " added to " + dirname,
+                                icon_path=icon,
+                                duration=4)
+        except requests.exceptions.ReadTimeout:
+            logging.error("Request for " + srcUrl + "timed out. " + MAX_RETRIES)
+            if os.path.isfile(filepath):
+                os.remove(filepath)
+            MAX_RETRIES -= 1
+        except Exception as e:
+            log_exception()
 
 
 
@@ -138,11 +135,11 @@ def ext_convention(ext):
     return ext
 
 # checks image file headers and renames to proper extension when necessary
-def fix_extension(file):  
-    format = ext_convention(''.join(('.', imghdr.what(file))))
-    filename, ext = os.path.splitext(file)
+def fix_extension(imagepath):  
+    format = ext_convention(''.join(('.', imghdr.what(imagepath))))
+    filename, ext = os.path.splitext(imagepath)
     if ext != format:
-        os.rename(file, os.path.join(os.path.dirname(file), '.'.join((filename, format))))
+        os.rename(imagepath, os.path.join(os.path.dirname(imagepath), '.'.join((filename, format))))
 
 # creates folder entry in configs
 def create_folder(path, name=''):
