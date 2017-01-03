@@ -87,8 +87,6 @@ def process_message(msg):
             if not ext:
                 ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
 
-            # bad extension naming
-            ext = ext_convention(ext)
             filepath = os.path.join(dir, ''.join((filename, ext)))
 
             # check and rename if file already exists
@@ -101,8 +99,10 @@ def process_message(msg):
                 for chunk in r.iter_content(chunk_size=1024):
                     if chunk:
                         f.write(chunk)
+
+            logging.info(filepath + " finished downloading.")
             fix_extension(filepath)
-            MAX_RETRIES = 0
+
             balloon = WindowsBalloonTip()
             icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
             balloon.balloon_tip("Fukurou Downloader",
@@ -128,18 +128,23 @@ def log_exception():
     line = linecache.getline(filename, lineno, f.f_globals)
     logging.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
+
+# checks image file headers and renames to proper extension when necessary
+def fix_extension(imagepath):  
+    format = imghdr.what(imagepath)
+    if not format:    # not image so do nothing
+        return
+
+    format = ext_convention(''.join(('.', format)))
+    filename, ext = os.path.splitext(imagepath)
+    if ext != format:
+        os.rename(imagepath, os.path.join(os.path.dirname(imagepath), '.'.join((filename, format))))
+
 # rename extension based on personal naming convention
 def ext_convention(ext):
     if ext in {'.jpeg', '.jpe'}:
         return '.jpg'
     return ext
-
-# checks image file headers and renames to proper extension when necessary
-def fix_extension(imagepath):  
-    format = ext_convention(''.join(('.', imghdr.what(imagepath))))
-    filename, ext = os.path.splitext(imagepath)
-    if ext != format:
-        os.rename(imagepath, os.path.join(os.path.dirname(imagepath), '.'.join((filename, format))))
 
 # creates folder entry in configs
 def create_folder(path, name=''):
