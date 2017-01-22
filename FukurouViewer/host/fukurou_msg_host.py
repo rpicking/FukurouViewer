@@ -4,6 +4,8 @@ import sys
 import time
 import json
 import imghdr
+import random
+import string
 import struct
 import logging
 import requests
@@ -16,7 +18,7 @@ from utils import Utils
 
 import linecache
 
-logging.basicConfig(filename='log.log', level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 # Function to send a message to chrome.
@@ -51,11 +53,13 @@ def process_message(msg):
         payload['folders'] = Config.folder_options
         send_message(payload)
     elif task == 'save':
-        MAX_RETRIES = 3
         try:
             headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
             cookies = {}
             filename = ""
+
+            create_folder("C:/Users/Robert/Sync/New folder")
+            return
 
             # process message from extension
             dirname = msg.get('folder')
@@ -82,13 +86,15 @@ def process_message(msg):
                 filename = filename.split('?')[0]   # strip query string parameters
                 filename = filename.split('#')[0]   # strip anchor
 
+            # correctly format filename to valid
+            valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+            filename = ''.join(c for c in filename if c in valid_chars)
+
             # get file extension from header of not already found
             filename, ext = os.path.splitext(filename)
             if not ext:
                 ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
-
             filepath = os.path.join(dir, ''.join((filename, ext)))
-
             # check and rename if file already exists
             count = 1
             while os.path.isfile(filepath):
@@ -110,7 +116,7 @@ def process_message(msg):
                                 icon_path=icon,
                                 duration=4)
         except requests.exceptions.ReadTimeout:
-            logging.error("Request for " + srcUrl + "timed out. " + MAX_RETRIES)
+            logging.error("Request for " + srcUrl + "timed out. ")
             if os.path.isfile(filepath):
                 os.remove(filepath)
             MAX_RETRIES -= 1
@@ -156,11 +162,30 @@ def create_folder(path, name=''):
     Config.folders = folders
 
     folder_options = Config.folder_options
-    option = {"path": path}
+    uid = uniqueId()
+    option = {"path": path, "uid": uid}
     folder_options[name] = option
     Config.folder_options = folder_options
 
     Config.save()
+
+
+# returns a unique id number for folder
+def uniqueId():
+    used_ids = []
+    folder_options = Config.folder_options
+    for folder in folder_options:
+        tmp_uid = folder_options.get(folder).get('uid')
+        if tmp_uid:
+            used_ids.append(tmp_uid)
+    while True:
+        id = id_generator()
+        if id not in used_ids:
+            return id
+
+# generates a id string
+def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for i in range(size))
 
 
 class FukurouHost():

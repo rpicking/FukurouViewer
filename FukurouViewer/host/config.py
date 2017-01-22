@@ -21,6 +21,7 @@ class Config(SafeConfigParser):
     
     FOLDER_OPTIONS = [
         "path",
+        "uid",
     ]
 
     def __init__(self):
