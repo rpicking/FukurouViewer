@@ -18,10 +18,10 @@ class Config(SafeConfigParser):
             "folder_options",
         ],
     }
-    
+    # uid
     FOLDER_OPTIONS = [
+        "name",
         "path",
-        "uid",
     ]
 
     def __init__(self):

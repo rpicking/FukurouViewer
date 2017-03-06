@@ -44,10 +44,12 @@ def read_message():
     text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
     return json.loads(text_decoded)
 
+
 # Processes message from extension returning payload?
 def process_message(msg):
     task = msg.get('task')
     if task == 'sync':  # extension requested sync info to be sent
+        create_folder("C:/Users/Robert/Sync/New folder")
         payload = {}
         payload['task'] = 'sync'
         payload['folders'] = Config.folder_options
@@ -58,20 +60,30 @@ def process_message(msg):
             cookies = {}
             filename = ""
 
-            create_folder("C:/Users/Robert/Sync/New folder")
-            return
-
             # process message from extension
-            dirname = msg.get('folder')
-            dir = Config.folder_options.get(dirname).get('path')
+            logging.debug("--- Starting Download ---")
+            folder = msg.get('folder')
+            logging.debug(folder)
+            folder_options = Config.folder_options.get(folder)
+            dir = folder_options.get('path')
+            logging.debug(dir)
             srcUrl = msg.get('srcUrl')
+            logging.debug(srcUrl)
             pageUrl = msg.get('pageUrl')
+            logging.debug(pageUrl)
             comicLink = msg.get('comicLink')
+            logging.debug(comicLink)
             comicName = msg.get('comicName')
+            logging.debug(comicName)
             comicPage = msg.get('comicPage')
+            logging.debug(comicPage)
             artist = msg.get('artist')
+            logging.debug(artist)
             for item in msg.get('cookies'):
                 cookies[item[0]] = item[1]
+
+            if 'pixiv.net' in pageUrl:
+                headers['Referer'] = pageUrl
 
             r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
             headers = r.headers
@@ -112,7 +124,7 @@ def process_message(msg):
             balloon = WindowsBalloonTip()
             icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
             balloon.balloon_tip("Fukurou Downloader",
-                                os.path.basename(filepath) + " added to " + dirname,
+                                os.path.basename(filepath) + " added to " + folder,
                                 icon_path=icon,
                                 duration=4)
         except requests.exceptions.ReadTimeout:
@@ -154,7 +166,7 @@ def ext_convention(ext):
 
 # creates folder entry in configs
 def create_folder(path, name=''):
-    if name == '':
+    if not name:
         name = os.path.basename(path)
     path = Utils.norm_path(path)
     folders = Config.folders
