@@ -11,7 +11,6 @@ import logging
 import requests
 from threading import Thread
 from mimetypes import guess_extension
-from win10notification import WindowsBalloonTip
 
 from config import Config
 from utils import Utils
@@ -119,6 +118,9 @@ def process_message(msg):
                     if chunk:
                         f.write(chunk)
 
+            filepath = fix_extension(filepath)
+
+            logging.info(filepath + " finished downloading.")
             # send successful download response to extension
             payload = {'type': 'success'}
             payload['filename'] = os.path.basename(filepath)
@@ -127,20 +129,12 @@ def process_message(msg):
             payload['folder'] = folder
             send_response(payload)
 
-            logging.info(filepath + " finished downloading.")
-            fix_extension(filepath)
-
-            balloon = WindowsBalloonTip()
-            icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
-            #balloon.balloon_tip("Fukurou Downloader",
-                                #os.path.basename(filepath) + " added to " + folder,
-                                #icon_path=icon,
-                                #duration=4)
         except requests.exceptions.ReadTimeout:
             send_response({'type': 'timeout'})
             logging.error("Request for " + srcUrl + "timed out. ")
             if os.path.isfile(filepath):
                 os.remove(filepath)
+
         except Exception as e:
             send_response()
             log_exception()
@@ -166,7 +160,10 @@ def fix_extension(imagepath):
     format = ext_convention(''.join(('.', format)))
     filename, ext = os.path.splitext(imagepath)
     if ext != format:
-        os.rename(imagepath, os.path.join(os.path.dirname(imagepath), '.'.join((filename, format))))
+        newpath = os.path.join(os.path.dirname(imagepath), '.'.join((filename, format)))
+        os.rename(imagepath, newpath)
+        return newpath
+    return imagepath
 
 # rename extension based on personal naming convention
 def ext_convention(ext):
