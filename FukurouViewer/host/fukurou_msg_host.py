@@ -49,7 +49,7 @@ def read_message():
 def process_message(msg):
     task = msg.get('task')
     if task == 'sync':  # extension requested sync info to be sent
-        create_folder("C:/Users/Robert/Sync/New folder")
+        #create_folder("C:/Users/Robert/Sync/New folder")
         payload = {}
         payload['task'] = 'sync'
         payload['folders'] = Config.folder_options
@@ -82,6 +82,7 @@ def process_message(msg):
             for item in msg.get('cookies'):
                 cookies[item[0]] = item[1]
 
+            # fix for downloading from pixiv (extension should be sending headers.  shouldn't be set in here)
             if 'pixiv.net' in pageUrl:
                 headers['Referer'] = pageUrl
 
@@ -118,21 +119,30 @@ def process_message(msg):
                     if chunk:
                         f.write(chunk)
 
+            # send successful download response to extension
+            payload = {'type': 'success'}
+            payload['filename'] = os.path.basename(filepath)
+            payload['srcUrl'] = srcUrl
+            payload['pageUrl'] = pageUrl
+            payload['folder'] = folder
+            send_response(payload)
+
             logging.info(filepath + " finished downloading.")
             fix_extension(filepath)
 
             balloon = WindowsBalloonTip()
             icon = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'icon_transparent.ico'))
-            balloon.balloon_tip("Fukurou Downloader",
-                                os.path.basename(filepath) + " added to " + folder,
-                                icon_path=icon,
-                                duration=4)
+            #balloon.balloon_tip("Fukurou Downloader",
+                                #os.path.basename(filepath) + " added to " + folder,
+                                #icon_path=icon,
+                                #duration=4)
         except requests.exceptions.ReadTimeout:
+            send_response({'type': 'timeout'})
             logging.error("Request for " + srcUrl + "timed out. ")
             if os.path.isfile(filepath):
                 os.remove(filepath)
-            MAX_RETRIES -= 1
         except Exception as e:
+            send_response()
             log_exception()
 
 
@@ -164,12 +174,27 @@ def ext_convention(ext):
         return '.jpg'
     return ext
 
+# sends failure message back to extension
+def send_response(payload = {'type': 'crash'}):
+    send_message(payload)
+
 # creates folder entry in configs
 def create_folder(path, name=''):
     if not name:
         name = os.path.basename(path)
     path = Utils.norm_path(path)
     folders = Config.folders
+
+    # check if folder already exists, change name if necessary
+    if path in folders:
+        folder_options = Config.folder_options
+        for item in folder_options:
+            if path in folder_options.get(item).values():
+                folder_options[name] = folder_options.pop(item)
+                Config.folder_options = folder_options
+                Config.save()
+                return
+
     folders.append(path)
     Config.folders = folders
 
