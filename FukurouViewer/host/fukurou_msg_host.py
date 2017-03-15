@@ -53,6 +53,19 @@ def process_message(msg):
         payload['task'] = 'sync'
         payload['folders'] = Config.folder_options
         send_message(payload)
+        return
+    elif task == 'edit':
+        uid = msg.get('uid')
+        name = msg.get('name')
+        folder_options = Config.folder_options
+        for item in folder_options:
+            if uid in folder_options.get(item).values():
+                folder_options[name] = folder_options.pop(item)
+                Config.folder_options = folder_options
+                Config.save()
+                send_message({'type': 'success'})
+                return
+        send_message({'type': 'error', 'error': 'folder with uid ' + uid + ' not found'})
     elif task == 'save':
         try:
             headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
@@ -241,6 +254,7 @@ class DownloadItem():
 # comicPage: *OPTIONAL* page number of item
 # cookies: cookies from pageUrl domain
 if __name__ == '__main__':
+    #create_folder("C:/Users/Robert/Downloads/Create", "good dogs")
     process_message(read_message())
 
 
