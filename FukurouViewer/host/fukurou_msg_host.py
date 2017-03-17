@@ -54,18 +54,37 @@ def process_message(msg):
         payload['folders'] = Config.folder_options
         send_message(payload)
         return
+
     elif task == 'edit':
-        uid = msg.get('uid')
-        name = msg.get('name')
+        folders = json.loads(msg.get('folders'))
         folder_options = Config.folder_options
-        for item in folder_options:
-            if uid in folder_options.get(item).values():
-                folder_options[name] = folder_options.pop(item)
-                Config.folder_options = folder_options
-                Config.save()
-                send_message({'type': 'success'})
-                return
+        count = 0
+        for folder in folders:
+            uid = folder.get('uid')
+            name = folder.get('name', "")
+            if name:    # renaming folder
+                logging.debug("renaming folder with uid: " + uid + " to: " + name)
+                for item in folder_options:
+                    if uid in folder_options.get(item).values():
+                        count += 1
+                        folder_options[name] = folder_options.pop(item)
+            else:   # changing folder order
+                order = folder.get('order')
+                logging.debug("changing order of folder: " + uid + " to order: " + str(order))
+                for item in folder_options:
+                    if uid in folder_options.get(item).values():
+                        count += 1
+                        folder_options[item]["order"] = order
+
+        # if all edits have been made
+        if count == len(folders):
+            Config.folder_options = folder_options
+            Config.save()
+            send_message({'type': 'success'})
+            return
         send_message({'type': 'error', 'error': 'folder with uid ' + uid + ' not found'})
+        return
+
     elif task == 'save':
         try:
             headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
@@ -141,6 +160,7 @@ def process_message(msg):
             payload['pageUrl'] = pageUrl
             payload['folder'] = folder
             send_response(payload)
+            return
 
         except requests.exceptions.ReadTimeout:
             send_response({'type': 'timeout'})
@@ -205,16 +225,34 @@ def create_folder(path, name=''):
                 Config.save()
                 return
 
+    # sets folders config setting
     folders.append(path)
     Config.folders = folders
 
     folder_options = Config.folder_options
+
+    # generate unique id for folder
     uid = uniqueId()
-    option = {"path": path, "uid": uid}
+    order = uniqueOrder()
+    option = {"path": path, "uid": uid, "order": order}
     folder_options[name] = option
     Config.folder_options = folder_options
 
     Config.save()
+
+
+# returns next available order index number starting at 1
+def uniqueOrder():
+    folder_options = Config.folder_options
+    largest = 0
+    for folder in folder_options:
+        curr_order = folder_options.get(folder).get('order')
+        if largest < curr_order:
+            largest = curr_order
+
+    return largest + 1
+
+
 
 
 # returns a unique id number for folder
@@ -222,9 +260,8 @@ def uniqueId():
     used_ids = []
     folder_options = Config.folder_options
     for folder in folder_options:
-        tmp_uid = folder_options.get(folder).get('uid')
-        if tmp_uid:
-            used_ids.append(tmp_uid)
+        used_ids.append(folder_options.get(folder).get('uid'))
+
     while True:
         id = id_generator()
         if id not in used_ids:
@@ -246,7 +283,7 @@ class DownloadItem():
     def __init__(self, msg):
         print("things")
 
-    
+
 # srcUrl: url to item that is being downloaded
 # pageUrl: url of the page that item downloaded from
 # comicLink: *OPTIONAL* url of comic that item is from
@@ -254,10 +291,5 @@ class DownloadItem():
 # comicPage: *OPTIONAL* page number of item
 # cookies: cookies from pageUrl domain
 if __name__ == '__main__':
-    #create_folder("C:/Users/Robert/Downloads/Create", "good dogs")
-    process_message(read_message())
-
-
-# TODO
-# -----
-# send message on failure to extension
+    #create_folder("C:/Users/Robert/Downloads/Create", "adog")
+    process_message(read_message())    
