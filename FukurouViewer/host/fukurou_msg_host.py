@@ -188,7 +188,7 @@ def log_exception():
 def fix_extension(imagepath):  
     format = imghdr.what(imagepath)
     if not format:    # not image so do nothing
-        return
+        return imagepath
 
     format = ext_convention(''.join(('.', format)))
     filename, ext = os.path.splitext(imagepath)
