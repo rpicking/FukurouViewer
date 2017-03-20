@@ -16,6 +16,7 @@ from config import Config
 from utils import Utils
 
 import linecache
+import subprocess
 
 logging.basicConfig(filename='log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -91,6 +92,16 @@ def process_message(msg):
         send_message({'type': 'error', 'error': 'folder with uid ' + uid + ' not found'})
         return
 
+    elif task == 'saveManga':
+        logging.debug("--- Downloading Manga ---")
+        urls = json.loads(msg.get('urls'))
+
+        urls = [Config.doujin_downloader] + urls
+        urls.append("nogui")
+
+        subprocess.Popen(urls)
+        return
+        
     elif task == 'save':
         try:
             headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
@@ -246,7 +257,6 @@ def create_folder(path, name=''):
 
     Config.save()
 
-
 # returns next available order index number starting at 1
 def uniqueOrder():
     folder_options = Config.folder_options
@@ -257,9 +267,6 @@ def uniqueOrder():
             largest = curr_order
 
     return largest + 1
-
-
-
 
 # returns a unique id number for folder
 def uniqueId():
@@ -297,5 +304,4 @@ class DownloadItem():
 # comicPage: *OPTIONAL* page number of item
 # cookies: cookies from pageUrl domain
 if __name__ == '__main__':
-    #create_folder("C:/Users/Robert/Downloads/Create", "adog")
-    process_message(read_message())    
+    process_message(read_message())

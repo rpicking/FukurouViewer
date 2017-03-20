@@ -43,3 +43,4 @@ misc/
 .fv - Shortcut.lnk
 FukurouViewer/host/*.txt
 *.ini
+FukurouViewer/host/log/
