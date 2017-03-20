@@ -59,25 +59,31 @@ def process_message(msg):
         folders = json.loads(msg.get('folders'))
         folder_options = Config.folder_options
         count = 0
+        total = 0
+
         for folder in folders:
+            total += len(folder.keys())
             uid = folder.get('uid')
             name = folder.get('name', "")
+            order = folder.get('order', "")
+
             if name:    # renaming folder
                 logging.debug("renaming folder with uid: " + uid + " to: " + name)
                 for item in folder_options:
                     if uid in folder_options.get(item).values():
                         count += 1
                         folder_options[name] = folder_options.pop(item)
-            else:   # changing folder order
-                order = folder.get('order')
+                        break
+            if order:   # changing folder order
                 logging.debug("changing order of folder: " + uid + " to order: " + str(order))
                 for item in folder_options:
                     if uid in folder_options.get(item).values():
                         count += 1
                         folder_options[item]["order"] = order
+                        break
 
         # if all edits have been made
-        if count == len(folders):
+        if count == total - len(folders):
             Config.folder_options = folder_options
             Config.save()
             send_message({'type': 'success'})

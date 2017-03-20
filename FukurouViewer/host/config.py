@@ -18,10 +18,11 @@ class Config(SafeConfigParser):
             "folder_options",
         ],
     }
-    # uid
+    # name
     FOLDER_OPTIONS = [
-        "name",
+        "uid",
         "path",
+        "order"
     ]
 
     def __init__(self):
@@ -31,7 +32,7 @@ class Config(SafeConfigParser):
         except FileNotFoundError:
             self.save()
         self.build()
-        self.save()
+        #self.save()
 
     def build(self):
         for section in self.SETTINGS:
