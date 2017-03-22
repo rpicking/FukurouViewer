@@ -9,20 +9,19 @@ import string
 import struct
 import logging
 import requests
+import linecache
+import subprocess
 from threading import Thread
 from mimetypes import guess_extension
 
 from config import Config
 from utils import Utils
 
-import linecache
-import subprocess
 
 logging.basicConfig(filename='log.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 # Function to send a message to chrome.
-def send_message(MSG_DICT):
+def send_message(MSG_DICT = {'type': 'crash'}):
     # Converts dictionary into string containing JSON format.
     msg_json = json.dumps(MSG_DICT, separators=(",", ":"))
     # Encodes string with UTF-8.
@@ -50,8 +49,7 @@ def process_message(msg):
     task = msg.get('task')
     if task == 'sync':  # extension requested sync info to be sent
         #create_folder("C:/Users/Robert/Sync/New folder")
-        payload = {}
-        payload['task'] = 'sync'
+        payload = {'task': 'sync'}
         payload['folders'] = Config.folder_options
         send_message(payload)
         return
@@ -87,7 +85,7 @@ def process_message(msg):
         if count == total - len(folders):
             Config.folder_options = folder_options
             Config.save()
-            send_message({'type': 'success'})
+            send_message({'type': 'success', 'task': 'edit'})
             return
         send_message({'type': 'error', 'error': 'folder with uid ' + uid + ' not found'})
         return
@@ -171,26 +169,26 @@ def process_message(msg):
 
             logging.info(filepath + " finished downloading.")
             # send successful download response to extension
-            payload = {'type': 'success'}
+            payload = {'task': 'save', 'type': 'success'}
             payload['filename'] = os.path.basename(filepath)
             payload['srcUrl'] = srcUrl
             payload['pageUrl'] = pageUrl
             payload['folder'] = folder
-            send_response(payload)
+            send_message(payload)
             return
 
         except requests.exceptions.ReadTimeout:
-            send_response({'type': 'timeout'})
+            send_message({'task': 'save', 'type': 'timeout'})
             logging.error("Request for " + srcUrl + "timed out. ")
             if os.path.isfile(filepath):
                 os.remove(filepath)
 
         except Exception as e:
-            send_response()
+            send_message({'task': 'save', 'type': 'crash'})
             log_exception()
 
 
-
+# logs raised general exception
 def log_exception():
     exc_type, exc_obj, tb = sys.exc_info()
     f = tb.tb_frame
@@ -220,10 +218,6 @@ def ext_convention(ext):
     if ext in {'.jpeg', '.jpe'}:
         return '.jpg'
     return ext
-
-# sends failure message back to extension
-def send_response(payload = {'type': 'crash'}):
-    send_message(payload)
 
 # creates folder entry in configs
 def create_folder(path, name=''):
@@ -296,6 +290,8 @@ class DownloadItem():
     def __init__(self, msg):
         print("things")
 
+def test(dogs = "dogs"):
+    print(dogs)
 
 # srcUrl: url to item that is being downloaded
 # pageUrl: url of the page that item downloaded from
