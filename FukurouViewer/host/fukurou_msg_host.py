@@ -70,6 +70,7 @@ def process_message(msg):
                 logging.debug("renaming folder with uid: " + uid + " to: " + name)
                 for item in folder_options:
                     if uid in folder_options.get(item).values():
+                        name = uniqueName(name)
                         count += 1
                         folder_options[name] = folder_options.pop(item)
                         break
@@ -251,6 +252,19 @@ def create_folder(path, name=''):
 
     Config.save()
 
+# creates unique name for folder
+def uniqueName(name, count=0):
+    folder_options = Config.folder_options
+    if name in folder_options:
+        if count != 0:
+            name = ''.join([name.rsplit(" ", 1)[0].rstrip(), " (", str(count), ")"])
+            count += 1
+            return uniqueName(name, count)
+        count += 1
+        name = ''.join([name, " (", str(count), ")"])
+        return uniqueName(name, count)
+    return name
+
 # returns next available order index number starting at 1
 def uniqueOrder():
     folder_options = Config.folder_options
@@ -293,11 +307,8 @@ class DownloadItem():
 def test(dogs = "dogs"):
     print(dogs)
 
-# srcUrl: url to item that is being downloaded
-# pageUrl: url of the page that item downloaded from
-# comicLink: *OPTIONAL* url of comic that item is from
-# comicName: *OPTIONAL* name of comic
-# comicPage: *OPTIONAL* page number of item
-# cookies: cookies from pageUrl domain
+# ----------------------
+# ----- START ----------
+# ----------------------
 if __name__ == '__main__':
     process_message(read_message())
