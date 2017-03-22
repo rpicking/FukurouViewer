@@ -88,8 +88,42 @@ def process_message(msg):
             Config.save()
             send_message({'type': 'success', 'task': 'edit'})
             return
-        send_message({'type': 'error', 'error': 'folder with uid ' + uid + ' not found'})
+        send_message({'type': 'error', 'msg': 'not all folders found'})
         return
+
+    elif task == 'delete':
+        try:
+            folders = json.loads(msg.get('folders'))
+            save_folders = Config.folders
+            folder_options = Config.folder_options
+            count = 0
+            total = len(folders)
+
+            for folder in folders:
+                uid = folder.get('uid')
+                logging.debug("deleting folder with uid: " + uid)
+
+                for item in folder_options:
+                    if uid in folder_options.get(item).values():
+                        count += 1
+                        name = item
+                        path = folder_options[item].get('path')
+                        save_folders.remove(path)
+                        folder_options.pop(item)
+                        break
+
+            # if all deletes have been made
+            if count == total:
+                Config.folders = save_folders
+                Config.folder_options = folder_options
+                Config.save()
+                send_message({'type': 'success', 'task': 'delete', 'name': name, 'uid': uid})
+                return
+            send_message({'type': 'error', 'msg': 'not all folders deleted'})
+
+        except Exception as e:
+            send_message({'task': 'delete', 'type': 'crash'})
+            log_exception()
 
     elif task == 'saveManga':
         logging.debug("--- Downloading Manga ---")
