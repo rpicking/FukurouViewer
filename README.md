@@ -3,7 +3,12 @@ FukurouViewer
 Manga, comic, video viewer and collection manager.  All in one solution for organizing, tagging, browsing, and downloading of multimedia
 collections, comics/manga and videos.  Project started off as a learning opportunity from seangoodwin's PandaViewer
 
-Major Feature TODO List (inorder of priority)
+Current Features
+---------------------
+* Custom save directories
+  * Saving directories for one click downloading with extension
+
+Major Feature TODO List 
 ---------------------
 * Searching, downloading and saving manga/comic metadata to database
   * Storing individual tags and definition
@@ -30,6 +35,7 @@ Requirements
 ---------------------
 We plan on being as cross-platform compatible as possible.  Currently no major features limit this plan.
 * Python 3.xx
+* PyQt 5.8 (python module)
 * install python modules from requirements.txt
 ```
 pip install -r requirements.txt
