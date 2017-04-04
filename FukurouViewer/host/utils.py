@@ -12,3 +12,7 @@ class Utils():
     @staticmethod
     def norm_path(path: str) -> str:
         return os.path.normpath(os.path.expanduser(path))
+
+    @classmethod
+    def fv_path(cls, path: str = "") -> str:
+        return cls.norm_path(os.path.join("~/.fv", path))
