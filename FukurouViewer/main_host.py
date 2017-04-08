@@ -1,4 +1,4 @@
 import sys
-from host import host_app
-
-sys.exit(host_app.exec_())
+#from host import app
+from host import app
+sys.exit(app.exec_())

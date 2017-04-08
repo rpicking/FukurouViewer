@@ -29,7 +29,7 @@ mkdir -p "$TARGET_DIR"
 cp "$DIR/$HOST_NAME.json" "$TARGET_DIR"
 
 # Update host path in the manifest.
-HOST_PATH=$DIR/fukurou_msg_host.py
+HOST_PATH=$DIR/messenger.py
 ESCAPED_HOST_PATH=${HOST_PATH////\\/}
 sed -i -e "s/HOST_PATH/$ESCAPED_HOST_PATH/" "$TARGET_DIR/$HOST_NAME.json"
 

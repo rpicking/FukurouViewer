@@ -10,7 +10,7 @@ class Config(SafeConfigParser):
 
     """
 
-    SETTINGS_FILE = "settings.ini"
+    SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.ini")
 
     SETTINGS = {
         "General": [
@@ -48,7 +48,7 @@ class Config(SafeConfigParser):
             self.save()
 
     def save(self):
-        with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
+        with open(self.SETTINGS_FILE, "w+", encoding="utf-8") as f:
             self.write(f)
 
     def load(self):

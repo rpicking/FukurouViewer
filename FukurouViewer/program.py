@@ -30,7 +30,7 @@ class Program(QtWidgets.QApplication):
         self.addLibraryPath(os.path.dirname(__file__))  #not sure
         super().__init__(args)
         self.setApplicationName("FukurouViewer")
-        self.setup()
+        self.version = "0.1.0"
     
     def setup(self):
         if not os.path.exists(self.THUMB_DIR):

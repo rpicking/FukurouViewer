@@ -20,5 +20,5 @@ else
 fi
 
 HOST_NAME=vangard.fukurou.ext.msg
-rm "$TARGET_DIR/com.google.chrome.example.echo.json"
+rm "$TARGET_DIR/vangard.fukurou.ext.msg.json"
 echo "Native messaging host $HOST_NAME has been uninstalled."

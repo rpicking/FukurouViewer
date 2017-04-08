@@ -7,7 +7,6 @@ import imghdr
 import random
 import string
 import struct
-#import logging
 import requests
 import linecache
 import subprocess
@@ -21,28 +20,30 @@ from .utils import Utils
 
 class Host(Logger):
 
+
+
     # Function to send a message to chrome.
-    def send_message(self, MSG_DICT = {'type': 'crash'}):
+    # def send_message(self, MSG_DICT = {'type': 'crash'}):
         # Converts dictionary into string containing JSON format.
-        msg_json = json.dumps(MSG_DICT, separators=(",", ":"))
+        #msg_json = json.dumps(MSG_DICT, separators=(",", ":"))
         # Encodes string with UTF-8.
-        msg_json_utf8 = msg_json.encode("utf-8")
+        #msg_json_utf8 = msg_json.encode("utf-8")
         # Writes the message size. (Writing to buffer because writing bytes object.)
-        sys.stdout.buffer.write(struct.pack("i", len(msg_json_utf8)))
+        #sys.stdout.buffer.write(struct.pack("i", len(msg_json_utf8)))
         # Writes the message itself. (Writing to buffer because writing bytes object.)
-        sys.stdout.buffer.write(msg_json_utf8)
-        sys.stdout.flush()
+        #sys.stdout.buffer.write(msg_json_utf8)
+        #sys.stdout.flush()
 
 
     # Function to read a message from chrome.
-    def read_message(self):
+    # def read_message(self):
         # Reads the first 4 bytes of the message (which designates message length).
-        text_length_bytes = sys.stdin.buffer.read(4)
+        #text_length_bytes = sys.stdin.buffer.read(4)
         # Unpacks the first 4 bytes that are the message length. [0] required because unpack returns tuple with required data at index 0.
-        text_length = struct.unpack("i", text_length_bytes)[0]
+        #text_length = struct.unpack("i", text_length_bytes)[0]
         # Reads and decodes the text (which is JSON) of the message.
-        text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
-        return json.loads(text_decoded)
+        #text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
+        #return json.loads(text_decoded)
 
 
     # Processes message from extension returning payload?
@@ -52,8 +53,10 @@ class Host(Logger):
             #self.create_folder("C:/Users/Robert/Sync/New folder")
             payload = {'task': 'sync'}
             payload['folders'] = Config.folder_options
-            self.send_message(payload)
-            return
+
+            return payload
+            #self.send_message(payload)
+            #return
 
         elif task == 'edit':
             folders = json.loads(msg.get('folders'))
@@ -87,10 +90,12 @@ class Host(Logger):
             if count == total - len(folders):
                 Config.folder_options = folder_options
                 Config.save()
-                self.send_message({'task': 'edit', 'type': 'success'})
-                return
-            self.send_message({'task': 'edit', 'type': 'error', 'msg': 'not all folders found'})
-            return
+                return {'task': 'edit', 'type': 'success'}
+                #self.send_message({'task': 'edit', 'type': 'success'})
+                #return
+            return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
+            #self.send_message({'task': 'edit', 'type': 'error', 'msg': 'not all folders found'})
+            #return
 
         elif task == 'delete':
             try:
@@ -118,13 +123,16 @@ class Host(Logger):
                     Config.folders = save_folders
                     Config.folder_options = folder_options
                     Config.save()
-                    self.send_message({'type': 'success', 'task': 'delete', 'name': name, 'uid': uid})
-                    return
-                self.send_message({'type': 'error', 'msg': 'not all folders deleted'})
+                    return {'type': 'success', 'task': 'delete', 'name': name, 'uid': uid}
+                    #self.send_message({'type': 'success', 'task': 'delete', 'name': name, 'uid': uid})
+                    #return
+                return {'type': 'error', 'msg': 'not all folders deleted'}
+                #self.send_message({'type': 'error', 'msg': 'not all folders deleted'})
 
             except Exception as e:
-                self.send_message({'task': 'delete', 'type': 'crash'})
+                #self.send_message({'task': 'delete', 'type': 'crash'})
                 self.log_exception()
+                return {'task': 'delete', 'type': 'crash'}
 
         elif task == 'saveManga':
             self.debug("--- Downloading Manga ---")
@@ -214,14 +222,16 @@ class Host(Logger):
                 return
 
             except requests.exceptions.ReadTimeout:
-                self.send_message({'task': 'save', 'type': 'timeout'})
+                #self.send_message({'task': 'save', 'type': 'timeout'})
                 self.logger.error("Request for " + srcUrl + "timed out. ")
                 if os.path.isfile(filepath):
                     os.remove(filepath)
+                return {'task': 'save', 'type': 'timeout'}
 
             except Exception as e:
-                self.send_message({'task': 'save', 'type': 'crash'})
+                #self.send_message({'task': 'save', 'type': 'crash'})
                 self.log_exception()
+                return {'task': 'save', 'type': 'crash'}
 
 
     # logs raised general exception
@@ -327,16 +337,9 @@ class Host(Logger):
     def id_generator(self, size=6, chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for i in range(size))
 
-    def setup(self):
-        print("setting up")
-        with open("test.txt", "w") as f:
-            f.write("dogs")
-        self.process_message(self.read_message())
+    # def setup(self):
+        #self.process_message(self.read_message())
 
-
-# ----------------------
-# ----- START ----------
-# ----------------------
 #if __name__ == '__main__':
-
-    #process_message(read_message())
+    #host = Host()
+    #host.setup()

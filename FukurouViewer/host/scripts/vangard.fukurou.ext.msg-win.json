@@ -7,7 +7,7 @@
 {
   "name": "vangard.fukurou.ext.msg",
   "description": "Chrome Native Messaging API Host for Fukurou",
-  "path": "fukurou_msg_host.bat",
+  "path": "fukurou_messenger.bat",
   "type": "stdio",
   "allowed_origins": [
     "chrome-extension://foopdbdbfgikgdgdfldjlhkjooichmbk/"
