@@ -1,12 +1,16 @@
 import os
 import hashlib
-from typing import List
+
 
 class Utils():
+    """Utility functions for FukurouViewer application
+
+    """
 
     @classmethod
     def base_path(cls, path: str = "") -> str:
-        return os.path.dirname(os.path.abspath(__file__));
+        folder = os.path.dirname(os.path.abspath(__file__))
+        return cls.norm_path(os.path.join(folder, path))
     
     @classmethod
     def fv_path(cls, path: str = "") -> str:
@@ -16,7 +20,7 @@ class Utils():
     def norm_path(path: str) -> str:
         return os.path.normpath(os.path.expanduser(path))
 
-    @classmethod
-    def generate_sha_hash(cls, filepath) -> str:
+    @staticmethod
+    def generate_sha_hash(filepath) -> str:
         with open(filepath, 'rb') as f:
             return hashlib.sha1(f.read()).hexdigest()

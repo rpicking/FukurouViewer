@@ -2,12 +2,13 @@ import os
 import json
 from configparser import SafeConfigParser
 
-import FukurouViewer
-from FukurouViewer.utils import Utils
-
+from .utils import Utils
 
 
 class Config(SafeConfigParser):
+    """Configs for FukurouViewer application
+
+    """
 
     SETTINGS_FILE = Utils.fv_path("settings.ini")
 
@@ -15,35 +16,18 @@ class Config(SafeConfigParser):
         "General": [
             "folders",
             "folder_options",
-            "sort_type",
-            "sort_direction",
-            "confirm_delete",
-            "size",
-            "recent_imgs",
-            "recent_galleries",
-        ],
-        "Archive": [
-            "extract_zip",
-            "extract_cbz",
-            "extract_rar",
-            "extract_cbr",
-            "extract_7z",
-            "extract_cb7",
-            "delete_after_extract",
-            "backup",
-            "backup_dir",
+            "doujin_downloader",
         ],
         "Online": [
             "ex_member_id",
             "ex_pass_hash",
         ],
     }
-    
-    AUTO_METADATA = "auto_metadata"
-    INDIVIDUAL = "individual"
+    # name
     FOLDER_OPTIONS = [
-        "individual",
-        "auto_metadata",
+        "uid",
+        "path",
+        "order"
     ]
 
     def __init__(self):
@@ -53,15 +37,19 @@ class Config(SafeConfigParser):
         except FileNotFoundError:
             self.save()
         self.build()
-        self.save()
 
     def build(self):
+        need_save = False
         for section in self.SETTINGS:
             if not self.has_section(section):
                 self.add_section(section)
+                need_save = True
             for option in self.SETTINGS.get(section):
                 if not self.has_option(section, option):
                     self.set(section, option, "")
+                    need_save = True
+        if need_save:
+            self.save()
 
     def save(self):
         with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
@@ -90,6 +78,15 @@ class Config(SafeConfigParser):
         self.set("General", "folder_options", json.dumps(value, ensure_ascii=False))
 
     @property
+    def doujin_downloader(self):
+        return self.get("General", "doujin_downloader")
+
+    @doujin_downloader.setter
+    def doujin_downloader(self, value):
+        value = Utils.norm_path(value)
+        self.set("General", "doujin_downloader", value)
+
+    @property
     def ex_member_id(self):
         return self.get("Online", "ex_member_id")
 
@@ -104,5 +101,6 @@ class Config(SafeConfigParser):
     @ex_pass_hash.setter
     def ex_pass_hash(self, hash):
         self.set("Online", "ex_pass_hash", str(hash))
+
 
 Config = Config()

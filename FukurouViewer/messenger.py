@@ -14,7 +14,8 @@ class extensionMessege():
         Messages are json converted into a byte string 
 
         sending/receiving taken from this reddit post
-        https://www.reddit.com/r/learnpython/comments/4yo4fn/i_cant_write_a_python_35_script_that_works_with/"""
+        https://www.reddit.com/r/learnpython/comments/4yo4fn/i_cant_write_a_python_35_script_that_works_with/
+    """
 
     # send message to extension
     def send_message(self, MSG_DICT):
@@ -79,7 +80,7 @@ class Messenger():
     WIN_PIPE_PATH = "\\\\.\\pipe\\fukurou_pipe"
 
     APP_PATH = "../main.py"
-    WIN_APP_PATH = "scripts/launch_host.bat"
+    WIN_APP_PATH = "../scripts/launch_host.bat"
 
     def __init__(self, _windows = True):
         super().__init__()
@@ -144,7 +145,7 @@ class Messenger():
                 msg["task"] = "resend"
                 self.extension.send_message(msg)
                 continue
-            except Exception:
+            except Exception as e:
                 return
 
     def close(self):

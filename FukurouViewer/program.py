@@ -11,6 +11,17 @@ from .search import Search
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
 
+class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
+
+    def __init__(self, icon, parent=None):
+        QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
+        self.menu = QtWidgets.QMenu(parent)
+        self.exitAction = QtWidgets.QAction('&Exit', self)        
+        self.exitAction.setStatusTip('Exit application')
+        self.menu.addAction(self.exitAction)
+        self.setContextMenu(self.menu)
+
+
 class Program(QtWidgets.QApplication):
     BASE_PATH = Utils.base_path()
     QML_DIR = os.path.join(BASE_PATH, "qml")
@@ -30,30 +41,38 @@ class Program(QtWidgets.QApplication):
         self.addLibraryPath(os.path.dirname(__file__))  #not sure
         super().__init__(args)
         self.setApplicationName("FukurouViewer")
-        self.version = "0.1.0"
+        self.version = "0.2.0"
     
     def setup(self):
         if not os.path.exists(self.THUMB_DIR):
             os.makedirs(self.THUMB_DIR)        
         
-        self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
-        self.engine = QtQml.QQmlApplicationEngine()
-        self.engine.addImportPath(self.QML_DIR)
-        self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True)
-        self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
-        self.win = self.engine.rootObjects()[0]
-        self.win.show()
-        #------------
-        #SIGNALS FROM UI GO HERE
-        #------------
+        if True:    # temp for launching in host mode
+            self.w = QtWidgets.QWidget()
+            self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
+            self.trayIcon.show()
+            self.trayIcon.exitAction.triggered.connect(self.quit)
+        else:
+            self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
+            self.engine = QtQml.QQmlApplicationEngine()
+            self.engine.addImportPath(self.QML_DIR)
+            self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True)
+            self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
+            self.win = self.engine.rootObjects()[0]
+            self.win.show()
+            #------------
+            #SIGNALS FROM UI GO HERE
+            #------------
 
-        self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
+            self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
 
-        #load configs HERE
-        #Search.search_ex_gallery()
-        #time.sleep(5)
-        #self.win.show()
+            #load configs HERE
+            #Search.search_ex_gallery()
+            #time.sleep(5)
+            #self.win.show()
 
+    def exec_(self):
+        return super().exec_()
 
 
 if __name__ == '__main__':
