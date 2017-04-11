@@ -18,26 +18,23 @@ class extensionMessege():
     """
 
     # send message to extension
-    def send_message(self, MSG_DICT):
-        # Converts dictionary into string containing JSON format.
-        msg_json = json.dumps(MSG_DICT, separators=(",", ":"))
-        # Encodes string with UTF-8.
-        msg_json_utf8 = msg_json.encode("utf-8")
+    def send_message(self, MSG):
+        # Encode json string with UTF-8.
+        msg_json_utf8 = MSG.encode("utf-8")
         # Writes the message size. (Writing to buffer because writing bytes object.)
         sys.stdout.buffer.write(struct.pack("i", len(msg_json_utf8)))
         # Writes the message itself. (Writing to buffer because writing bytes object.)
         sys.stdout.buffer.write(msg_json_utf8)
         sys.stdout.flush()
         
-    # read message sent from extension
+    # read message sent from extension returning stringified json
     def read_message(self):
         # Reads the first 4 bytes of the message (which designates message length).
         text_length_bytes = sys.stdin.buffer.read(4)
         # Unpacks the first 4 bytes that are the message length. [0] required because unpack returns tuple with required data at index 0.
         text_length = struct.unpack("i", text_length_bytes)[0]
         # Reads and decodes the text (which is JSON) of the message.
-        text_decoded = sys.stdin.buffer.read(text_length).decode("utf-8")
-        return json.loads(text_decoded)
+        return sys.stdin.buffer.read(text_length).decode("utf-8")
 
 
 class hostMessage():
@@ -53,7 +50,7 @@ class hostMessage():
 
     # send message to host
     def send_message(self, MSG):
-        byte_message = str.encode(json.dumps(MSG))
+        byte_message = str.encode(MSG)
         if self.windows:
             win32file.WriteFile(self.pipe, byte_message)
             return
@@ -66,13 +63,11 @@ class hostMessage():
     def read_message(self):
         if self.windows:
             data = win32file.ReadFile(self.pipe, 4096)[1]
-            msg = data.decode()
-            return json.loads(msg)
+            return data.decode()
 
         with open(self.pipe, "r") as pipe:
             data = pipe.readline()
-            #msg = data.decode()
-            return json.loads(msg)
+            return data.decode()
 
 
 class Messenger():
