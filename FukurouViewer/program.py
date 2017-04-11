@@ -16,10 +16,33 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def __init__(self, icon, parent=None):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
         self.menu = QtWidgets.QMenu(parent)
+
+        folder_options = Config.folder_options
+        for folder in sorted(folder_options):
+            uid = folder_options.get(folder).get("uid")
+            item = FolderMenuItem(folder, self, uid)
+            self.menu.addAction(item)
+
         self.exitAction = QtWidgets.QAction('&Exit', self)        
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
+
+
+class FolderMenuItem(QtWidgets.QAction):
+
+    def __init__(self, folder, parent, _uid):
+        super().__init__(folder, parent)
+        self.uid = _uid
+        self.triggered.connect(self.openFolder)
+
+    def openFolder(self):
+        folder_options = Config.folder_options
+        for folder in folder_options:
+            if self.uid in folder_options.get(folder).values():
+                dir = folder_options.get(folder).get("path")
+                QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(Utils.norm_path(dir)))
+                return
 
 
 class Program(QtWidgets.QApplication):
@@ -56,7 +79,7 @@ class Program(QtWidgets.QApplication):
             self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
             self.engine = QtQml.QQmlApplicationEngine()
             self.engine.addImportPath(self.QML_DIR)
-            self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True)
+            #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
             self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
             self.win = self.engine.rootObjects()[0]
             self.win.show()
@@ -71,10 +94,11 @@ class Program(QtWidgets.QApplication):
             #time.sleep(5)
             #self.win.show()
 
+    def quit(self):
+        self.trayIcon.hide()
+        super().quit()
+
     def exec_(self):
         return super().exec_()
 
 
-if __name__ == '__main__':
-    app = Program(sys.argv)
-    sys.exit(app.exec_())

@@ -123,7 +123,13 @@ class Host(Logger):
         
         elif task == 'save':
             try:
-                headers = {"User-Agent": "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"}
+                headers = {}
+                if "headers" in msg:
+                    headers = msg.get('headers')
+
+                headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
+
+                self.logger.info(headers)
                 cookies = {}
                 filename = ""
 
