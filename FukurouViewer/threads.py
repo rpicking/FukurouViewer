@@ -96,8 +96,11 @@ class hostThread(BaseThread, Host):
         win32pipe.ConnectNamedPipe(self.pipe, None)
         while True:
             try:
+                # read message from messenger
                 msg = self.read_message()
+                # process message and perform task
                 response = self.process_message(msg)
+                # send response back to messenger
                 self.send_message(response)
 
                 #self.queue.put(text)

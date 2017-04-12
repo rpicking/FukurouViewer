@@ -68,11 +68,7 @@ class Host(Logger):
                 Config.folder_options = folder_options
                 Config.save()
                 return {'task': 'edit', 'type': 'success'}
-                #self.send_message({'task': 'edit', 'type': 'success'})
-                #return
             return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
-            #self.send_message({'task': 'edit', 'type': 'error', 'msg': 'not all folders found'})
-            #return
 
         elif task == 'delete':
             try:
@@ -101,13 +97,9 @@ class Host(Logger):
                     Config.folder_options = folder_options
                     Config.save()
                     return {'type': 'success', 'task': 'delete', 'name': name, 'uid': uid}
-                    #self.send_message({'type': 'success', 'task': 'delete', 'name': name, 'uid': uid})
-                    #return
                 return {'type': 'error', 'msg': 'not all folders deleted'}
-                #self.send_message({'type': 'error', 'msg': 'not all folders deleted'})
 
             except Exception as e:
-                #self.send_message({'task': 'delete', 'type': 'crash'})
                 self.log_exception()
                 return {'task': 'delete', 'type': 'crash'}
 
@@ -128,8 +120,6 @@ class Host(Logger):
                     headers = msg.get('headers')
 
                 headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
-
-                self.logger.info(headers)
                 cookies = {}
                 filename = ""
 
@@ -196,23 +186,21 @@ class Host(Logger):
 
                 self.logger.info(filepath + " finished downloading.")
                 # send successful download response to extension
-                payload = {'task': 'save', 'type': 'success'}
-                payload['filename'] = os.path.basename(filepath)
-                payload['srcUrl'] = srcUrl
-                payload['pageUrl'] = pageUrl
-                payload['folder'] = folder
-                self.send_message(payload)
-                return
+                payload = {'task': 'save', 
+                           'type': 'success',
+                           'filename': os.path.basename(filepath),
+                           'srcUrl': srcUrl,
+                           'pageUrl': pageUrl,
+                           'folder': folder }
+                return payload
 
             except requests.exceptions.ReadTimeout:
-                #self.send_message({'task': 'save', 'type': 'timeout'})
                 self.logger.error("Request for " + srcUrl + "timed out. ")
                 if os.path.isfile(filepath):
                     os.remove(filepath)
                 return {'task': 'save', 'type': 'timeout'}
 
             except Exception as e:
-                #self.send_message({'task': 'save', 'type': 'crash'})
                 self.log_exception()
                 return {'task': 'save', 'type': 'crash'}
 
