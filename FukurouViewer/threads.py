@@ -117,6 +117,7 @@ class hostThread(BaseThread, Host):
     def close(self):
         if self.windows:
             self.pipe.Close()
+            self.logger.info("Pipe closed")
             winsound.PlaySound("*", winsound.SND_ASYNC)
             return
 
@@ -204,13 +205,13 @@ class EventThread(BaseThread):
         for event in events:
             source = Utils.norm_path(event.src_path)
             if event.event_type == "moved":
-                print("moved")
+                self.logger.info("moved")
             elif event.event_type == "deleted":
-                print("deleted")
+                self.logger.info("deleted")
             elif event.event_type == "created":
-                print("created")
+                self.logger.info("created")
             elif event.event_type == "modified":
-                print("modified")
+                self.logger.info("modified")
 
 event_thread = EventThread()
 

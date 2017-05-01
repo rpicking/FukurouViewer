@@ -4,7 +4,7 @@
 :: found in the LICENSE file.
 
 call %~dp0/../../"virtual environments"/env/Scripts/activate.bat
-python "%~dp0/../main.py" %*
+python "%~dp0/../main.py" --downloader%*
 call %~dp0/../../"virtual environments"/env/Scripts/deactivate.bat
 :: When combined, this should be...
 :: python "%~dp0/../main.py" %*

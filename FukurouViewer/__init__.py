@@ -20,5 +20,5 @@ logging.basicConfig(handlers=[logging.FileHandler(filename, 'a', 'utf-8')],
 
 from . import program, threads
 app = program.Program(sys.argv)
-app.setup()
+app.setup(sys.argv)
 threads.setup()

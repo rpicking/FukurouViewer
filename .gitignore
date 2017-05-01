@@ -45,3 +45,5 @@ FukurouViewer/host/*.txt
 *.ini
 FukurouViewer/host/log/
 *.TMP
+*.jsc
+*.qmlc
