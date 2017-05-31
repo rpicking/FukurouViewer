@@ -145,10 +145,6 @@ class Host(Logger):
                 for item in msg.get('cookies'):
                     cookies[item[0]] = item[1]
 
-                # fix for downloading from pixiv (extension should be sending headers.  shouldn't be set in here)
-                if 'pixiv.net' in pageUrl:
-                    headers['Referer'] = pageUrl
-
                 r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
                 headers = r.headers
 
@@ -194,8 +190,9 @@ class Host(Logger):
                            'folder': folder }
                 return payload
 
-            except requests.exceptions.ReadTimeout:
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
                 self.logger.error("Request for " + srcUrl + "timed out. ")
+                self.logger.error(e)
                 if os.path.isfile(filepath):
                     os.remove(filepath)
                 return {'task': 'save', 'type': 'timeout'}

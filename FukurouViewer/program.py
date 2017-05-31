@@ -14,14 +14,9 @@ from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
-    openSignal = QtCore.pyqtSignal()
-
     def __init__(self, icon, parent=None):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
         self.menu = QtWidgets.QMenu(parent)
-        self.activated.connect(self.click_trap)
-
-
 
         folder_options = Config.folder_options
         for folder in sorted(folder_options):
@@ -39,12 +34,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
-
-    def click_trap(self, value):
-        if value == self.Trigger:   # left click
-            #self.menu.popup(QtGui.QCursor.pos())
-            self.openSignal.emit()
-            
+           
 
 class FolderMenuItem(QtWidgets.QAction):
 
@@ -89,20 +79,27 @@ class Program(QtWidgets.QApplication):
         if not os.path.exists(self.THUMB_DIR):
             os.makedirs(self.THUMB_DIR)        
 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-d", "--downloader", help="start program in downloader mode", action="store_true")
-        args = parser.parse_args()
-
         self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
 
+        # HANDLING OF TRAY ICON
         self.w = QtWidgets.QWidget()
         self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
         self.trayIcon.show()
         self.trayIcon.exitAction.triggered.connect(self.quit)
         self.trayIcon.closeAction.triggered.connect(self.close)
         self.trayIcon.openAction.triggered.connect(self.open)
-        self.trayIcon.openSignal.connect(self.signalCatch)
-        
+        # timer for differentiating double click from single click
+        self.clickTimer = QtCore.QTimer(self)
+        self.clickTimer.setSingleShot(True)
+        self.clickTimer.timeout.connect(self.singleClickActivated)
+
+        self.trayIcon.activated.connect(self.onTrayIconActivated)
+
+        # ARGUMENTS
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-d", "--downloader", help="start program in downloader mode", action="store_true")
+        args = parser.parse_args()
+
         if not args.downloader:    # launching app (not host)
             self.start_application()
 
@@ -113,12 +110,12 @@ class Program(QtWidgets.QApplication):
 
 
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
-
-
+ 
         #load configs HERE
         #Search.search_ex_gallery()
         #time.sleep(5)
 
+    
     def start_application(self):
         self.engine = QtQml.QQmlApplicationEngine()
         self.engine.addImportPath(self.QML_DIR)
@@ -126,6 +123,7 @@ class Program(QtWidgets.QApplication):
         self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
         self.app_window = self.engine.rootObjects()[0]
         self.app_window.startMode("APP")
+
 
     # open application window
     def open(self):
@@ -137,6 +135,7 @@ class Program(QtWidgets.QApplication):
         self.app_window.show()
         self.app_window.requestActivate()
 
+
     # close application window (don't quit app)
     def close(self):
         try:
@@ -146,13 +145,23 @@ class Program(QtWidgets.QApplication):
         self.engine.clearComponentCache()
         self.app_window.hide()
 
+
     # quit application
     def quit(self):
         self.trayIcon.hide()
         super().quit()
 
-    def signalCatch(self):
-        print("GOTCHA")
+    def onTrayIconActivated(self, event):
+        print("GOTCHA ", event)
+        if event == QtWidgets.QSystemTrayIcon.Trigger:
+            self.clickTimer.start(self.doubleClickInterval())
+        elif event == QtWidgets.QSystemTrayIcon.DoubleClick:
+            self.open()
+
+    # single click on tray icon
+    def singleClickActivated(self):
+        print("ONE FOR ALL")
+
 
     def exec_(self):
         return super().exec_()

@@ -5,9 +5,9 @@ import sys
 import json
 import time
 import struct
+import logging
 import linecache
 import subprocess
-
 
 class extensionMessege():
     """ Exchanges messages with extension over stdio
@@ -141,6 +141,7 @@ class Messenger():
                 self.extension.send_message(msg)
                 continue
             except Exception as e:
+
                 return
 
     def close(self):

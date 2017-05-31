@@ -47,3 +47,6 @@ FukurouViewer/host/log/
 *.TMP
 *.jsc
 *.qmlc
+*.qrc
+*.cpp
+*.pro

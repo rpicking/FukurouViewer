@@ -19,6 +19,11 @@ logging.basicConfig(handlers=[logging.FileHandler(filename, 'a', 'utf-8')],
                     level=logging.INFO)
 
 from . import program, threads
-app = program.Program(sys.argv)
+
+# workaround to use material style
+sys_argv = sys.argv
+sys_argv += ['--style', 'material']
+
+app = program.Program(sys_argv)
 app.setup(sys.argv)
 threads.setup()
