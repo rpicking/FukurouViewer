@@ -83,7 +83,7 @@ class hostThread(BaseThread, Host):
             self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
                                 win32pipe.PIPE_ACCESS_DUPLEX,
                                 win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
-                                1,65536,65536,300,None)
+                                win32pipe.PIPE_UNLIMITED_INSTANCES,65536,65536,300,None)
             #win32pipe.ConnectNamedPipe(self.pipe, None)
             return
 
