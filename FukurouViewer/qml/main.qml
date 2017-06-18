@@ -1,21 +1,73 @@
 import QtQuick 2.7
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
-import QtQuick.Controls 2.0
+import QtQuick.Controls 2.1
 import QtQuick.Controls.Material 2.0
+import QtQuick.Layouts 1.1
+
 
 ApplicationWindow {
-    id: window
-    visible: true
-    width: 480
+    id: mainWindow
+    width: 400
     height: 640
     title: "Fukurou Viewer"
     Material.theme: Material.Dark
     Material.accent: Material.Purple
 
-    function startMode(mode) {
-        console.log(mode);
+    property string mode: "NONE"
+
+    signal requestHistory
+    signal receiveHistory(var items)
+    signal onWindowClose
+
+    function closeWindows() {
+        hide();
+        onWindowClose();
     }
+
+    function openWindow(geometry) {
+        switch(mode) {
+            case "MINI":
+                mode = "MINI";
+                history_window.openWindow(geometry.x, geometry.y);
+                break;
+            case "APP":
+                mode = "APP";
+                show();
+                break;
+            default:
+                console.log("NOT SUPPOSED TO BE HERE");
+                popup.open();
+        }
+    }
+
+    function setMode(_mode) {
+        mode = _mode;
+    }
+
+    MiniWindow {
+        id: history_window
+    }
+
+    Popup {
+        id: popup
+        x: 100
+        y: 100
+        width: 200
+        height: 300
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+
+        ColumnLayout {
+            anchors.fill: parent
+            CheckBox { text: qsTr("E-mail") }
+            CheckBox { text: qsTr("Calendar") }
+            CheckBox { text: qsTr("Contacts") }
+        }
+    }
+
+
 
     MouseArea {
         anchors.fill: parent
@@ -44,6 +96,7 @@ ApplicationWindow {
         RadioButton { text: qsTr("Medium");  checked: true }
         RadioButton { text: qsTr("Large") }
     }
+
 
     /*FileDialog {
         id: fileDialog

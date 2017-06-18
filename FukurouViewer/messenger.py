@@ -9,7 +9,7 @@ import logging
 import linecache
 import subprocess
 
-class extensionMessege():
+class extensionMessage():
     """ Exchanges messages with extension over stdio
         Messages are json converted into a byte string 
 
@@ -83,7 +83,7 @@ class Messenger():
 
         self.launch_path = os.path.dirname(os.path.abspath(__file__))
         self.host = hostMessage()
-        self.extension = extensionMessege()
+        self.extension = extensionMessage()
 
         if self.windows:    # wait till pipe has been created by host then create file
             self.launch_path = os.path.join(self.launch_path, self.WIN_APP_PATH)

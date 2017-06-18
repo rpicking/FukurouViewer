@@ -1,11 +1,16 @@
 import os
 import hashlib
-
+from sqlalchemy.engine import ResultProxy
+from typing import List
 
 class Utils():
     """Utility functions for FukurouViewer application
 
     """
+
+    @staticmethod
+    def convert_result(result: ResultProxy) -> List:
+        return list(map(dict, result))
 
     @classmethod
     def base_path(cls, path: str = "") -> str:

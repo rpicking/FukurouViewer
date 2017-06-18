@@ -4,10 +4,11 @@ import time
 import argparse
 from enum import Enum
 from threading import RLock
+from sqlalchemy import select
 
+from . import user_database
 from .utils import Utils
 from .config import Config
-from .search import Search
 
 from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
@@ -56,6 +57,7 @@ class Program(QtWidgets.QApplication):
     BASE_PATH = Utils.base_path()
     QML_DIR = os.path.join(BASE_PATH, "qml")
     THUMB_DIR = Utils.fv_path("thumbs")
+    FAVICON_DIR = Utils.fv_path("favicons")
     gallery_lock = RLock()
 
     class SortMethodMap(Enum):
@@ -77,7 +79,10 @@ class Program(QtWidgets.QApplication):
 
     def setup(self, args):
         if not os.path.exists(self.THUMB_DIR):
-            os.makedirs(self.THUMB_DIR)        
+            os.makedirs(self.THUMB_DIR)
+        if not os.path.exists(self.FAVICON_DIR):
+            os.makedirs(self.FAVICON_DIR)
+        user_database.setup()     
 
         self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
 
@@ -103,17 +108,9 @@ class Program(QtWidgets.QApplication):
         if not args.downloader:    # launching app (not host)
             self.start_application()
 
-        
-        # APP SIGNALS
-
-        # UI SIGNALS
-
-
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
  
         #load configs HERE
-        #Search.search_ex_gallery()
-        #time.sleep(5)
 
     
     def start_application(self):
@@ -122,8 +119,19 @@ class Program(QtWidgets.QApplication):
         #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
         self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
         self.app_window = self.engine.rootObjects()[0]
-        self.app_window.startMode("APP")
 
+        # SIGNALS
+        self.app_window.requestHistory.connect(self.send_history)
+        self.app_window.setMode("MINI") #, self.trayIcon.geometry().center())
+
+
+
+    def send_history(self):
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(5)))
+
+        self.app_window.receiveHistory.emit(results)
 
     # open application window
     def open(self):
@@ -132,7 +140,8 @@ class Program(QtWidgets.QApplication):
         except AttributeError:  # qml engine not started
             self.start_application()
 
-        self.app_window.show()
+        self.app_window.openWindow(self.trayIcon.geometry().center())
+        #self.app_window.show()
         self.app_window.requestActivate()
 
 
@@ -143,7 +152,7 @@ class Program(QtWidgets.QApplication):
         except AttributeError:  # qml engine not started
             return
         self.engine.clearComponentCache()
-        self.app_window.hide()
+        self.app_window.closeWindows()
 
 
     # quit application
@@ -152,7 +161,7 @@ class Program(QtWidgets.QApplication):
         super().quit()
 
     def onTrayIconActivated(self, event):
-        print("GOTCHA ", event)
+        #print("GOTCHA ", event)
         if event == QtWidgets.QSystemTrayIcon.Trigger:
             self.clickTimer.start(self.doubleClickInterval())
         elif event == QtWidgets.QSystemTrayIcon.DoubleClick:

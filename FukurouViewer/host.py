@@ -10,9 +10,14 @@ import struct
 import requests
 import linecache
 import subprocess
+from bs4 import BeautifulSoup
+from time import time
 from threading import Thread
+from sqlalchemy import insert
 from mimetypes import guess_extension
 
+
+from . import user_database
 from .logger import Logger
 from .config import Config
 from .utils import Utils
@@ -22,6 +27,7 @@ class Host(Logger):
     """Message processing from Fukurou Chrome Extension
 
     """
+    FAVICON_PATH = Utils.fv_path("favicons")
 
     # Processes message from extension returning payload?
     def process_message(self, msg):
@@ -145,42 +151,71 @@ class Host(Logger):
                 for item in msg.get('cookies'):
                     cookies[item[0]] = item[1]
 
+
+                # DOWNLOAD FAVICON IS FIRST BECAUSE OF UNKNOWN TIMEOUT ERROR IF AFTER FILE DOWNLOAD FIX BY MOVING DOWNLOAD TO OWN CLASS
+                domain = msg.get('domain')
+                favicon_url = msg.get('favicon_url')
+                favicon = os.path.join(self.FAVICON_PATH, domain + ".ico")
+                self.logger.info(favicon_url)
+                if not os.path.exists(favicon):
+                    icon = requests.get(favicon_url, headers=headers, cookies=cookies, timeout=10)
+                    with open(favicon, "wb") as f:
+                        for chunk in icon:
+                            f.write(chunk)
+
+
                 r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
-                headers = r.headers
+                #headers = r.headers
 
                 # get filename
-                if 'Content-Disposition' in headers:    # check for content-disposition header, if exists try and set filename
-                    contdisp = re.findall("filename=(.+)", headers['content-disposition'])
+                if 'Content-Disposition' in r.headers:    # check for content-disposition header, if exists try and set filename
+                    contdisp = re.findall("filename=(.+)", r.headers['content-disposition'])
                     if len(contdisp) > 0:
                         filename = contdisp[0]
-                if not filename:    # if filename still empty
+                if not filename:    # still havn't gotten filename
                     filename = srcUrl.split('/')[-1]   # get filename from srcUrl
                     filename = filename.split('?')[0]   # strip query string parameters
                     filename = filename.split('#')[0]   # strip anchor
 
-                # correctly format filename to valid
+                # format filename to valid
                 valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
                 filename = ''.join(c for c in filename if c in valid_chars)
 
-                # get file extension from header of not already found
+                # get file extension from header if not already found
                 filename, ext = os.path.splitext(filename)
                 if not ext:
                     ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
                 filepath = os.path.join(dir, ''.join((filename, ext)))
+
                 # check and rename if file already exists
                 count = 1
                 while os.path.isfile(filepath):
                     filepath = os.path.join(dir, ''.join((filename, ' (', str(count), ')', ext)))
                     count += 1
 
+                # Download file
                 with open(filepath, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=1024):
+                    for chunk in r.iter_content(1024):
                         if chunk:
                             f.write(chunk)
-
                 filepath = self.fix_extension(filepath)
+                r.close()
 
                 self.logger.info(filepath + " finished downloading.")
+
+                # add to history table in database
+                with user_database.get_session(self) as session:
+                    result = session.execute(insert(user_database.History).values(
+                        {
+                            "filename": os.path.basename(filepath),
+                            "src_url": srcUrl,
+                            "page_url": msg.get('pageUrl'),
+                            "domain": domain,
+                            "time_added": time(),
+                            "full_path": filepath,
+                            "favicon_url": favicon_url
+                        }))
+
                 # send successful download response to extension
                 payload = {'task': 'save', 
                            'type': 'success',
@@ -191,7 +226,7 @@ class Host(Logger):
                 return payload
 
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-                self.logger.error("Request for " + srcUrl + "timed out. ")
+                self.logger.error("Request for " + srcUrl + " timed out. ")
                 self.logger.error(e)
                 if os.path.isfile(filepath):
                     os.remove(filepath)
