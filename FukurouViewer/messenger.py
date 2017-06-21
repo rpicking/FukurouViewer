@@ -77,14 +77,21 @@ class Messenger():
     APP_PATH = "../main.py"
     WIN_APP_PATH = "../scripts/launch_host.bat"
 
+    HOST_STARTING_UP = False
+
     def __init__(self, _windows = True):
         super().__init__()
         self.windows = _windows
 
-        self.launch_path = os.path.dirname(os.path.abspath(__file__))
+        if self.windows:
+            self.launch_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.WIN_APP_PATH)
+        else:
+            self.launch_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.APP_PATH)
         self.host = hostMessage()
         self.extension = extensionMessage()
 
+        self.connectPipe()
+        return
         if self.windows:    # wait till pipe has been created by host then create file
             self.launch_path = os.path.join(self.launch_path, self.WIN_APP_PATH)
             while True:
@@ -119,11 +126,20 @@ class Messenger():
                     win32pipe.SetNamedPipeHandleState(self.pipe, 
                                         win32pipe.PIPE_READMODE_MESSAGE, None, None)
                     self.host.pipe = self.pipe
+                    self.HOST_STARTING_UP = False
                     return
                 except win32api.error:  # host is not running, launch
-                        subprocess.Popen(self.launch_path)
+                        if not self.HOST_STARTING_UP:
+                            subprocess.Popen(self.launch_path)
+                            self.HOST_STARTING_UP = True
                         # wait for host to launch
                         time.sleep(1)
+        else:   # non-windows
+            self.host.pipe = self.PIPE_PATH
+            if not os.path.exists(self.PATH):   # need better way of checking if host is running
+                self.launch_path = os.path.join(self.launch_path, self.APP_PATH)
+                subprocess.Popen(self.launch_path)
+                time.sleep(1)
 
     def run(self):
         while True:

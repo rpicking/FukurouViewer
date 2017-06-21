@@ -50,3 +50,5 @@ FukurouViewer/host/log/
 *.qrc
 *.cpp
 *.pro
+*.sln
+*.pyproj
