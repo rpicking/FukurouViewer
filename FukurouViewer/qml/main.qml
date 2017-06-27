@@ -24,7 +24,7 @@ ApplicationWindow {
 
     property string mode: "NONE"
 
-    signal requestHistory
+    signal requestHistory(int limit)
     signal receiveHistory(var items)
     signal onWindowClose
     signal createFavFolder(string name, string path, string color)

@@ -4,6 +4,7 @@ import hashlib
 from sqlalchemy.engine import ResultProxy
 from typing import List
 
+
 class Utils():
     """Utility functions for FukurouViewer application
 

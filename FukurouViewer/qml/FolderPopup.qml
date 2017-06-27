@@ -1,6 +1,5 @@
 import QtQuick 2.0
 import QtQuick.Window 2.2
-import QtQuick.Layouts 1.1
 import QtQuick.Controls 2.1
 import QtQuick.Dialogs 1.2
 
@@ -10,10 +9,16 @@ Window {
     width: 450
     height: 250
 
+    onVisibleChanged: {
+        if(visible){
+            colorField.color = Qt.rgba(Math.random(), Math.random(), Math.random(), 1);
+        }
+    }
+
     MouseArea {
         anchors.fill: parent
         propagateComposedEvents: true
-        property variant clickPos: "1,1"
+        property point clickPos: Qt.point(1,1)
 
         onPressed: {
             clickPos  = Qt.point(mouse.x,mouse.y)

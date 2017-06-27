@@ -31,7 +31,7 @@ Window {
         y = _y - height;
         // mainWindow.requestHistory();
         requestActivate();
-        mainWindow.requestHistory();
+        mainWindow.requestHistory(0);   //0 = get all history
         //console.log(active);
     }
 
@@ -81,34 +81,25 @@ Window {
                 verticalAlignment: Text.AlignVCenter
             }
 
-            Rectangle {
-                id: addNewFavFolder
-                width: 25
-                height: 25
-                color: "transparent"
-                radius: 5
+            TextIconButton {
+                id: viewFolderList
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                ToolTip.visible: addFavFolderMouseArea.containsMouse
-                ToolTip.text: qsTr("Add new save folder")
-                Text {
-                    color: addFavFolderMouseArea.containsMouse ? theme.highlighted : theme.accent
-                    font.pointSize: 20
-                    font.family: fontAwesome.name
-                    text: "\uf067"
-                    anchors.verticalCenterOffset: 1
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
+                ToolTip.text: qsTr("View favorite folders")
+                fontFamily: fontAwesome.name
+                buttonText: "\uf07c"
+                mouseArea.onClicked: {
+                    console.log("Viewing folders");
                 }
+            }
 
-                MouseArea {
-                    id: addFavFolderMouseArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-
-                    onClicked: {
-                        folderPopup.visible = true
-                        //newFolderdialog.visible = true;
-                    }
+            TextIconButton {
+                id: addNewFavFolder
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                ToolTip.text: qsTr("Add new save folder")
+                fontFamily: fontAwesome.name
+                buttonText: "\uf067"
+                mouseArea.onClicked: {
+                    folderPopup.visible = true;
                 }
             }
         }
@@ -118,19 +109,6 @@ Window {
         id: folderPopup
         visible: false
     }
-
-    /*Dialog {
-        id: newFolderdialog
-        visible: false
-        width: 400
-        title: "Add Favorite Folder"
-        standardButtons: Dialog.Save | Dialog.Cancel
-
-        onAccepted: console.log("Ok clicked")
-        onRejected: console.log("Cancel clicked")
-
-        //contentItem: FolderPopup {}
-    }*/
 
     ListView {
         id: historyView

@@ -24,12 +24,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
             item = FolderMenuItem(folder, self, uid)
             self.menu.addAction(item)
 
-        self.openAction = QtWidgets.QAction('&Open', self)
-        self.menu.addAction(self.openAction)
-
-        self.closeAction = QtWidgets.QAction('&Close', self)
-        self.menu.addAction(self.closeAction)
-
         self.exitAction = QtWidgets.QAction('&Exit', self)
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
@@ -108,8 +102,6 @@ class Program(QtWidgets.QApplication):
         self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
         self.trayIcon.show()
         self.trayIcon.exitAction.triggered.connect(self.quit)
-        self.trayIcon.closeAction.triggered.connect(self.close)
-        self.trayIcon.openAction.triggered.connect(self.open)
         # timer for differentiating double click from single click
         self.clickTimer = QtCore.QTimer(self)
         self.clickTimer.setSingleShot(True)
@@ -122,6 +114,8 @@ class Program(QtWidgets.QApplication):
         args = parser.parse_args()
 
         if not args.downloader:    # launching app (not host)
+            self.start_application("MAIN")
+        else:
             self.start_application()
 
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
@@ -129,30 +123,35 @@ class Program(QtWidgets.QApplication):
         #load configs HERE
 
     
-    def start_application(self):
-        self.engine = QtQml.QQmlApplicationEngine()
-        self.engine.addImportPath(self.QML_DIR)
-        #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
-        self.image_provider = ImageProvider()
-        self.engine.addImageProvider("fukurou", self.image_provider)
+    def start_application(self, mode="MINI"):
+        try:
+            self.engine
+        except AttributeError:  # qml engine not started
+            self.engine = QtQml.QQmlApplicationEngine()
+            self.engine.addImportPath(self.QML_DIR)
+            #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
+            self.image_provider = ImageProvider()
+            self.engine.addImageProvider("fukurou", self.image_provider)
 
-        self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
-        self.app_window = self.engine.rootObjects()[0]
+            self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
+            self.app_window = self.engine.rootObjects()[0]
 
-        # SIGNALS
-        self.app_window.requestHistory.connect(self.send_history)
-        self.app_window.createFavFolder.connect(self.add_folder)
+            # SIGNALS
+            self.app_window.requestHistory.connect(self.send_history)
+            self.app_window.createFavFolder.connect(self.add_folder)
 
-        self.app_window.setMode("MINI") #, self.trayIcon.geometry().center())
+            self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
-
-    # send newest 5 history items to ui
-    def send_history(self):
+    # sends limit number of history entries newest first to ui
+    def send_history(self, limit):
         with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                #select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(5)))
-                select([user_database.History]).order_by(user_database.History.time_added.desc())))
-        self.app_window.receiveHistory.emit(results)
+            if not limit:
+                results = Utils.convert_result(session.execute(
+                    select([user_database.History]).order_by(user_database.History.time_added.desc())))
+            else:
+                results = Utils.convert_result(session.execute(
+                        select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(limit)))
+            self.app_window.receiveHistory.emit(results)
 
     # add new folder entry into database
     def add_folder(self, name, path, color, order=-1, type=0):
@@ -177,11 +176,7 @@ class Program(QtWidgets.QApplication):
 
     # open application window
     def open(self):
-        try:
-            self.engine
-        except AttributeError:  # qml engine not started
-            self.start_application()
-
+        #self.start_application()
         self.app_window.openWindow(self.trayIcon.geometry().center())
         #self.app_window.show()
         #self.app_window.requestActivate()
@@ -202,19 +197,23 @@ class Program(QtWidgets.QApplication):
         self.trayIcon.hide()
         super().quit()
 
+
     def onTrayIconActivated(self, event):
-        #print("GOTCHA ", event)
         if event == QtWidgets.QSystemTrayIcon.Trigger:
+            self.last = "Click"
+            self.open()
             self.clickTimer.start(self.doubleClickInterval())
         elif event == QtWidgets.QSystemTrayIcon.DoubleClick:
-            self.open()
+            self.last = "DoubleClick"
+            self.close()
+            print("OPENING MAIN APPLICATION")
+
 
     # single click on tray icon
     def singleClickActivated(self):
-        print("ONE FOR ALL")
+        if self.last == "Clicks":
+            self.open()
 
 
     def exec_(self):
         return super().exec_()
-
-
