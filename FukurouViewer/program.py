@@ -4,17 +4,16 @@ import time
 import argparse
 from enum import Enum
 from threading import RLock
-from sqlalchemy import select
+from sqlalchemy import insert, select
 
 from . import user_database
 from .utils import Utils
 from .config import Config
 
-from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
+from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
-
     def __init__(self, icon, parent=None):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
         self.menu = QtWidgets.QMenu(parent)
@@ -38,7 +37,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
            
 
 class FolderMenuItem(QtWidgets.QAction):
-
     def __init__(self, folder, parent, _uid):
         super().__init__(folder, parent)
         self.uid = _uid
@@ -51,6 +49,25 @@ class FolderMenuItem(QtWidgets.QAction):
                 dir = folder_options.get(folder).get("path")
                 QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(Utils.norm_path(dir)))
                 return
+
+
+class ImageProvider(QtQuick.QQuickImageProvider):
+    def __init__(self):
+        QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
+
+    def requestPixmap(self, id, requestedSize):
+        width = requestedSize.width()
+        height = requestedSize.height()
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.History]).where( user_database.History.id == id)))
+
+        path = results[0].get("full_path")
+        wat = QtCore.QFileInfo(path)
+        icon = QtWidgets.QFileIconProvider().icon(wat)
+        pixer = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
+        pixer = pixer.scaled(width, height)
+        return pixer, requestedSize
 
 
 class Program(QtWidgets.QApplication):
@@ -85,7 +102,7 @@ class Program(QtWidgets.QApplication):
         user_database.setup()     
 
         self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
-
+        
         # HANDLING OF TRAY ICON
         self.w = QtWidgets.QWidget()
         self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
@@ -97,7 +114,6 @@ class Program(QtWidgets.QApplication):
         self.clickTimer = QtCore.QTimer(self)
         self.clickTimer.setSingleShot(True)
         self.clickTimer.timeout.connect(self.singleClickActivated)
-
         self.trayIcon.activated.connect(self.onTrayIconActivated)
 
         # ARGUMENTS
@@ -117,21 +133,47 @@ class Program(QtWidgets.QApplication):
         self.engine = QtQml.QQmlApplicationEngine()
         self.engine.addImportPath(self.QML_DIR)
         #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
+        self.image_provider = ImageProvider()
+        self.engine.addImageProvider("fukurou", self.image_provider)
+
         self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
         self.app_window = self.engine.rootObjects()[0]
 
         # SIGNALS
         self.app_window.requestHistory.connect(self.send_history)
+        self.app_window.createFavFolder.connect(self.add_folder)
+
         self.app_window.setMode("MINI") #, self.trayIcon.geometry().center())
 
 
-
+    # send newest 5 history items to ui
     def send_history(self):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(5)))
-
+                #select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(5)))
+                select([user_database.History]).order_by(user_database.History.time_added.desc())))
         self.app_window.receiveHistory.emit(results)
+
+    # add new folder entry into database
+    def add_folder(self, name, path, color, order=-1, type=0):
+        if not name:
+            print("get name from path")
+
+        uid = "BUTTS" #generate it here
+
+        if order == -1:
+            print("set order as last")
+
+        with user_database.get_session(self) as session:
+            session.execute(insert(user_database.Folders).values(
+                {
+                    "name": name,
+                    "uid": uid,
+                    "path": path,
+                    "color": color,
+                    "order": order,
+                    "type": type
+                })) 
 
     # open application window
     def open(self):
@@ -142,7 +184,7 @@ class Program(QtWidgets.QApplication):
 
         self.app_window.openWindow(self.trayIcon.geometry().center())
         #self.app_window.show()
-        self.app_window.requestActivate()
+        #self.app_window.requestActivate()
 
 
     # close application window (don't quit app)

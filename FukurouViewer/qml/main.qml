@@ -2,7 +2,7 @@ import QtQuick 2.7
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.1
-import QtQuick.Controls.Material 2.0
+import QtQuick.Controls.Material 2.1
 import QtQuick.Layouts 1.1
 
 
@@ -11,14 +11,23 @@ ApplicationWindow {
     width: 400
     height: 640
     title: "Fukurou Viewer"
-    Material.theme: Material.Dark
-    Material.accent: Material.Purple
+
+    //theme colors
+    QtObject {
+        id: theme
+        property string primary: "#393D3F"
+        property string accent: "#9B1D20"
+        property string foreground: "#FFFFFF"
+        property string background: "#272727"
+        property string highlighted: "#AD4648"
+    }
 
     property string mode: "NONE"
 
     signal requestHistory
     signal receiveHistory(var items)
     signal onWindowClose
+    signal createFavFolder(string name, string path, string color)
 
     function closeWindows() {
         hide();
@@ -30,6 +39,7 @@ ApplicationWindow {
             case "MINI":
                 mode = "MINI";
                 history_window.openWindow(geometry.x, geometry.y);
+                //requestHistory();
                 break;
             case "APP":
                 mode = "APP";
@@ -43,6 +53,11 @@ ApplicationWindow {
 
     function setMode(_mode) {
         mode = _mode;
+    }
+
+    FontLoader {
+        id: fontAwesome
+        source: "fonts/fontawesome-webfont.ttf"
     }
 
     MiniWindow {
@@ -74,19 +89,6 @@ ApplicationWindow {
         onClicked: {
             console.log(qsTr('Clicked on background. Text: "' + textEdit.text + '"'))
         }
-    }
-
-    TextEdit {
-        id: textEdit
-        text: qsTr("Fukurou Downloader")
-        anchors.left: parent.left
-        anchors.leftMargin: 15
-        anchors.top: parent.top
-        anchors.topMargin: 15
-        font.pointSize: 17
-        font.underline: true
-        verticalAlignment: Text.AlignVCenter
-        anchors.horizontalCenter: parent.horizontalCenter
     }
 
     Column {

@@ -38,6 +38,17 @@ class History(base):
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
 
 
+class Folders(base):
+    __tablename__ = "folders"
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    name = sqlalchemy.Column(sqlalchemy.Text)
+    uid = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+    path = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
+    color = sqlalchemy.Column(sqlalchemy.Text)
+    order = sqlalchemy.Column(sqlalchemy.Integer)
+    type = sqlalchemy.Column(sqlalchemy.Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
+
+
 def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):

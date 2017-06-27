@@ -1,4 +1,5 @@
 import os
+import random
 import hashlib
 from sqlalchemy.engine import ResultProxy
 from typing import List
@@ -29,3 +30,7 @@ class Utils():
     def generate_sha_hash(filepath) -> str:
         with open(filepath, 'rb') as f:
             return hashlib.sha1(f.read()).hexdigest()
+
+    @staticmethod
+    def random_color() -> str:
+        return "#%06x" % random.randint(0, 0xFFFFFF)
