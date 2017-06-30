@@ -2,7 +2,7 @@ import QtQuick 2.7
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.1
-import QtQuick.Controls.Material 2.1
+//import QtQuick.Controls.Material 2.1
 import QtQuick.Layouts 1.1
 
 
@@ -26,8 +26,10 @@ ApplicationWindow {
 
     signal requestHistory(int limit)
     signal receiveHistory(var items)
+    signal requestFolders
+    signal receiveFolders(var items)
+    signal createFavFolder(string name, string path, string color, int type)
     signal onWindowClose
-    signal createFavFolder(string name, string path, string color)
 
     function closeWindows() {
         hide();

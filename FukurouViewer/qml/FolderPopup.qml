@@ -15,6 +15,11 @@ Window {
         }
     }
 
+    function clearValues() {
+        nameInput.text = "";
+        folderInput.text = "";
+    }
+
     MouseArea {
         anchors.fill: parent
         propagateComposedEvents: true
@@ -42,12 +47,12 @@ Window {
         Text {
             text: "Add Favorite Folder"
             font.family: "Verdana"
+            font.pointSize: 17
+            color: theme.foreground
             anchors.top: parent.top
-            anchors.topMargin: 8
+            anchors.topMargin: 6
             anchors.left: parent.left
             anchors.leftMargin: 14
-            font.pointSize: 14
-            color: theme.foreground
         }
     }
 
@@ -203,13 +208,15 @@ Window {
             selectMultiple: false
             onAccepted: {
                 var path = fileDialog.fileUrl.toString();
-                console.log(path);
+                //console.log(path);
                 // remove prefixed "file:///"
                 path = path.replace(/^(file:\/{3})/,"");
                 // unescape html codes like '%23' for '#'
                 var cleanPath = decodeURIComponent(path);
-                folderInput.text = cleanPath
-                console.log(cleanPath)
+                folderInput.text = cleanPath;
+                if(nameInput.text === "") {
+                    nameInput.text = cleanPath.replace(/\\/g,'/').replace(/.*\//, '');
+                }
             }
             onRejected: {
                 console.log("Canceled")
@@ -239,15 +246,18 @@ Window {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    colorDialog.visible = true
+                    colorDialog.color = colorField.color;
+                    colorDialog.open();
                 }
             }
         }
 
         ColorDialog {
             id: colorDialog
-            visible: false
+            //visible: false
             title: "Please choose a color"
+            //color: "red"
+            showAlphaChannel: false
             onAccepted: {
                 console.log("You chose: " + colorDialog.color)
                 colorField.color = colorDialog.color;
@@ -304,7 +314,8 @@ Window {
                 anchors.fill: parent
                 hoverEnabled: true
                 onClicked: {
-                    mainWindow.createFavFolder(nameInput.text, folderInput.text, colorField.color);
+                    mainWindow.createFavFolder(nameInput.text, folderInput.text, colorField.color, 2);
+                    clearValues();
                     newFolderWindow.close();
                 }
             }
@@ -345,6 +356,7 @@ Window {
                 anchors.fill: parent
                 hoverEnabled: true
                 onClicked: {
+                    clearValues();
                     newFolderWindow.close();
                 }
             }

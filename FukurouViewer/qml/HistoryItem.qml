@@ -2,7 +2,7 @@ import QtQuick 2.0
 
 
 Component {
-    id: historyDelegateItem
+    id: root
     Rectangle {
         height: 50
         anchors.right: parent.right
@@ -33,6 +33,7 @@ Component {
             sourceSize.height: parent.height - 10
             source: "image://fukurou/" + id
         }
+
         Rectangle {
             height: 1
             color: theme.background

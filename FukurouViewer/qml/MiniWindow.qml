@@ -3,6 +3,7 @@ import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Layouts 1.1
 import QtQuick.Controls 2.1
+import QtQuick.Controls 1.4
 import QtQuick.Controls.Styles 1.4
 
 import "controls" as Awesome
@@ -16,6 +17,7 @@ Window {
 
     Component.onCompleted: {
         mainWindow.receiveHistory.connect(setHistory);
+        mainWindow.receiveFolders.connect(setFolders);
         mainWindow.onWindowClose.connect(closeWindow);
     }
 
@@ -44,7 +46,13 @@ Window {
         for(var i = 0; i < items.length; ++i) {
             historyModel.append(items[i]);
         }
-        //historyModel.append({"itemtype": "end"})
+    }
+
+    function setFolders(items) {
+        foldersModel.clear();
+        for(var i = 0; i < items.length; ++i) {
+            foldersModel.append(items[i]);
+        }
     }
 
     // dont need this here.  only to view in qtcreator design
@@ -84,22 +92,23 @@ Window {
             TextIconButton {
                 id: viewFolderList
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                ToolTip.text: qsTr("View favorite folders")
+                ToolTip.text: qsTr("Add new folder")
                 fontFamily: fontAwesome.name
-                buttonText: "\uf07c"
+                buttonText: "\uf067"
+                verticalOffset: 1
                 mouseArea.onClicked: {
-                    console.log("Viewing folders");
+                    folderPopup.visible = true;
                 }
             }
 
             TextIconButton {
                 id: addNewFavFolder
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                ToolTip.text: qsTr("Add new save folder")
+                ToolTip.text: qsTr("Open settings menu")
                 fontFamily: fontAwesome.name
-                buttonText: "\uf067"
+                buttonText: "\uf013"
                 mouseArea.onClicked: {
-                    folderPopup.visible = true;
+                    console.log("opening settings");
                 }
             }
         }
@@ -110,27 +119,62 @@ Window {
         visible: false
     }
 
-    ListView {
-        id: historyView
+
+    TabView {
+        id: tabs
+        anchors.topMargin: 0
         anchors.top: topBar.bottom
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.left: parent.left
-        anchors.topMargin: 0
-        model: historyModel
-        //enabled: false
-        ScrollBar.vertical: ScrollBar {
-            id: historyScrollbar
-            //policy: ScrollBar.AlwaysOn    Qt 5.9
+
+        Tab {
+            title: "History"
+            ListView {
+                id: historyView
+                anchors.fill: parent
+                model: historyModel
+                interactive: false
+                //enabled: false
+                ScrollBar.vertical: ScrollBar {
+                  //  id: historyScrollbar
+                    //policy: ScrollBar.AlwaysOn    Qt 5.9
+                }
+                delegate: HistoryItem{}
+                snapMode: ListView.NoSnap
+                footer: seeMoreButton
+                clip: true
+            }
         }
-        delegate: HistoryItem{}
-        snapMode: ListView.NoSnap
-        footer: seeMoreButton
-        clip: true
+        Tab {
+            id: foldersTab
+            title: "Folders"
+            onActiveChanged: {
+                if(active) {
+                    mainWindow.requestFolders();
+                }
+            }
+            ListView {
+                id: foldersView
+                anchors.fill: parent
+                model: foldersModel
+                //interactive: false
+
+                ScrollBar.vertical: ScrollBar {
+                  //  id: foldersScrollbar
+                }
+                delegate: FolderItem{}
+                //snapMode: ListView.NoSnap
+                clip: true
+            }
+        }
     }
 
     ListModel {
         id: historyModel
+    }
+    ListModel {
+        id: foldersModel
     }
 
     Component {

@@ -1,6 +1,8 @@
 import os
 import contextlib
 import sqlalchemy
+import migrate
+from migrate.versioning import api
 from threading import Lock
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -8,9 +10,9 @@ from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
 
 DB_NAME = "db.sqlite"
-#DATABASE_FILE = "./" + DB_NAME
 DATABASE_FILE = Utils.fv_path(DB_NAME)
 DATABASE_URI = "sqlite:///" + DATABASE_FILE
+MIGRATE_REPO =  Utils.convert_from_relative_path("migrate_repo/")
 lock = Lock()
 
 
@@ -36,6 +38,8 @@ class History(base):
     type = sqlalchemy.Column(sqlalchemy.Integer, default=1)
     full_path = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
+    folder = sqlalchemy.Column(sqlalchemy.Text)
+    dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
 
 
 class Folders(base):
@@ -53,9 +57,13 @@ def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):
         base.metadata.create_all(engine)
-        #api.version_control(DATABASE_URI, MIGRATE_REPO, version=api.version(MIGRATE_REPO))
-    #else:
-        # version migrate
+        api.version_control(DATABASE_URI, MIGRATE_REPO, version=api.version(MIGRATE_REPO))
+    else:
+        try:
+            api.version_control(DATABASE_URI, MIGRATE_REPO, version=1)
+        except migrate.DatabaseAlreadyControlledError:
+            pass
+    api.upgrade(DATABASE_URI, MIGRATE_REPO)
 
 
 @contextlib.contextmanager

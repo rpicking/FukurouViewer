@@ -13,7 +13,7 @@ import subprocess
 from bs4 import BeautifulSoup
 from time import time
 from threading import Thread
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from mimetypes import guess_extension
 
 
@@ -33,13 +33,13 @@ class Host(Logger):
     def process_message(self, msg):
         task = msg.get('task')
         if task == 'sync':  # extension requested sync info to be sent
-            #self.create_folder("C:/Users/Robert/Sync/New folder")
             payload = {'task': 'sync'}
-            payload['folders'] = Config.folder_options
+            #payload['folders'] = Config.folder_options
+            with user_database.get_session(self, acquire=True) as session:
+                payload['folders'] = Utils.convert_result(session.execute(
+                    select([user_database.Folders]).order_by(user_database.Folders.order)))
 
             return payload
-            #self.send_message(payload)
-            #return
 
         elif task == 'edit':
             folders = json.loads(msg.get('folders'))
@@ -111,7 +111,7 @@ class Host(Logger):
 
         elif task == 'saveManga':
             self.debug("--- Downloading Manga ---")
-            urls = json.loads(msg.get('urls'))
+            urls = [msg.get('url')]
 
             urls = [Config.doujin_downloader] + urls
             urls.append("nogui")
@@ -131,40 +131,31 @@ class Host(Logger):
 
                 # process message from extension
                 self.logger.debug("--- Starting Download ---")
-                folder = msg.get('folder')
-                self.logger.debug(folder)
-                folder_options = Config.folder_options.get(folder)
-                dir = folder_options.get('path')
-                self.logger.debug(dir)
-                srcUrl = msg.get('srcUrl')
-                self.logger.debug(srcUrl)
-                pageUrl = msg.get('pageUrl')
-                self.logger.debug(pageUrl)
-                comicLink = msg.get('comicLink')
-                self.logger.debug(comicLink)
-                comicName = msg.get('comicName')
-                self.logger.debug(comicName)
-                comicPage = msg.get('comicPage')
-                self.logger.debug(comicPage)
-                artist = msg.get('artist')
-                self.logger.debug(artist)
+                folder = {} 
+                with user_database.get_session(self, acquire=True) as session:
+                    folder = Utils.convert_result(session.execute(
+                        select([user_database.Folders]).where(user_database.Folders.uid == msg.get('uid'))))[0]
+
                 for item in msg.get('cookies'):
                     cookies[item[0]] = item[1]
 
+                # currently unused
+                comicLink = msg.get('comicLink')
+                comicName = msg.get('comicName')
+                comicPage = msg.get('comicPage')
+                artist = msg.get('artist')
+
 
                 # DOWNLOAD FAVICON IS FIRST BECAUSE OF UNKNOWN TIMEOUT ERROR IF AFTER FILE DOWNLOAD FIX BY MOVING DOWNLOAD TO OWN CLASS
-                domain = msg.get('domain')
-                favicon_url = msg.get('favicon_url')
-                favicon = os.path.join(self.FAVICON_PATH, domain + ".ico")
-                self.logger.info(favicon_url)
+                favicon = os.path.join(self.FAVICON_PATH, msg.get('domain') + ".ico")
                 if not os.path.exists(favicon):
-                    icon = requests.get(favicon_url, headers=headers, cookies=cookies, timeout=10)
+                    icon = requests.get(msg.get('favicon_url'), headers=headers, cookies=cookies, timeout=10)
                     with open(favicon, "wb") as f:
                         for chunk in icon:
                             f.write(chunk)
 
 
-                r = requests.get(srcUrl, headers=headers, cookies=cookies, timeout=10, stream=True)
+                r = requests.get(msg.get('srcUrl'), headers=headers, cookies=cookies, timeout=10, stream=True)
                 #headers = r.headers
 
                 # get filename
@@ -173,7 +164,7 @@ class Host(Logger):
                     if len(contdisp) > 0:
                         filename = contdisp[0]
                 if not filename:    # still havn't gotten filename
-                    filename = srcUrl.split('/')[-1]   # get filename from srcUrl
+                    filename = msg.get('srcUrl').split('/')[-1]   # get filename from srcUrl
                     filename = filename.split('?')[0]   # strip query string parameters
                     filename = filename.split('#')[0]   # strip anchor
 
@@ -185,12 +176,12 @@ class Host(Logger):
                 filename, ext = os.path.splitext(filename)
                 if not ext:
                     ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
-                filepath = os.path.join(dir, ''.join((filename, ext)))
+                filepath = os.path.join(folder.get("path"), ''.join((filename, ext)))
 
                 # check and rename if file already exists
                 count = 1
                 while os.path.isfile(filepath):
-                    filepath = os.path.join(dir, ''.join((filename, ' (', str(count), ')', ext)))
+                    filepath = os.path.join(folder.get("path"), ''.join((filename, ' (', str(count), ')', ext)))
                     count += 1
 
                 # Download file
@@ -208,25 +199,25 @@ class Host(Logger):
                     result = session.execute(insert(user_database.History).values(
                         {
                             "filename": os.path.basename(filepath),
-                            "src_url": srcUrl,
+                            "src_url": msg.get('srcUrl'),
                             "page_url": msg.get('pageUrl'),
-                            "domain": domain,
+                            "domain": msg.get('domain'),
                             "time_added": time(),
                             "full_path": filepath,
-                            "favicon_url": favicon_url
+                            "favicon_url": msg.get('favicon_url')
                         }))
 
                 # send successful download response to extension
                 payload = {'task': 'save', 
                            'type': 'success',
                            'filename': os.path.basename(filepath),
-                           'srcUrl': srcUrl,
-                           'pageUrl': pageUrl,
-                           'folder': folder }
+                           'srcUrl': msg.get('srcUrl'),
+                           'pageUrl': msg.get('pageUrl'),
+                           'folder': folder.get("name") }
                 return payload
 
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-                self.logger.error("Request for " + srcUrl + " timed out. ")
+                self.logger.error("Request for " + msg.get('srcUrl') + " timed out. ")
                 self.logger.error(e)
                 if os.path.isfile(filepath):
                     os.remove(filepath)
@@ -268,37 +259,6 @@ class Host(Logger):
             return '.jpg'
         return ext
 
-    # creates folder entry in configs
-    def create_folder(self, path, name=''):
-        if not name:
-            name = os.path.basename(path)
-        path = Utils.norm_path(path)
-        folders = Config.folders
-
-        # check if folder already exists, change name if necessary
-        if path in folders:
-            folder_options = Config.folder_options
-            for item in folder_options:
-                if path in folder_options.get(item).values():
-                    folder_options[name] = folder_options.pop(item)
-                    Config.folder_options = folder_options
-                    Config.save()
-                    return
-
-        # sets folders config setting
-        folders.append(path)
-        Config.folders = folders
-
-        folder_options = Config.folder_options
-
-        # generate unique id for folder
-        uid = self.uniqueId()
-        order = self.uniqueOrder()
-        option = {"path": path, "uid": uid, "order": order}
-        folder_options[name] = option
-        Config.folder_options = folder_options
-
-        Config.save()
 
     # creates unique name for folder
     def uniqueName(self, name, count=0):
@@ -312,30 +272,3 @@ class Host(Logger):
             name = ''.join([name, " (", str(count), ")"])
             return self.uniqueName(name, count)
         return name
-
-    # returns next available order index number starting at 1
-    def uniqueOrder(self):
-        folder_options = Config.folder_options
-        largest = 0
-        for folder in folder_options:
-            curr_order = folder_options.get(folder).get('order')
-            if largest < curr_order:
-                largest = curr_order
-
-        return largest + 1
-
-    # returns a unique id number for folder
-    def uniqueId(self):
-        used_ids = []
-        folder_options = Config.folder_options
-        for folder in folder_options:
-            used_ids.append(folder_options.get(folder).get('uid'))
-
-        while True:
-            id = self.id_generator()
-            if id not in used_ids:
-                return id
-
-    # generates a id string
-    def id_generator(self, size=6, chars=string.ascii_uppercase + string.digits):
-        return ''.join(random.choice(chars) for i in range(size))

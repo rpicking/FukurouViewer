@@ -15,6 +15,11 @@ class Utils():
         return list(map(dict, result))
 
     @classmethod
+    def convert_from_relative_path(cls, path: str = "") -> str:
+        folder = os.path.dirname(__file__)
+        return cls.norm_path(os.path.join(folder, path))
+
+    @classmethod
     def base_path(cls, path: str = "") -> str:
         folder = os.path.dirname(os.path.abspath(__file__))
         return cls.norm_path(os.path.join(folder, path))

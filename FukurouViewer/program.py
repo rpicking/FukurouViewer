@@ -9,6 +9,7 @@ from sqlalchemy import insert, select
 from . import user_database
 from .utils import Utils
 from .config import Config
+from .foundation import Foundation
 
 from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
@@ -46,8 +47,31 @@ class FolderMenuItem(QtWidgets.QAction):
 
 
 class ImageProvider(QtQuick.QQuickImageProvider):
+    TMP_DIR = Utils.fv_path("tmp")
+
     def __init__(self):
         QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
+
+    def requestImage(self, id, requestedSize):
+        width = requestedSize.width()
+        height = requestedSize.height()
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.History]).where( user_database.History.id == id)))
+
+        path = results[0].get("full_path")
+        if not os.path.exists(path):
+            _, ext = os.path.splitext(path)
+            tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
+            path = tmpfile
+
+        #wat = QtCore.QFileInfo(path)
+        icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
+        pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
+
+        #if tmpfile:
+        grayimage = pixmap.toImage().convertToFormat(QtGui.QImage.Format_Mono)
+        return grayimage, requestedSize
 
     def requestPixmap(self, id, requestedSize):
         width = requestedSize.width()
@@ -57,11 +81,16 @@ class ImageProvider(QtQuick.QQuickImageProvider):
                 select([user_database.History]).where( user_database.History.id == id)))
 
         path = results[0].get("full_path")
-        wat = QtCore.QFileInfo(path)
-        icon = QtWidgets.QFileIconProvider().icon(wat)
-        pixer = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
-        pixer = pixer.scaled(width, height)
-        return pixer, requestedSize
+        if not os.path.exists(path):
+            _, ext = os.path.splitext(path)
+            tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
+            open(tmpfile, 'a').close()
+            path = tmpfile
+
+        icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
+        pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
+        pixmap = pixmap.scaled(width, height)
+        return pixmap, requestedSize
 
 
 class Program(QtWidgets.QApplication):
@@ -69,6 +98,7 @@ class Program(QtWidgets.QApplication):
     QML_DIR = os.path.join(BASE_PATH, "qml")
     THUMB_DIR = Utils.fv_path("thumbs")
     FAVICON_DIR = Utils.fv_path("favicons")
+    TMP_DIR = Utils.fv_path("tmp")  # 2nd definition in imageprovider need to find solution for only 1
     gallery_lock = RLock()
 
     class SortMethodMap(Enum):
@@ -93,10 +123,14 @@ class Program(QtWidgets.QApplication):
             os.makedirs(self.THUMB_DIR)
         if not os.path.exists(self.FAVICON_DIR):
             os.makedirs(self.FAVICON_DIR)
+        if not os.path.exists(self.TMP_DIR):
+            os.makedirs(self.TMP_DIR)
         user_database.setup()     
 
         self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
-        
+
+        Foundation.testfunction()
+
         # HANDLING OF TRAY ICON
         self.w = QtWidgets.QWidget()
         self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
@@ -119,7 +153,7 @@ class Program(QtWidgets.QApplication):
             self.start_application()
 
         self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
- 
+
         #load configs HERE
 
     
@@ -138,30 +172,44 @@ class Program(QtWidgets.QApplication):
 
             # SIGNALS
             self.app_window.requestHistory.connect(self.send_history)
+            self.app_window.requestFolders.connect(self.send_folders)
             self.app_window.createFavFolder.connect(self.add_folder)
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
     # sends limit number of history entries newest first to ui
     def send_history(self, limit):
+        self.history_health_check()
         with user_database.get_session(self, acquire=True) as session:
             if not limit:
                 results = Utils.convert_result(session.execute(
                     select([user_database.History]).order_by(user_database.History.time_added.desc())))
             else:
                 results = Utils.convert_result(session.execute(
-                        select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(limit)))
+                    select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(limit)))
             self.app_window.receiveHistory.emit(results)
 
+    # checks health of files in history table changing to dead if no longer exists
+    def history_health_check(self):
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.History]).order_by(user_database.History.time_added.desc())))
+
+            for item in results:
+                if not os.path.exists(item.get("full_path")):
+                    print("SET DEAD TO TRUE")
+
+    # sends folders list to ui
+    def send_folders(self):
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Folders]).order_by(user_database.Folders.order)))
+            self.app_window.receiveFolders.emit(results)
+
     # add new folder entry into database
-    def add_folder(self, name, path, color, order=-1, type=0):
-        if not name:
-            print("get name from path")
-
-        uid = "BUTTS" #generate it here
-
-        if order == -1:
-            print("set order as last")
+    def add_folder(self, name, path, color, type):
+        uid = Foundation.uniqueId()
+        order = Foundation.lastOrder()
 
         with user_database.get_session(self) as session:
             session.execute(insert(user_database.Folders).values(
