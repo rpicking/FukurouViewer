@@ -1,18 +1,22 @@
 import QtQuick 2.0
+import QtGraphicalEffects 1.0
+import QtQuick.Controls 2.1
 
-
+//Item {
 Component {
     id: root
     Rectangle {
+        id: rectangle
         height: 50
         anchors.right: parent.right
-        anchors.rightMargin: 15
+        anchors.rightMargin: 19
         anchors.left: parent.left
         anchors.leftMargin: 0
         //border.width: 1
 
         Text {
             text: filename
+            font.strikeout: model.dead
             anchors.left: parent.left
             anchors.leftMargin: 10
             anchors.right: thumbnail.left
@@ -22,26 +26,58 @@ Component {
         }
 
         Image {
-            anchors.top: parent.top
-            anchors.topMargin: 5
-            anchors.right: parent.right
-            anchors.rightMargin: 0
             id: thumbnail
+            height: parent.height - 20
+            width: parent.height - 20
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: closeButton.left
+            anchors.rightMargin: 0
             //anchors.fill: parent
             //fillMode: Image.Stretch
-            sourceSize.width: parent.height - 10
-            sourceSize.height: parent.height - 10
+            sourceSize.width: height
+            sourceSize.height: width
             source: "image://fukurou/" + id
         }
 
+        Colorize {
+            visible: model.dead
+            anchors.fill: thumbnail
+            source: thumbnail
+            hue: 0.0
+            saturation: 0.0
+            lightness: 0.0
+        }
+
+        TextIconButton {
+            id: closeButton
+            fontFamily: fontAwesome.name
+            buttonText: "\uf00d"
+            textField.font.pointSize: 16
+            textField.color: mouseArea.containsMouse ? "#919191" : "#cecece"
+            ToolTip.visible: mouseArea.containsMouse
+            ToolTip.text: qsTr("Remove item from list")
+            ToolTip.delay: 1000
+            anchors.right: parent.right
+            anchors.rightMargin: 0
+            anchors.verticalCenter: parent.verticalCenter
+            verticalOffset: -1
+
+            mouseArea.onClicked: {
+                console.log(model.id);
+                mainWindow.deleteHistoryItem(model.id);
+            }
+        }
+
         Rectangle {
+            id: bottomLine
             height: 1
             color: theme.background
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.leftMargin: 15
-            anchors.right: thumbnail.right
+            anchors.right: closeButton.right
             anchors.rightMargin: 5
         }
+
     }
 }

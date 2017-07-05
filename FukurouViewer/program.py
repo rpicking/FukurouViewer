@@ -4,7 +4,7 @@ import time
 import argparse
 from enum import Enum
 from threading import RLock
-from sqlalchemy import insert, select
+from sqlalchemy import delete, insert, select, update
 
 from . import user_database
 from .utils import Utils
@@ -67,7 +67,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
 
         #wat = QtCore.QFileInfo(path)
         icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
-        pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
+        pixmap = icon.pixmap(icon.availableSizes()[-1]) # make pixmap out of largest icon size
 
         #if tmpfile:
         grayimage = pixmap.toImage().convertToFormat(QtGui.QImage.Format_Mono)
@@ -89,7 +89,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
 
         icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
         pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
-        pixmap = pixmap.scaled(width, height)
+        pixmap = pixmap.scaled(width, height, transformMode=QtCore.Qt.SmoothTransformation)
         return pixmap, requestedSize
 
 
@@ -117,6 +117,9 @@ class Program(QtWidgets.QApplication):
         self.version = "0.2.0"
     
         self.setQuitOnLastWindowClosed(False)
+        self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
+
 
     def setup(self, args):
         if not os.path.exists(self.THUMB_DIR):
@@ -126,10 +129,6 @@ class Program(QtWidgets.QApplication):
         if not os.path.exists(self.TMP_DIR):
             os.makedirs(self.TMP_DIR)
         user_database.setup()     
-
-        self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
-
-        Foundation.testfunction()
 
         # HANDLING OF TRAY ICON
         self.w = QtWidgets.QWidget()
@@ -152,10 +151,6 @@ class Program(QtWidgets.QApplication):
         else:
             self.start_application()
 
-        self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
-
-        #load configs HERE
-
     
     def start_application(self, mode="MINI"):
         try:
@@ -174,11 +169,14 @@ class Program(QtWidgets.QApplication):
             self.app_window.requestHistory.connect(self.send_history)
             self.app_window.requestFolders.connect(self.send_folders)
             self.app_window.createFavFolder.connect(self.add_folder)
+            self.app_window.requestValidFolder.connect(self.set_folder_access)
+            self.app_window.deleteHistoryItem.connect(self.delete_history_item)
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
+
     # sends limit number of history entries newest first to ui
-    def send_history(self, limit):
+    def send_history(self, limit=0):
         self.history_health_check()
         with user_database.get_session(self, acquire=True) as session:
             if not limit:
@@ -189,6 +187,7 @@ class Program(QtWidgets.QApplication):
                     select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(limit)))
             self.app_window.receiveHistory.emit(results)
 
+
     # checks health of files in history table changing to dead if no longer exists
     def history_health_check(self):
         with user_database.get_session(self, acquire=True) as session:
@@ -197,7 +196,17 @@ class Program(QtWidgets.QApplication):
 
             for item in results:
                 if not os.path.exists(item.get("full_path")):
-                    print("SET DEAD TO TRUE")
+                    session.execute(update(user_database.History).where(
+                        user_database.History.id == item.get("id")).values(
+                        { "dead": True }))
+
+
+    # delete history item
+    def delete_history_item(self, id):
+        with user_database.get_session(self, acquire=True) as session:
+            session.execute(delete(user_database.History).where(user_database.History.id == id))
+        self.send_history()
+
 
     # sends folders list to ui
     def send_folders(self):
@@ -205,6 +214,7 @@ class Program(QtWidgets.QApplication):
             results = Utils.convert_result(session.execute(
                 select([user_database.Folders]).order_by(user_database.Folders.order)))
             self.app_window.receiveFolders.emit(results)
+
 
     # add new folder entry into database
     def add_folder(self, name, path, color, type):
@@ -221,6 +231,15 @@ class Program(QtWidgets.QApplication):
                     "order": order,
                     "type": type
                 })) 
+
+
+    def set_folder_access(self, path: str):
+        if os.path.exists(path):
+            valid = os.access(path, os.R_OK | os.W_OK)
+            self.app_window.receiveValidFolder.emit(valid)
+        else:
+            self.app_window.receiveValidFolder.emit(False)
+
 
     # open application window
     def open(self):

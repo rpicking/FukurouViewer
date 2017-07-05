@@ -41,10 +41,3 @@ class Foundation(Logger):
                 return 1
             return max([x['order'] for x in values]) + 1
 
-    @classmethod
-    def testfunction(cls):
-        payload = {'task': 'sync'}
-        with user_database.get_session(cls, acquire=True) as session:
-                payload['folders'] = Utils.convert_result(session.execute(
-                    select([user_database.Folders])))
-                print("HAY")

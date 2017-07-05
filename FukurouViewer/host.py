@@ -13,7 +13,7 @@ import subprocess
 from bs4 import BeautifulSoup
 from time import time
 from threading import Thread
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from mimetypes import guess_extension
 
 
@@ -34,76 +34,47 @@ class Host(Logger):
         task = msg.get('task')
         if task == 'sync':  # extension requested sync info to be sent
             payload = {'task': 'sync'}
-            #payload['folders'] = Config.folder_options
             with user_database.get_session(self, acquire=True) as session:
                 payload['folders'] = Utils.convert_result(session.execute(
-                    select([user_database.Folders]).order_by(user_database.Folders.order)))
+                    select([user_database.Folders.name, user_database.Folders.uid]).order_by(user_database.Folders.order)))
+                #payload['folders'] = Utils.convert_result(session.execute(
+                 #   select([user_database.Folders]).order_by(user_database.Folders.order)))
 
             return payload
 
         elif task == 'edit':
             folders = json.loads(msg.get('folders'))
-            folder_options = Config.folder_options
-            count = 0
-            total = 0
 
             for folder in folders:
-                total += len(folder.keys())
-                uid = folder.get('uid')
                 name = folder.get('name', "")
                 order = folder.get('order', "")
 
-                if name:    # renaming folder
-                    self.logger.debug("renaming folder with uid: " + uid + " to: " + name)
-                    for item in folder_options:
-                        if uid in folder_options.get(item).values():
-                            name = self.uniqueName(name)
-                            count += 1
-                            folder_options[name] = folder_options.pop(item)
-                            break
-                if order:   # changing folder order
-                    self.logger.debug("changing order of folder: " + uid + " to order: " + str(order))
-                    for item in folder_options:
-                        if uid in folder_options.get(item).values():
-                            count += 1
-                            folder_options[item]["order"] = order
-                            break
+                values = {}
+                if name:
+                    values['name'] = name
+                if order:
+                    values['order'] = order
 
-            # if all edits have been made
-            if count == total - len(folders):
-                Config.folder_options = folder_options
-                Config.save()
-                return {'task': 'edit', 'type': 'success'}
-            return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
+                try:
+                    with user_database.get_session(self, acquire=True) as session:
+                            session.execute(update(user_database.Folders).where(
+                                user_database.Folders.uid == folder.get('uid')).values(values))
+                except Exception as e:
+                    self.log_exception()
+                    return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
+            return {'task': 'edit', 'type': 'success'}
 
         elif task == 'delete':
             try:
                 folders = json.loads(msg.get('folders'))
-                save_folders = Config.folders
-                folder_options = Config.folder_options
-                count = 0
-                total = len(folders)
 
                 for folder in folders:
-                    uid = folder.get('uid')
+                    #uid = folder.get('uid')
                     self.logger.debug("deleting folder with uid: " + uid)
 
-                    for item in folder_options:
-                        if uid in folder_options.get(item).values():
-                            count += 1
-                            name = item
-                            path = folder_options[item].get('path')
-                            save_folders.remove(path)
-                            folder_options.pop(item)
-                            break
-
-                # if all deletes have been made
-                if count == total:
-                    Config.folders = save_folders
-                    Config.folder_options = folder_options
-                    Config.save()
+                    with user_database.get_session(self) as session:
+                        session.execute(delete(user_database.Folders).where(user_database.Folders.uid == folder.get('uid')))
                     return {'type': 'success', 'task': 'delete', 'name': name, 'uid': uid}
-                return {'type': 'error', 'msg': 'not all folders deleted'}
 
             except Exception as e:
                 self.log_exception()

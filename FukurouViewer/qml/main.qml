@@ -4,6 +4,7 @@ import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.1
 //import QtQuick.Controls.Material 2.1
 import QtQuick.Layouts 1.1
+import Qt.labs.settings 1.0
 
 
 ApplicationWindow {
@@ -22,6 +23,13 @@ ApplicationWindow {
         property string highlighted: "#AD4648"
     }
 
+    Settings {
+        property alias x: mainWindow.x
+        property alias y: mainWindow.y
+        property alias width: mainWindow.width
+        property alias height: mainWindow.height
+    }
+
     property string mode: "NONE"
 
     signal requestHistory(int limit)
@@ -30,6 +38,9 @@ ApplicationWindow {
     signal receiveFolders(var items)
     signal createFavFolder(string name, string path, string color, int type)
     signal onWindowClose
+    signal requestValidFolder(string path)
+    signal receiveValidFolder(bool valid)
+    signal deleteHistoryItem(int id)
 
     function closeWindows() {
         hide();

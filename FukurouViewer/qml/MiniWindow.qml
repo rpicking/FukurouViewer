@@ -28,10 +28,9 @@ Window {
     }
 
     function openWindow(_x, _y) {
-        show();
         x = _x - width;
         y = _y - height;
-        // mainWindow.requestHistory();
+        show();
         requestActivate();
         mainWindow.requestHistory(0);   //0 = get all history
         //console.log(active);
@@ -92,6 +91,7 @@ Window {
             TextIconButton {
                 id: viewFolderList
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                ToolTip.visible: this.mouseArea.containsMouse
                 ToolTip.text: qsTr("Add new folder")
                 fontFamily: fontAwesome.name
                 buttonText: "\uf067"
@@ -104,6 +104,7 @@ Window {
             TextIconButton {
                 id: addNewFavFolder
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                ToolTip.visible: this.mouseArea.containsMouse
                 ToolTip.text: qsTr("Open settings menu")
                 fontFamily: fontAwesome.name
                 buttonText: "\uf013"
@@ -134,7 +135,7 @@ Window {
                 id: historyView
                 anchors.fill: parent
                 model: historyModel
-                interactive: false
+                interactive: true
                 //enabled: false
                 ScrollBar.vertical: ScrollBar {
                   //  id: historyScrollbar

@@ -29,6 +29,7 @@ Database = UserDatabase()
 
 class History(base):
     __tablename__ = "history"
+
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     filename = sqlalchemy.Column(sqlalchemy.Text)
     src_url = sqlalchemy.Column(sqlalchemy.Text)
@@ -44,6 +45,7 @@ class History(base):
 
 class Folders(base):
     __tablename__ = "folders"
+
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     name = sqlalchemy.Column(sqlalchemy.Text)
     uid = sqlalchemy.Column(sqlalchemy.Text, nullable=False)

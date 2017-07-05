@@ -9,6 +9,12 @@ Window {
     width: 450
     height: 250
 
+    property bool validFolder: true
+
+    Component.onCompleted: {
+        mainWindow.receiveValidFolder.connect(validFolderCheck);
+    }
+
     onVisibleChanged: {
         if(visible){
             colorField.color = Qt.rgba(Math.random(), Math.random(), Math.random(), 1);
@@ -20,6 +26,11 @@ Window {
         folderInput.text = "";
     }
 
+    function validFolderCheck(valid) {
+        validFolder = valid;
+        validFolderField.visible = true;
+    }
+
     MouseArea {
         anchors.fill: parent
         propagateComposedEvents: true
@@ -27,6 +38,7 @@ Window {
 
         onPressed: {
             clickPos  = Qt.point(mouse.x,mouse.y)
+            header.forceActiveFocus();
         }
 
         onPositionChanged: {
@@ -144,6 +156,38 @@ Window {
         }
 
         Rectangle {
+            id: validFolderField
+            x: 80
+            y: 40
+            width: 30
+            height: 30
+            color: "#ffffff"
+            visible: false
+            anchors.verticalCenter: folderField.verticalCenter
+            anchors.right: parent.right
+            anchors.rightMargin: 0
+
+            onVisibleChanged: {
+                if(visible) {
+                    folderField.state = "containsText"
+                }
+                else {
+                    folderField.state = "default"
+                }
+            }
+
+            Text {
+                text: validFolder ? "\uf058" : "\uf057"
+                color: validFolder ? "green" : "red"
+                font.family: fontAwesome.name
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+                anchors.fill: parent
+                font.pixelSize: 20
+            }
+        }
+
+        Rectangle {
             id: folderField
             height: 30
             anchors.top: nameField.bottom
@@ -165,6 +209,24 @@ Window {
                 }
             }
 
+            states: [
+                State {
+                    name: "default"
+                    AnchorChanges { target: folderField; anchors.right: parent.right }
+                },
+                State {
+                    name:"containsText"
+                    AnchorChanges { target: folderField; anchors.right: validFolderField.left }
+                }
+            ]
+
+            transitions: Transition {
+                AnchorAnimation {
+                    easing.type: Easing.OutQuad
+                    duration: 250
+                }
+            }
+
             TextInput {
                 id: folderInput
                 anchors.leftMargin: 5
@@ -176,6 +238,17 @@ Window {
                 font.family: "Verdana"
                 font.pixelSize: 16
                 persistentSelection: true
+
+                onActiveFocusChanged: {
+                    if(!activeFocus) {
+                        if(text !== "") {
+                            mainWindow.requestValidFolder(folderInput.text);
+                        }
+                        else {
+                            validFolderField.visible = false;
+                        }
+                    }
+                }
 
                 Menu {
                     id: menu
@@ -199,6 +272,7 @@ Window {
             }
         }
 
+
         FileDialog {
             id: fileDialog
             title: "Please choose a folder"
@@ -217,6 +291,7 @@ Window {
                 if(nameInput.text === "") {
                     nameInput.text = cleanPath.replace(/\\/g,'/').replace(/.*\//, '');
                 }
+                mainWindow.requestValidFolder(folderInput.text);
             }
             onRejected: {
                 console.log("Canceled")
@@ -267,6 +342,8 @@ Window {
             }
             //Component.onCompleted: visible = true
         }
+
+
     }
 
     Rectangle {

@@ -4,7 +4,6 @@ import hashlib
 from sqlalchemy.engine import ResultProxy
 from typing import List
 
-
 class Utils():
     """Utility functions for FukurouViewer application
 
@@ -33,7 +32,7 @@ class Utils():
         return os.path.normpath(os.path.expanduser(path))
 
     @staticmethod
-    def generate_sha_hash(filepath) -> str:
+    def generate_sha_hash(filepath: str) -> str:
         with open(filepath, 'rb') as f:
             return hashlib.sha1(f.read()).hexdigest()
 
