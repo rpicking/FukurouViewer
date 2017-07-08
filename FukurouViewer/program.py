@@ -171,6 +171,7 @@ class Program(QtWidgets.QApplication):
             self.app_window.createFavFolder.connect(self.add_folder)
             self.app_window.requestValidFolder.connect(self.set_folder_access)
             self.app_window.deleteHistoryItem.connect(self.delete_history_item)
+            self.app_window.updateFolders.connect(self.update_folders)
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
@@ -233,12 +234,25 @@ class Program(QtWidgets.QApplication):
                 })) 
 
 
+    # updates ui indicator if folder path is accessable
     def set_folder_access(self, path: str):
         if os.path.exists(path):
             valid = os.access(path, os.R_OK | os.W_OK)
             self.app_window.receiveValidFolder.emit(valid)
         else:
             self.app_window.receiveValidFolder.emit(False)
+
+
+    # update order of folders
+    def update_folders(self, folders):
+        folders = folders.toVariant()
+        with user_database.get_session(self) as session:
+            for folder in folders:
+                session.execute(update(user_database.Folders).where(
+                    user_database.Folders.id == folder.get("id")).values(
+                        {
+                            "order": folder.get("order")
+                        }))
 
 
     # open application window

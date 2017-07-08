@@ -33,6 +33,7 @@ Window {
         show();
         requestActivate();
         mainWindow.requestHistory(0);   //0 = get all history
+        mainWindow.requestFolders();
         //console.log(active);
     }
 
@@ -42,7 +43,20 @@ Window {
 
     function setHistory(items) {
         historyModel.clear();
+
+        var monthNames = [
+            "January", "February", "March",
+            "April", "May", "June", "July",
+            "August", "September", "October",
+            "November", "December"
+        ];
+
         for(var i = 0; i < items.length; ++i) {
+            var d = new Date(items[i].time_added * 1000);
+            var month = monthNames[d.getMonth()];
+            var day = d.getDate();
+            var year = d.getFullYear();
+            items[i]["date"] = month + ' ' + day + ', ' + year
             historyModel.append(items[i]);
         }
     }
@@ -131,42 +145,52 @@ Window {
 
         Tab {
             title: "History"
-            ListView {
-                id: historyView
-                anchors.fill: parent
-                model: historyModel
-                interactive: true
-                //enabled: false
-                ScrollBar.vertical: ScrollBar {
-                  //  id: historyScrollbar
-                    //policy: ScrollBar.AlwaysOn    Qt 5.9
+            ScrollView {
+                ListView {
+                    id: historyView
+                    anchors.fill: parent
+                    model: historyModel
+                    interactive: true
+                    //enabled: false
+                    delegate: HistoryItem{}
+                    section.property: "date"
+                    section.criteria: ViewSection.FullString
+                    section.delegate: sectionHeading
+                    snapMode: ListView.NoSnap
+                    footer: seeMoreButton
+                    clip: true
                 }
-                delegate: HistoryItem{}
-                snapMode: ListView.NoSnap
-                footer: seeMoreButton
-                clip: true
             }
         }
         Tab {
             id: foldersTab
             title: "Folders"
-            onActiveChanged: {
-                if(active) {
-                    mainWindow.requestFolders();
+
+            ScrollView {
+                anchors.fill: parent
+                ListView {
+                    id: folderView
+
+                    model: foldersModel
+                    delegate: FolderItem {}
+
+
                 }
             }
-            ListView {
-                id: foldersView
-                anchors.fill: parent
-                model: foldersModel
-                //interactive: false
+        }
+    }
 
-                ScrollBar.vertical: ScrollBar {
-                  //  id: foldersScrollbar
-                }
-                delegate: FolderItem{}
-                //snapMode: ListView.NoSnap
-                clip: true
+    Component {
+        id: sectionHeading
+        Rectangle {
+            width: parent.width
+            height: 40
+            color: "lightsteelblue"
+
+            Text {
+                text: section
+                font.bold: true
+                font.pixelSize: 20
             }
         }
     }

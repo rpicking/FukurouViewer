@@ -41,6 +41,7 @@ ApplicationWindow {
     signal requestValidFolder(string path)
     signal receiveValidFolder(bool valid)
     signal deleteHistoryItem(int id)
+    signal updateFolders(var items)
 
     function closeWindows() {
         hide();

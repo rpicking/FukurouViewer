@@ -1,6 +1,7 @@
 import QtQuick 2.0
 import QtGraphicalEffects 1.0
 import QtQuick.Controls 2.1
+//import QtQml 2.2
 
 //Item {
 Component {
@@ -9,7 +10,7 @@ Component {
         id: rectangle
         height: 50
         anchors.right: parent.right
-        anchors.rightMargin: 19
+        anchors.rightMargin: 6
         anchors.left: parent.left
         anchors.leftMargin: 0
         //border.width: 1
@@ -69,14 +70,13 @@ Component {
         }
 
         Rectangle {
-            id: bottomLine
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+            }
             height: 1
-            color: theme.background
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.leftMargin: 15
-            anchors.right: closeButton.right
-            anchors.rightMargin: 5
+            color: "lightgrey"
         }
 
     }
