@@ -38,6 +38,7 @@ Window {
     }
 
     function closeWindow() {
+        topBar.forceActiveFocus();
         hide();
     }
 
@@ -68,11 +69,14 @@ Window {
         }
     }
 
-    // dont need this here.  only to view in qtcreator design
-    /*FontLoader {
-        id: fontAwesome
-        source: "fonts/fontawesome-webfont.ttf"
-    }*/
+    MouseArea {
+        id: mainMouseArea
+        anchors.fill: parent
+        propagateComposedEvents: true
+        onClicked: {
+            topBar.forceActiveFocus();
+        }
+    }
 
     Rectangle {
         id: topBar
@@ -103,7 +107,7 @@ Window {
             }
 
             TextIconButton {
-                id: viewFolderList
+                id: createFavFolder
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 ToolTip.visible: this.mouseArea.containsMouse
                 ToolTip.text: qsTr("Add new folder")
@@ -111,18 +115,33 @@ Window {
                 buttonText: "\uf067"
                 verticalOffset: 1
                 mouseArea.onClicked: {
+                    forceActiveFocus();
                     folderPopup.visible = true;
                 }
             }
 
             TextIconButton {
-                id: addNewFavFolder
+                id: openHistoryButton
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 ToolTip.visible: this.mouseArea.containsMouse
-                ToolTip.text: qsTr("Open settings menu")
+                ToolTip.text: qsTr("Open history page")
+                fontFamily: fontAwesome.name
+                buttonText: "\uf1da"
+                mouseArea.onClicked: {
+                    forceActiveFocus();
+                    console.log("opening settings");
+                }
+            }
+
+            TextIconButton {
+                id: openSettingsButton
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                ToolTip.visible: this.mouseArea.containsMouse
+                ToolTip.text: qsTr("Open settings page")
                 fontFamily: fontAwesome.name
                 buttonText: "\uf013"
                 mouseArea.onClicked: {
+                    forceActiveFocus();
                     console.log("opening settings");
                 }
             }
@@ -143,6 +162,7 @@ Window {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
 
+
         Tab {
             title: "History"
             ScrollView {
@@ -156,6 +176,7 @@ Window {
                     section.property: "date"
                     section.criteria: ViewSection.FullString
                     section.delegate: sectionHeading
+                    spacing: 8
                     snapMode: ListView.NoSnap
                     footer: seeMoreButton
                     clip: true
@@ -184,13 +205,14 @@ Window {
         id: sectionHeading
         Rectangle {
             width: parent.width
-            height: 40
+            height: 30
             color: "lightsteelblue"
 
             Text {
                 text: section
                 font.bold: true
                 font.pixelSize: 20
+                anchors.verticalCenter: parent.verticalCenter
             }
         }
     }

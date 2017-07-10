@@ -42,6 +42,8 @@ ApplicationWindow {
     signal receiveValidFolder(bool valid)
     signal deleteHistoryItem(int id)
     signal updateFolders(var items)
+    signal openItem(string path, string type)
+    signal openUrl(string url)
 
     function closeWindows() {
         hide();

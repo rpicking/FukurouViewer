@@ -10,6 +10,7 @@ Component {
             Text {
                 id: nameField
                 text: model.name
+                wrapMode: Text.WordWrap
                 anchors.top: parent.top
                 anchors.topMargin: 10
                 font.pointSize: 16

@@ -172,6 +172,7 @@ class Program(QtWidgets.QApplication):
             self.app_window.requestValidFolder.connect(self.set_folder_access)
             self.app_window.deleteHistoryItem.connect(self.delete_history_item)
             self.app_window.updateFolders.connect(self.update_folders)
+            self.app_window.openItem.connect(self.open_item)
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
@@ -208,6 +209,24 @@ class Program(QtWidgets.QApplication):
             session.execute(delete(user_database.History).where(user_database.History.id == id))
         self.send_history()
 
+
+    # open history item file in default application or open file explorer to directory
+    def open_item(self, path, type):
+        if type == "file":
+            qurl = QtCore.QUrl.fromLocalFile(path)
+            #QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
+        elif type == "folder":
+            qurl = QtCore.QUrl.fromLocalFile(os.path.dirname(os.path.abspath(path)))
+            #QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
+        elif type == "url":
+            qurl = QtCore.QUrl(path)
+            #QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+        QtGui.QDesktopServices.openUrl(qurl)
+
+
+    # open url in default browser
+    def open_url(self, url):
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
     # sends folders list to ui
     def send_folders(self):

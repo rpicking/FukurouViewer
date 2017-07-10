@@ -8,6 +8,7 @@ Window {
     flags: Qt.FramelessWindowHint //| Qt.WindowStaysOnTopHint
     width: 450
     height: 250
+    modality: Qt.WindowModal
 
     property bool validFolder: true
 
