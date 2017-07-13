@@ -81,13 +81,13 @@ class Host(Logger):
                 return {'task': 'delete', 'type': 'crash'}
 
         elif task == 'saveManga':
-            self.debug("--- Downloading Manga ---")
-            urls = [msg.get('url')]
+            self.logger.debug("--- Downloading Manga ---")
+            url = [msg.get('url')]
 
-            urls = [Config.doujin_downloader] + urls
-            urls.append("nogui")
-
-            subprocess.Popen(urls)
+            doujin_downloader = [Config.doujin_downloader]
+            doujin_downloader.append(url)
+            doujin_downloader.append("nogui")
+            subprocess.Popen(doujin_downloader)
             return
         
         elif task == 'save':
@@ -116,14 +116,14 @@ class Host(Logger):
                 comicPage = msg.get('comicPage')
                 artist = msg.get('artist')
 
-
-                # DOWNLOAD FAVICON IS FIRST BECAUSE OF UNKNOWN TIMEOUT ERROR IF AFTER FILE DOWNLOAD FIX BY MOVING DOWNLOAD TO OWN CLASS
-                favicon = os.path.join(self.FAVICON_PATH, msg.get('domain') + ".ico")
-                if not os.path.exists(favicon):
-                    icon = requests.get(msg.get('favicon_url'), headers=headers, cookies=cookies, timeout=10)
-                    with open(favicon, "wb") as f:
-                        for chunk in icon:
-                            f.write(chunk)
+                if msg.get('favicon_url'):
+                    # DOWNLOAD FAVICON IS FIRST BECAUSE OF UNKNOWN TIMEOUT ERROR IF AFTER FILE DOWNLOAD FIX BY MOVING DOWNLOAD TO OWN CLASS
+                    favicon = os.path.join(self.FAVICON_PATH, msg.get('domain') + ".ico")
+                    if not os.path.exists(favicon):
+                        icon = requests.get(msg.get('favicon_url'), headers=headers, cookies=cookies, timeout=10)
+                        with open(favicon, "wb") as f:
+                            for chunk in icon:
+                                f.write(chunk)
 
 
                 r = requests.get(msg.get('srcUrl'), headers=headers, cookies=cookies, timeout=10, stream=True)

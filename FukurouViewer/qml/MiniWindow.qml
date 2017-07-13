@@ -162,8 +162,88 @@ Window {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
 
+        style: TabViewStyle {
+            frameOverlap: 0
+            tab: Rectangle {
+                color: styleData.selected ? theme.background :"white"
+                //border.color:  "transparent"
+                implicitWidth: Math.max(tabTitle.width + 8, 80)
+                implicitHeight: 20
+                //radius: 2
+                Text {
+                    id: tabTitle
+                    anchors.centerIn: parent
+                    text: styleData.title
+                    color: styleData.selected ? "white" : "black"
+                }
+            }
+        }
 
         Tab {
+            id: downloadsTab
+            title: "Downloads"
+            Item {
+                id: downloadsWrapper
+                anchors.fill: parent
+
+                Rectangle {
+                    id: downloadsStatusBar
+                    color: theme.background
+                    height: 100
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                    }
+
+                    Text {
+                        id: downloadsLabel
+                        text: qsTr("Downloads: ")
+                        color: "white"
+                        font.pixelSize: 16
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.top: parent.top
+                        anchors.topMargin: 10
+                    }
+                    Text {
+                        id: downloadsField
+                        text: "3"
+                        color: "white"
+                        font.pixelSize: 16
+                        anchors {
+                            verticalCenter: downloadsLabel.verticalCenter
+                            left: downloadsLabel.right
+                            leftMargin: 5
+                        }
+                    }
+                    Text {
+                        id: runningLabel
+                        text: qsTr("Running: ")
+                        color: "white"
+                        font.pixelSize: 16
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.top: downloadsLabel.bottom
+                        anchors.topMargin: 5
+                    }
+                    Text {
+                        id: runningField
+                        text: "3"
+                        color: "white"
+                        font.pixelSize: 16
+                        anchors {
+                            verticalCenter: runningLabel.verticalCenter
+                            left: runningLabel.right
+                            leftMargin: 5
+                        }
+                    }
+                }
+            }
+        }
+
+        Tab {
+            id: historyTab
             title: "History"
             ScrollView {
                 ListView {
@@ -176,7 +256,7 @@ Window {
                     section.property: "date"
                     section.criteria: ViewSection.FullString
                     section.delegate: sectionHeading
-                    spacing: 8
+                    spacing: 6
                     snapMode: ListView.NoSnap
                     footer: seeMoreButton
                     clip: true

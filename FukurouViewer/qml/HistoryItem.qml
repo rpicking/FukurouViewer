@@ -97,7 +97,6 @@ Component {
 
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    console.log("open file in default application");
                     mainWindow.openItem(model.full_path, "file");
                 }
             }
@@ -126,7 +125,6 @@ Component {
                 }
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    console.log("open url in default browser");
                     mainWindow.openItem(model.src_url, "url");
                 }
             }
@@ -136,7 +134,6 @@ Component {
             id: showFolder
             visible: false
             text: model.dead ? "Deleted" : "Show in folder"
-            //font.pointSize: 12
             color: model.dead ? "grey" : "#0009d6"
             font.bold: model.dead ? true : false
             anchors.left: rightSeparator.right
@@ -148,7 +145,6 @@ Component {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    console.log("opening folder location");
                      mainWindow.openItem(model.full_path, "folder");
                 }
             }
