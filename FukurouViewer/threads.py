@@ -360,6 +360,11 @@ class DownloadThread(BaseThread):
             r.close()
 
             self.logger.info(filepath + " finished downloading.")
+            from pygame import mixer
+            mixer.init()
+            mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
+            mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
+            mixer.music.play()
 
             # add to history table in database
             with user_database.get_session(self) as session:
