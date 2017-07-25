@@ -44,6 +44,7 @@ ApplicationWindow {
     signal updateFolders(var items)
     signal openItem(string path, string type)
     signal openUrl(string url)
+    signal updateProgress(var progress, int speed)
 
     function closeWindows() {
         hide();
