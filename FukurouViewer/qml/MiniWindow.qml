@@ -69,6 +69,7 @@ Window {
         }
     }
 
+
     MouseArea {
         id: mainMouseArea
         anchors.fill: parent
@@ -156,6 +157,7 @@ Window {
 
     TabView {
         id: tabs
+
         anchors.topMargin: 0
         anchors.top: topBar.bottom
         anchors.right: parent.right
@@ -182,64 +184,8 @@ Window {
         Tab {
             id: downloadsTab
             title: "Downloads"
-            Item {
-                id: downloadsWrapper
-                anchors.fill: parent
 
-                Rectangle {
-                    id: downloadsStatusBar
-                    color: theme.background
-                    height: 100
-                    anchors {
-                        left: parent.left
-                        right: parent.right
-                        top: parent.top
-                    }
-
-                    Text {
-                        id: downloadsLabel
-                        text: qsTr("Downloads: ")
-                        color: "white"
-                        font.pixelSize: 16
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        anchors.top: parent.top
-                        anchors.topMargin: 10
-                    }
-                    Text {
-                        id: downloadsField
-                        text: "3"
-                        color: "white"
-                        font.pixelSize: 16
-                        anchors {
-                            verticalCenter: downloadsLabel.verticalCenter
-                            left: downloadsLabel.right
-                            leftMargin: 5
-                        }
-                    }
-                    Text {
-                        id: runningLabel
-                        text: qsTr("Running: ")
-                        color: "white"
-                        font.pixelSize: 16
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        anchors.top: downloadsLabel.bottom
-                        anchors.topMargin: 5
-                    }
-                    Text {
-                        id: runningField
-                        text: "3"
-                        color: "white"
-                        font.pixelSize: 16
-                        anchors {
-                            verticalCenter: runningLabel.verticalCenter
-                            left: runningLabel.right
-                            leftMargin: 5
-                        }
-                    }
-                }
-            }
+            PopupDownloadsTab{}
         }
 
         Tab {
