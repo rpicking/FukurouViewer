@@ -120,7 +120,7 @@ class MessengerThread(BaseThread, Host):
                 elif task == "delete":
                     payload = self.delete_task(msg)
                 elif task in ["save", "saveManga"]:
-                    download_thread.queue.put(msg)
+                    download_manager.queue.put(msg)
                     payload = { "task": "empty" }
                 else:   # unknown message
                     payload = { "task": "empty" }
@@ -241,22 +241,34 @@ else:
     messenger_thread = MessengerThread(False)
 
 
+class DownloadManager(Logger):
+    THREAD_COUNT = 3    # number of simultaneous downloads
+
+    def __init__(self):
+        self.queue = queue.Queue()
+
+    def setup(self):
+        self.threads = []
+        for i in range(self.THREAD_COUNT):
+            thread = DownloadThread()
+            thread.setup()
+            thread.start()
+            self.threads.append(thread)
+
+    def start(self):
+        pass
+
+download_manager = DownloadManager()
+
+
 class DownloadThread(BaseThread):
-    THREAD_COUNT = 3    # of simulataneous downloads
+    running = False
     FAVICON_PATH = Utils.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
 
     def _run(self):
-        threads = []
-        for i in range(self.THREAD_COUNT):
-            t = threading.Thread(target=self.run_worker)
-            threads.append(t)
-            t.start()
-        #self.logger.info("DOWNLOAD QUEUE ALL DONE SOMETHING WENT WRONG")
-
-    def run_worker(self):
         while True:
-            msg = self.queue.get()
+            msg = download_manager.queue.get()
             task = msg.get("task")
             if task == "save":
                 self.save_task(msg)
@@ -448,7 +460,8 @@ class DownloadThread(BaseThread):
             return '.jpg'
         return ext
 
-download_thread = DownloadThread()
+
+#download_thread = DownloadThread()
 
 
 class GalleryThread(BaseThread):
@@ -514,7 +527,8 @@ event_thread = EventThread()
 
 THREADS = [
     messenger_thread,
-    download_thread,
+    download_manager,
+    #download_thread,
     #gallery_thread,
     #watcher_thread,
     #event_thread,
