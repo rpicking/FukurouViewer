@@ -45,6 +45,7 @@ ApplicationWindow {
     signal openItem(string path, string type)
     signal openUrl(string url)
     signal updateProgress(var progress, int speed)
+    signal addDownloadItem(string uid, var info)
 
     function closeWindows() {
         hide();

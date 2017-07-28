@@ -7,6 +7,7 @@ Item {
 
     Component.onCompleted: {
         mainWindow.updateProgress.connect(updateProgress);
+        mainWindow.addDownloadItem.connect(addDownloadItem);
     }
 
     function updateProgress(percent, speed) {
@@ -23,8 +24,12 @@ Item {
         }
     }
 
+    function addDownloadItem(info) {
+        downloadsModel.append(info);
+    }
+
     Rectangle {
-        id: downloadsStatusBar
+        id: statusBar
         color: theme.background
         height: 150
         anchors {
@@ -147,6 +152,26 @@ Item {
                 bottom: parent.bottom
                 bottomMargin: 20
             }
+        }
+    }
+
+    ScrollView {
+        anchors {
+            top: statusBar.bottom
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
+        ListView {
+            id: downloadsView
+            anchors.fill: parent
+            model: downloadsModel
+            interactive: true
+            //enabled: false
+            delegate: DownloadItem{}
+            spacing: 6
+            snapMode: ListView.NoSnap
+            clip: true
         }
     }
 }

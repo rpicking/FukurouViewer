@@ -46,6 +46,54 @@ class FolderMenuItem(QtWidgets.QAction):
                 return
 
 
+class Download(object):
+    def __init__(self, filename, color):
+        self._filename = filename
+        self._color = color
+
+    def filename(self):
+        return self._filename
+    
+    def color(self):
+        return self._color
+
+
+class DownloadsModel(QtCore.QAbstractListModel):
+    FilenameRole = QtCore.Qt.UserRole + 1
+    ColorRole = QtCore.Qt.UserRole + 2
+
+    _roles = {FilenameRole: "filename", ColorRole: "color"}
+
+    def __init__(self, parent=None):
+        super(DownloadsModel, self).__init__(parent)
+        self._items = []
+
+    def addItem(self, item):
+        self.beginInsertRows(QtCore.QModelIndex(), self.rowCount(), self.rowCount())
+        self._items.append(item)
+        self.endInsertRows()
+
+    def rowCount(self, parent=QtCore.QModelIndex()):
+        return len(self._items)
+
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        try:
+            item = self._items[index.row()]
+        except IndexError:
+            return QtCore.QVariant()
+
+        if role == self.FilenameRole:
+            return item.filename()
+        if role == self.ColorRole:
+            return item.color()
+
+        return QtCore.QVariant()
+
+    def roleNames(self):
+        return {x: self._roles[x].encode() for x in self._roles}
+
+
+
 class ImageProvider(QtQuick.QQuickImageProvider):
     TMP_DIR = Utils.fv_path("tmp")
 
@@ -161,6 +209,15 @@ class Program(QtWidgets.QApplication):
             #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
             self.image_provider = ImageProvider()
             self.engine.addImageProvider("fukurou", self.image_provider)
+
+            self.downloadsModel = DownloadsModel()
+            self.downloadsModel.addItem(Download("item1", "red"))
+            self.downloadsModel.addItem(Download("item2", "red"))
+            self.downloadsModel.addItem(Download("item3", "red"))
+            self.downloadsModel.addItem(Download("item4", "red"))
+            self.downloadsModel.addItem(Download("item5", "red"))
+            self.context = self.engine.rootContext()
+            self.context.setContextProperty("downloadsModel", self.downloadsModel)
 
             self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
             self.app_window = self.engine.rootObjects()[0]

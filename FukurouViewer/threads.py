@@ -26,6 +26,7 @@ from .host import Host
 from .utils import Utils
 from .config import Config
 from .logger import Logger
+from .foundation import Foundation
 
 from PyQt5 import QtCore, QtMultimedia
 
@@ -144,7 +145,7 @@ class MessengerThread(BaseThread, Host):
         if self.windows:
             self.pipe.Close()
             self.logger.info("Pipe closed")
-            winsound.PlaySound("*", winsound.SND_ASYNC)
+            #winsound.PlaySound("*", winsound.SND_ASYNC)
             return
 
         os.remove(self.pipe)
@@ -278,6 +279,12 @@ class DownloadThread(BaseThread):
 
     # download individual file and favicon from site
     def save_task(self, msg):
+        while True: #get unique uid for new download in ui
+            uid = Foundation.id_generator()
+            if id not in []:
+                break
+        # create item in ui with uid
+
         try:
             headers = {}
             if "headers" in msg:

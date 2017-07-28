@@ -185,7 +185,7 @@ Window {
             id: downloadsTab
             title: "Downloads"
 
-            PopupDownloadsTab{}
+            PopupDownloadsTab {}
         }
 
         Tab {
