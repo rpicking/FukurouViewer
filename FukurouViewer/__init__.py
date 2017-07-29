@@ -17,6 +17,9 @@ filename = os.path.join(log_dir, "log.log")
 logging.basicConfig(handlers=[logging.FileHandler(filename, 'a', 'utf-8')],
                     format="%(asctime)s - %(levelname)s - %(name)s: %(message)s",
                     level=logging.INFO)
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.WARNING)
+requests_log.propagate = False
 
 from . import program, threads
 
