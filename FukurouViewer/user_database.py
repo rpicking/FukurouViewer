@@ -5,6 +5,7 @@ import migrate
 from migrate.versioning import api
 from threading import Lock
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
@@ -41,6 +42,16 @@ class History(base):
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
     folder = sqlalchemy.Column(sqlalchemy.Text)
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
+    gallery = relationship("Gallery", back_populates="history")
+
+
+class Gallery(base):
+    __tablename__ = "gallery"
+
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    title = sqlalchemy.Column(sqlalchemy.Text)
+    history_items = relationship("History", backref="gallery")
 
 
 class Folders(base):
