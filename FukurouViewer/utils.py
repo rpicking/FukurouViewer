@@ -39,3 +39,10 @@ class Utils():
     @staticmethod
     def random_color() -> str:
         return "#%06x" % random.randint(0, 0xFFFFFF)
+
+    @staticmethod
+    def split_ex_url(str: url) -> list:
+        pieces = url.rstrip('/').rsplit("/", 3)
+        if pieces[0] == "g":
+            return pieces[1:]
+        return [pieces[1]].extend(pieces[2].split("-"))

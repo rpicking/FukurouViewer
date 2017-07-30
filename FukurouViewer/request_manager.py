@@ -99,4 +99,4 @@ class ExRequestManager(RequestManager):
         cookies[self.PASS_HASH_KEY] = Config.ex_pass_hash
         return cookies
 
-exRequestManager = ExRequestManager()
+ex_request_manager = ExRequestManager()

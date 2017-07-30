@@ -37,7 +37,7 @@ class Search(Logger):
         results = [div.a for div in html_results.findAll("div", attrs={"class": "it5"})]
         result_urls = [r['href'] for r in results]
 
-        yield result_urls
+        return result_urls
 
         # get all galleries matching
         # splice out galid & galtoken

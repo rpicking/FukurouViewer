@@ -23,12 +23,13 @@ from watchdog.events import FileSystemEventHandler
 import FukurouViewer
 from FukurouViewer import exceptions
 from . import user_database
+from .request_manager import ex_request_manager
 from .host import Host
 from .utils import Utils
 from .config import Config
 from .logger import Logger
+from .search import Search
 
-from PyQt5 import QtCore, QtMultimedia
 
 class BaseThread(threading.Thread, Logger):
     THREAD_COUNT = 4
@@ -462,7 +463,42 @@ class DownloadThread(BaseThread):
         return ext
 
 
-#download_thread = DownloadThread()
+class SearchThread(BaseThread):
+    API_URL = "https://exhentai.org/api.php"
+    GAL_PAYLOAD = {"method": "gdata", "gidlist": [], "namespace": 1}
+    IND_PAYLOAD = {"method": "gtoken", "pagelist": [], "namespace": 1}
+    API_MAX_ENTRIES = 25
+
+
+    def _run(self):
+        while True:
+            item = self.queue.get()  # dict
+            if isinstance(item, list):
+                response = self.get_metadata(item)
+
+                if "tokenlist" in response:
+                    response = response["tokenlist"][0]
+                    self.queue.put([response.get("gid"), response.get("token")])
+                    continue
+                else:
+                    response = response["gmetadata"][0]
+            elif "hash" in item: # is hash string
+                # search with hash
+                Search.ex_search(sha_hash=item)
+            elif "url" in item:
+                info = Utils.split_ex_url(item.get("url"))
+                self.queue.put(info)
+
+
+    def get_metadata(self, item):
+        if len(item) == 2:
+            payload = self.GAL_PAYLOAD
+            payload["gidlist"] = item
+        else:
+            payload = self.IND_PAYLOAD
+            payload["pagelist"] = item
+
+        return ex_request_manager.post(self.API_URL, payload=payload)
 
 
 class GalleryThread(BaseThread):
@@ -523,7 +559,7 @@ class EventThread(BaseThread):
             elif event.event_type == "modified":
                 self.logger.info("modified")
 
-event_thread = EventThread()
+#event_thread = EventThread()
 
 
 THREADS = [

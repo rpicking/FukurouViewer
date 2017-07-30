@@ -1,11 +1,11 @@
 import os
 import contextlib
-import sqlalchemy
 import migrate
 from migrate.versioning import api
 from threading import Lock
+import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, scoped_session
 
 from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
@@ -43,6 +43,7 @@ class History(base):
     folder = sqlalchemy.Column(sqlalchemy.Text)
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
+
     gallery = relationship("Gallery", back_populates="history")
 
 
@@ -51,6 +52,17 @@ class Gallery(base):
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     title = sqlalchemy.Column(sqlalchemy.Text)
+    origin_title = sqlalchemy.Column(sqlalchemy.Text)
+    time_added = sqlalchemy.Column(sqlalchemy.Integer)
+    last_modified = sqlalchemy.Column(sqlalchemy.Integer)
+    site_rating = sqlalchemy.Column(sqlalchemy.Integer)     #rating 0-10 5 stars imported from site avg
+    user_rating = sqlalchemy.Column(sqlalchemy.Integer)     # rating 0-10 5 stars set by user
+    rating_count = sqlalchemy.Column(sqlalchemy.Integer)    # number of ratings from site at time of import
+    total_size = sqlalchemy.Column(sqlalchemy.Float)        # total size in mbs
+    file_count = sqlalchemy.Column(sqlalchemy.Integer)
+    url = sqlalchemy.Column(sqlalchemy.Text)                # url of import site
+    virtual = sqlalchemy.Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
+
     history_items = relationship("History", backref="gallery")
 
 
@@ -86,7 +98,7 @@ def get_session(requester, acquire=False):
     try:
         if acquire:
             lock.acquire()
-        session = sqlalchemy.orm.scoped_session(session_maker)
+        session = scoped_session(session_maker)
         yield session
         session.commit()
     except:
