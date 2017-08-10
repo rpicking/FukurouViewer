@@ -4,12 +4,13 @@ import random
 import requests
 import threading
 from copy import deepcopy
+
 from FukurouViewer import exceptions
+from FukurouViewer.logger import Logger
+from FukurouViewer.config import Config
 
-from .config import Config
 
-
-class RequestManager():
+class RequestManager(Logger):
     API_WAIT_TIME = 3
     API_MAX_RETRY = 3
     API_REQ_DELAY = 3
@@ -63,34 +64,37 @@ class RequestManager():
         return response
             
     def valid_response(self, response):
+        content_type = response.headers["content-type"]
+        assert response is not None
+        self.logger.debug("Response: %s" % response)
+        self.logger.debug("Response headers: %s" % response.headers)
         if response.status_code != 200:
-            # log error code
+            self.logger.warning("Error code: %s")
             return False
+        if "image/gif" in content_type:
+            raise(exceptions.BadCredentialsError)
+        if "text/html" in content_type and "Your IP address" in response.text:
+            raise(exceptions.UserBannedError)
+        try:
+            if response.json().get("error") is not None:
+                self.logger.warning("Got error message %s" %
+                                    response.json().get("error"))
+                return False
+        except ValueError:
+            pass
         return True
         
     @property
     def cookies(self):
         return {}
         
+request_manager = RequestManager()
 
 class ExRequestManager(RequestManager):
     MEMBER_ID_KEY = "ipb_member_id"
     PASS_HASH_KEY = "ipb_pass_hash"
     COOKIES = {"uconfig": ""}
     
-    def valid_response(self, response):
-        if super().valid_response(response):
-            content_type = response.headers["content-type"]
-            if "image/gif" in content_type:
-                raise exceptions.BadCredentials
-            if "text/html" in content_type and "Your IP address" in response.text:
-                raise exceptions.UserBanned
-            try:
-                if response.json().get("error") is not None:
-                    print("error message")  #log
-            except ValueError:
-                return True
-        return False
 
     @property
     def cookies(self):

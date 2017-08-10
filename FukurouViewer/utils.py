@@ -40,9 +40,27 @@ class Utils():
     def random_color() -> str:
         return "#%06x" % random.randint(0, 0xFFFFFF)
 
+    #@staticmethod
+    # def split_ex_url(url: str) -> list:
+    #    pieces = url.rstrip('/').rsplit("/", 3)
+    #    if pieces[1] == "g":
+    #        return [int(pieces[1]), pieces[2]]
+    #    split = pieces[3].split("-")
+    #    return [int(split[0]), pieces[2], int(split[1])]
+
     @staticmethod
-    def split_ex_url(str: url) -> list:
+    def split_ex_url(url: str) -> list:
         pieces = url.rstrip('/').rsplit("/", 3)
-        if pieces[0] == "g":
-            return pieces[1:]
-        return [pieces[1]].extend(pieces[2].split("-"))
+        if pieces[1] == "g":
+            return {"type": "g", "gid": int(pieces[1]), "token": pieces[2]}
+        split = pieces[3].split("-")
+        return {"type": "s", 
+                "page_token": pieces[2], 
+                "gid": int(split[0]), 
+                "page_number": int(split[1])}
+
+    @staticmethod
+    def merge_dicts(x: dict, y: dict) -> dict:
+        z = x.copy()
+        z.update(y)
+        return z

@@ -2,7 +2,7 @@ import bs4
 
 from .utils import Utils
 from .logger import Logger
-from .request_manager import exRequestManager
+from .request_manager import ex_request_manager
 
 
 class Search(Logger):

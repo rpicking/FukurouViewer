@@ -2,7 +2,6 @@ import os
 import re
 import sys
 import json
-import time
 import queue
 import imghdr
 import random
@@ -23,12 +22,13 @@ from watchdog.events import FileSystemEventHandler
 import FukurouViewer
 from FukurouViewer import exceptions
 from . import user_database
-from .request_manager import ex_request_manager
+from .request_manager import request_manager, ex_request_manager
 from .host import Host
 from .utils import Utils
 from .config import Config
 from .logger import Logger
 from .search import Search
+from .gallery import GenericGallery
 
 
 class BaseThread(threading.Thread, Logger):
@@ -379,7 +379,7 @@ class DownloadThread(BaseThread):
             mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
             mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
             mixer.music.play()
-
+            
             # add to history table in database
             with user_database.get_session(self) as session:
                 result = session.execute(insert(user_database.History).values(
@@ -392,11 +392,17 @@ class DownloadThread(BaseThread):
                         "full_path": filepath,
                         "favicon_url": msg.get('favicon_url')
                     }))
+                db_id = int(result.inserted_primary_key[0])
+
             #winsound.PlaySound(self.SUCCESS_CHIME, winsound.SND_FILENAME)
             from pygame import mixer
             mixer.init()
             mixer.music.load(self.SUCCESS_CHIME)
             mixer.music.play()
+            
+            kwargs = { "url": msg.get('pageUrl'), "history_id": db_id, "domain": msg.get('domain')} 
+            gal = GenericGallery(**kwargs)
+            search_thread.queue.put(gal)
 
             #playsound(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
             # send successful download response to extension
@@ -466,40 +472,49 @@ class DownloadThread(BaseThread):
 class SearchThread(BaseThread):
     API_URL = "https://exhentai.org/api.php"
     GAL_PAYLOAD = {"method": "gdata", "gidlist": [], "namespace": 1}
-    IND_PAYLOAD = {"method": "gtoken", "pagelist": [], "namespace": 1}
+    IND_PAYLOAD = {"method": "gtoken", "pagelist": []}
     API_MAX_ENTRIES = 25
 
 
     def _run(self):
         while True:
-            item = self.queue.get()  # dict
-            if isinstance(item, list):
-                response = self.get_metadata(item)
+            gal = self.queue.get()  # generic gallery class
+            done = gal.search()
+            if not done:
+                self.queue.put(gal)
 
-                if "tokenlist" in response:
-                    response = response["tokenlist"][0]
-                    self.queue.put([response.get("gid"), response.get("token")])
-                    continue
-                else:
-                    response = response["gmetadata"][0]
-            elif "hash" in item: # is hash string
-                # search with hash
-                Search.ex_search(sha_hash=item)
-            elif "url" in item:
-                info = Utils.split_ex_url(item.get("url"))
-                self.queue.put(info)
+    # def _run(self):
+     #   while True:
+      #      item = self.queue.get()  # dict
+       #     if isinstance(item, list):
+        #        response = self.get_metadata(item)
+        #
+        #        if "tokenlist" in response:
+        #            response = response["tokenlist"][0]
+        #            self.queue.put([response.get("gid"), response.get("token")])
+        #            continue
+        #        else:
+        #            response = response["gmetadata"][0]
+        #            print("wait here bud")
+        #    elif "hash" in item: # is hash string
+        #        # search with hash
+        #        Search.ex_search(sha_hash=item)
+        #    elif "url" in item:
+        #        tokens = Utils.split_ex_url(item.get("url"))
+        #        self.queue.put(tokens)
 
 
-    def get_metadata(self, item):
-        if len(item) == 2:
-            payload = self.GAL_PAYLOAD
-            payload["gidlist"] = item
-        else:
-            payload = self.IND_PAYLOAD
-            payload["pagelist"] = item
+    # def get_metadata(self, item):
+    #    if len(item) == 2:
+    #        payload = self.GAL_PAYLOAD
+    #        payload["gidlist"].append(item)
+    #    else:
+    #        payload = self.IND_PAYLOAD
+    #        payload["pagelist"].append(item)
+#
+#        return ex_request_manager.post(self.API_URL, payload=payload)
 
-        return ex_request_manager.post(self.API_URL, payload=payload)
-
+search_thread = SearchThread()
 
 class GalleryThread(BaseThread):
     running = False
@@ -517,7 +532,7 @@ class GalleryThread(BaseThread):
             with FukurouViewer.app.gallery_lock:
                 print("HUH")
 
-gallery_thread = GalleryThread()
+#gallery_thread = GalleryThread()
 
 
 class WatcherThread(BaseThread):
@@ -538,7 +553,7 @@ class WatcherThread(BaseThread):
         for folder in Config.folders:
             self.observer.schedule(self.Handler(), folder, recursive=True)
 
-watcher_thread = WatcherThread()
+#watcher_thread = WatcherThread()
 
 
 class EventThread(BaseThread):
@@ -565,10 +580,10 @@ class EventThread(BaseThread):
 THREADS = [
     messenger_thread,
     download_manager,
+    search_thread,
     #download_thread,
     #gallery_thread,
     #watcher_thread,
-    #event_thread,
 ]
 
 def setup():
