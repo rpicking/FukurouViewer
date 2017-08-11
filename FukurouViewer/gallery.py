@@ -52,7 +52,8 @@ class ExIdentifier(BaseIdentifier):
 
         def payload(self):
             payload = self.PAYLOAD
-            return payload["gidlist"].append([self.gid, self.token])
+            payload["gidlist"].append([self.gid, self.token])
+            return payload
 
     class PageIdentity():
         PAYLOAD = {"method": "gtoken", "pagelist": []}
@@ -67,7 +68,8 @@ class ExIdentifier(BaseIdentifier):
         
         def payload(self):
             payload = self.PAYLOAD
-            return payload["pagelist"].append([self.gid, self.page_token, self.page_number])
+            payload["pagelist"].append([self.gid, self.page_token, self.page_number])
+            return payload
 
     class HashIdentity():
         hash = ""   # sha1 str
@@ -86,13 +88,13 @@ class ExIdentifier(BaseIdentifier):
             tokens = Utils.split_ex_url(kwargs.get("url"))
             if tokens.get("type") == "g":
                 self.creation_type = self.CreationType.GAL
-                self.identity = GalIdentity(**tokens)
+                self.identity = self.GalIdentity(**tokens)
             else:
                 self.creation_type = self.CreationType.PAGE
-                self.identity = PageIdentity(**tokens)
+                self.identity = self.PageIdentity(**tokens)
         else:
             self.creation_type = self.CreationType.HASH
-            self.identity = HashIdentity(**tokens)
+            self.identity = self.HashIdentity(**tokens)
 
 
     # searches for gallery information
@@ -111,7 +113,8 @@ class ExIdentifier(BaseIdentifier):
         elif self.creation_type == self.CreationType.PAGE:
             response = ex_request_manager.post(self.API_URL, payload=payload)
             response = response["tokenlist"][0]
-            self.identity = GalIdentity(**response)
+            self.creation_type = self.CreationType.GAL
+            self.identity = self.GalIdentity(**response)
             return False
         elif self.creation_type == self.CreationType.HASH:
             response = Search.ex_search(sha_hash=item)
@@ -141,11 +144,14 @@ class GenericGallery(Logger):
     url = ""
     virtual = None
 
-    #creation_type = None
+    history_items = []
     identifier = None       # identifier for site specific gallery linking
     dead = False
     
     def __init__(self, **kwargs):
+        item = kwargs.get('history_item')
+        if item:
+            self.history_items.append(item)
         if kwargs.get('local'): # creating from local file/folder
             pass    # fIXME
         else:   # creating virtual from downloaded file
@@ -156,7 +162,7 @@ class GenericGallery(Logger):
         domain = kwargs.get("domain")
         for site in self.VALID_SITES:
             if domain == site[0]:
-                return site[2](**kwargs)
+                return site[1](**kwargs)
         return None
 
 
@@ -171,7 +177,7 @@ class GenericGallery(Logger):
         self.title = info.get("title", "")
         self.origin_title = info.get("origin_title", "")
         self.time_added = time()
-        self.time_added = self.last_modified
+        self.last_modified = self.time_added
         self.site_rating = info.get("site_rating", None)
         self.user_rating = info.get("user_rating", None)
         self.rating_count = info.get("rating_count", 0)
@@ -182,7 +188,7 @@ class GenericGallery(Logger):
         return True
 
     def insert(self):   # insert gallery into database
-        if not id:  # only create new row if not in db
+        if not self.db_id:  # only create new row if not in db
             payload = {}
             if self.title:
                 payload["title"] = self.title
@@ -206,16 +212,27 @@ class GenericGallery(Logger):
                 payload["url"] = self.url
             if self.virtual:
                 payload["virtual"] = self.virtual
-
-            with user_database.get_session(self, acquire=True) as session:
-                results = Utils.convert_result(session.execute(
-                    insert(user_database.Gallery).values(payload)))
-                self.db_id = int(result.inserted_primary_key[0])
+            try:
+                with user_database.get_session(self, acquire=True) as session:
+                    result = session.execute(insert(user_database.Gallery).values(payload))
+                    self.db_id = int(result.inserted_primary_key[0])
+            except Exception as e:
+                self.log_exception()
+        self.update_history_items()
 
     def update(self, **kwargs):
         with user_database.get_session(self, acquire=True) as session:
             session.execute(update(user_database.Gallery).where(
                 user_database.Gallery.id == self.db_id).values(kwargs))
+
+    def update_history_items(self):
+        try:
+            with user_database.get_session(self, acquire=True) as session:
+                for item in self.history_items:
+                    session.execute(update(user_database.History).where(
+                        user_database.History.id == item).values({"gallery_id": self.db_id }))
+        except Exception as e:
+            pass
 
     def load_from_db(self):
         pass
@@ -225,3 +242,13 @@ class GenericGallery(Logger):
             session.execute(delete(user_database.Gallery).where(
                 user_database.Gallery.id == self.db_id))
         self.dead = True
+
+    # logs raised general exception
+    def log_exception(self):
+        exc_type, exc_obj, tb = sys.exc_info()
+        f = tb.tb_frame
+        lineno = tb.tb_lineno
+        filename = f.f_code.co_filename
+        linecache.checkcache(filename)
+        line = linecache.getline(filename, lineno, f.f_globals)
+        self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))

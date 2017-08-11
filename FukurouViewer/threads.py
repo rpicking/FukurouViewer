@@ -400,7 +400,10 @@ class DownloadThread(BaseThread):
             mixer.music.load(self.SUCCESS_CHIME)
             mixer.music.play()
             
-            kwargs = { "url": msg.get('pageUrl'), "history_id": db_id, "domain": msg.get('domain')} 
+            kwargs = { "url": msg.get('pageUrl'), 
+                      "history_id": db_id, 
+                      "domain": msg.get('domain'),
+                      "history_item": db_id } 
             gal = GenericGallery(**kwargs)
             search_thread.queue.put(gal)
 
