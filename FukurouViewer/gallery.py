@@ -32,8 +32,9 @@ class BaseIdentifier():
         return self.identity
 
 
-class ExIdentifier(BaseIdentifier):
-    API_URL = "https://exhentai.org/api.php"
+class EHIdentifier(BaseIdentifier):
+    BASE_URL = "https://e-hentai.org/{}/{}/{}/"
+    API_URL = "https://api.e-hentai.org/api.php"
     SITE_MAX_ENTRIES = 25
 
     class CreationType(Enum):
@@ -82,7 +83,6 @@ class ExIdentifier(BaseIdentifier):
             return self.hash
             # FIXME
 
-
     def __init__(self, **kwargs):
         if kwargs.get("url"):
             tokens = Utils.split_ex_url(kwargs.get("url"))
@@ -96,6 +96,12 @@ class ExIdentifier(BaseIdentifier):
             self.creation_type = self.CreationType.HASH
             self.identity = self.HashIdentity(**tokens)
 
+    def url(self):
+        if self.creation_type == self.CreationType.GAL:
+            return self.BASE_URL.format("g", self.identity.gid, self.identity.token)
+        elif self.creation_type == self.CreationType.PAGE:
+            return self.BASE_URL.format("s", self.identity.page_token, "-".join(self.identity.gid, self.identity.page_number))
+        return None
 
     # searches for gallery information
     # returns data if done
@@ -109,6 +115,7 @@ class ExIdentifier(BaseIdentifier):
             response["total_size"] = response.pop("filesize")
             response["site_rating"] = response.pop("rating")
             response["file_count"] = response.pop("filecount")
+            response["url"] = self.url()
             return response
         elif self.creation_type == self.CreationType.PAGE:
             response = ex_request_manager.post(self.API_URL, payload=payload)
@@ -123,10 +130,15 @@ class ExIdentifier(BaseIdentifier):
             return False
 
 
+class ExIdentifier(EHIdentifier):
+    BASE_URL = "https://exhentai.org/{}/{}/{}/"
+    API_URL = "https://exhentai.org/api.php"
+    
+
 class GenericGallery(Logger):
     VALID_SITES = [
+        ("e-hentai.org", EHIdentifier),
         ("exhentai.org", ExIdentifier),
-        ("e-hentai.org", ExIdentifier),
     ]
 
     IMAGE_WIDTH = 200
@@ -184,7 +196,17 @@ class GenericGallery(Logger):
         self.total_size = info.get("total_size", 0)
         self.file_count = info.get("file_count", 0)
         self.url = info.get("url", "")
-        self.insert()
+
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Gallery]).where( user_database.Gallery.url == self.url)))
+
+        if results:
+            results = results[0]
+            self.db_id = results.get("id")
+            self.update_history_items()
+        else:
+            self.insert()
         return True
 
     def insert(self):   # insert gallery into database
@@ -212,12 +234,11 @@ class GenericGallery(Logger):
                 payload["url"] = self.url
             if self.virtual:
                 payload["virtual"] = self.virtual
-            try:
-                with user_database.get_session(self, acquire=True) as session:
-                    result = session.execute(insert(user_database.Gallery).values(payload))
-                    self.db_id = int(result.inserted_primary_key[0])
-            except Exception as e:
-                self.log_exception()
+
+            with user_database.get_session(self, acquire=True) as session:
+                result = session.execute(insert(user_database.Gallery).values(payload))
+                self.db_id = int(result.inserted_primary_key[0])
+
         self.update_history_items()
 
     def update(self, **kwargs):

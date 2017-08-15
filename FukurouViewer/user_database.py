@@ -46,6 +46,7 @@ class History(Base):
 
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
+
 class Gallery(Base):
     __tablename__ = "gallery"
 
