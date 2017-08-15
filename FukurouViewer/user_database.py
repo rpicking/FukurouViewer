@@ -1,10 +1,11 @@
 import os
 import contextlib
-import sqlalchemy
 import migrate
 from migrate.versioning import api
 from threading import Lock
+import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import backref, relationship, scoped_session
 
 from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
@@ -16,7 +17,7 @@ MIGRATE_REPO =  Utils.convert_from_relative_path("migrate_repo/")
 lock = Lock()
 
 
-base = declarative_base()
+Base = declarative_base()
 engine = sqlalchemy.create_engine(DATABASE_URI)
 session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
@@ -27,7 +28,7 @@ class UserDatabase(Logger):
 Database = UserDatabase()
 
 
-class History(base):
+class History(Base):
     __tablename__ = "history"
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
@@ -41,9 +42,31 @@ class History(base):
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
     folder = sqlalchemy.Column(sqlalchemy.Text)
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
+
+    gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
 
-class Folders(base):
+class Gallery(Base):
+    __tablename__ = "gallery"
+
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    title = sqlalchemy.Column(sqlalchemy.Text)
+    origin_title = sqlalchemy.Column(sqlalchemy.Text)
+    time_added = sqlalchemy.Column(sqlalchemy.Integer)
+    last_modified = sqlalchemy.Column(sqlalchemy.Integer)
+    site_rating = sqlalchemy.Column(sqlalchemy.Float)     # rating 0-10 float
+    user_rating = sqlalchemy.Column(sqlalchemy.Integer)     # rating 0-10 5 stars set by user
+    rating_count = sqlalchemy.Column(sqlalchemy.Integer)    # number of ratings from site at time of import
+    total_size = sqlalchemy.Column(sqlalchemy.Float)        # total size in mbs
+    file_count = sqlalchemy.Column(sqlalchemy.Integer)
+    url = sqlalchemy.Column(sqlalchemy.Text)                # url of import site
+    virtual = sqlalchemy.Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
+
+    #history_items = relationship("History", backref="gallery")
+
+
+class Folders(Base):
     __tablename__ = "folders"
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
@@ -75,7 +98,7 @@ def get_session(requester, acquire=False):
     try:
         if acquire:
             lock.acquire()
-        session = sqlalchemy.orm.scoped_session(session_maker)
+        session = scoped_session(session_maker)
         yield session
         session.commit()
     except:
