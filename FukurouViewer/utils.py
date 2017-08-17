@@ -52,7 +52,7 @@ class Utils():
     def split_ex_url(url: str) -> list:
         pieces = url.rstrip('/').rsplit("/", 3)
         if pieces[1] == "g":
-            return {"type": "g", "gid": int(pieces[1]), "token": pieces[2]}
+            return {"type": "g", "gid": int(pieces[2]), "token": pieces[3]}
         split = pieces[3].split("-")
         return {"type": "s", 
                 "page_token": pieces[2], 

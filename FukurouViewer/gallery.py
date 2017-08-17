@@ -26,7 +26,7 @@ class BaseIdentifier():
         self.creation_type = kwargs.get('type')
 
         if self.creation_type == 0:
-            identity = kwargs.get('gal_url')  # url to gallery's main page
+            identity = kwargs.get("galleryUrl")  # url to gallery's main page
 
     def get_data(self):
         return self.identity
@@ -84,7 +84,11 @@ class EHIdentifier(BaseIdentifier):
             # FIXME
 
     def __init__(self, **kwargs):
-        if kwargs.get("url"):
+        if kwargs.get("galleryUrl"):
+            tokens = Utils.split_ex_url(kwargs.get("galleryUrl"))
+            self.creation_type = self.CreationType.GAL
+            self.identity = self.GalIdentity(**tokens)
+        elif kwargs.get("url"): # non-gallery page url
             tokens = Utils.split_ex_url(kwargs.get("url"))
             if tokens.get("type") == "g":
                 self.creation_type = self.CreationType.GAL
@@ -161,6 +165,8 @@ class GenericGallery(Logger):
     dead = False
     
     def __init__(self, **kwargs):
+        self.url = kwargs.get("galleryUrl", "")
+
         item = kwargs.get('history_item')
         if item:
             self.history_items.append(item)
@@ -195,7 +201,8 @@ class GenericGallery(Logger):
         self.rating_count = info.get("rating_count", 0)
         self.total_size = info.get("total_size", 0)
         self.file_count = info.get("file_count", 0)
-        self.url = info.get("url", "")
+        if not self.url:
+            self.url = info.get("url", "")
 
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(

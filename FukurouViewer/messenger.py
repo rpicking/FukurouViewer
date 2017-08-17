@@ -153,6 +153,7 @@ class Messenger(Logger):
                 self.extension.send_message(response)
 
             except win32pipe.error as e:    # host not running. windows
+                self.logger.warning("resending message")
                 win32api.CloseHandle(self.pipe)
                 self.connectPipe()
                 msg["type"] = msg.get("task")
@@ -160,7 +161,10 @@ class Messenger(Logger):
                 self.extension.send_message(msg)
                 continue
             except Exception as e:
-
+                self.logger.error("messenger exception")
+                msg["type"] = msg.get("task")
+                msg["task"] = "resend"
+                self.extension.send_message(msg)
                 return
 
     def close(self):

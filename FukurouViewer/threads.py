@@ -134,7 +134,8 @@ class MessengerThread(BaseThread, Host):
                 #self.send_message(response)
 
             except win32pipe.error as e:    # messenger has closed
-                print(e)
+                self.logger.error("Messenger closed")
+                self.logger.error(e)
                 self.pipe.Close()
                 self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
                                 win32pipe.PIPE_ACCESS_DUPLEX,
@@ -400,10 +401,12 @@ class DownloadThread(BaseThread):
             mixer.music.load(self.SUCCESS_CHIME)
             mixer.music.play()
             
-            kwargs = { "url": msg.get('pageUrl'), 
+            kwargs = { "url": msg.get("pageUrl"), 
                       "history_id": db_id, 
-                      "domain": msg.get('domain'),
-                      "history_item": db_id } 
+                      "domain": msg.get("domain"),
+                      "history_item": db_id,
+                      "galleryUrl": msg.get("galleryUrl", "") } 
+
             gal = GenericGallery(**kwargs)
             search_thread.queue.put(gal)
 
@@ -485,37 +488,6 @@ class SearchThread(BaseThread):
             done = gal.search()
             if not done:
                 self.queue.put(gal)
-
-    # def _run(self):
-     #   while True:
-      #      item = self.queue.get()  # dict
-       #     if isinstance(item, list):
-        #        response = self.get_metadata(item)
-        #
-        #        if "tokenlist" in response:
-        #            response = response["tokenlist"][0]
-        #            self.queue.put([response.get("gid"), response.get("token")])
-        #            continue
-        #        else:
-        #            response = response["gmetadata"][0]
-        #            print("wait here bud")
-        #    elif "hash" in item: # is hash string
-        #        # search with hash
-        #        Search.ex_search(sha_hash=item)
-        #    elif "url" in item:
-        #        tokens = Utils.split_ex_url(item.get("url"))
-        #        self.queue.put(tokens)
-
-
-    # def get_metadata(self, item):
-    #    if len(item) == 2:
-    #        payload = self.GAL_PAYLOAD
-    #        payload["gidlist"].append(item)
-    #    else:
-    #        payload = self.IND_PAYLOAD
-    #        payload["pagelist"].append(item)
-#
-#        return ex_request_manager.post(self.API_URL, payload=payload)
 
 search_thread = SearchThread()
 
