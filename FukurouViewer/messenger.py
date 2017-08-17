@@ -161,17 +161,12 @@ class Messenger(Logger):
                 self.extension.send_message(msg)
                 continue
             except Exception as e:
-                self.logger.error("messenger exception")
-                msg["type"] = msg.get("task")
-                msg["task"] = "resend"
-                self.extension.send_message(msg)
                 return
 
     def close(self):
         if self.windows:
             win32api.CloseHandle(self.pipe)
             return
-
 
 if __name__ == '__main__':
     # setup logging

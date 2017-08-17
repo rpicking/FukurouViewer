@@ -126,8 +126,9 @@ class MessengerThread(BaseThread, Host):
                     payload = { "task": "empty" }
                 else:   # unknown message
                     payload = { "task": "empty" }
-                
-                self.send_message(payload)
+
+                if not payload.get("task") == "empty":
+                    self.send_message(payload)
 
                 #response = self.process_message(msg)
                 # send response back to messenger
