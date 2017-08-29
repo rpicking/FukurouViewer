@@ -161,6 +161,7 @@ class Messenger(Logger):
                 self.extension.send_message(msg)
                 continue
             except Exception as e:
+                self.logger.error("Crashed: " + e)
                 return
 
     def close(self):
@@ -180,7 +181,7 @@ if __name__ == '__main__':
     filename = os.path.join(log_dir, "log.log")
     logging.basicConfig(handlers=[logging.FileHandler(filename, 'a', 'utf-8')],
                         format="%(asctime)s - %(levelname)s - %(name)s: %(message)s",
-                        level=logging.INFO)
+                        level=logging.ERROR)
 
     if os.name == 'nt':
         import win32api

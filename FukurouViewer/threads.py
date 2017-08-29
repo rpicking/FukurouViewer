@@ -40,7 +40,7 @@ class BaseThread(threading.Thread, Logger):
         self.queue = queue.Queue()
 
     def setup(self):
-        print("base signals?")
+        pass
         # basesignals.exception.connect
 
     def _run(self):
@@ -123,12 +123,11 @@ class MessengerThread(BaseThread, Host):
                     payload = self.delete_task(msg)
                 elif task in ["save", "saveManga"]:
                     download_manager.queue.put(msg)
-                    payload = { "task": "empty" }
+                    payload = { "task": "none" } 
                 else:   # unknown message
-                    payload = { "task": "empty" }
+                    payload = { "task": "none" }
 
-                if not payload.get("task") == "empty":
-                    self.send_message(payload)
+                self.send_message(payload)
 
                 #response = self.process_message(msg)
                 # send response back to messenger
@@ -279,7 +278,6 @@ class DownloadThread(BaseThread):
             elif task == "saveManga":
                 self.saveManga_task(msg)
 
-
     # download individual file and favicon from site
     def save_task(self, msg):
         try:
@@ -372,7 +370,7 @@ class DownloadThread(BaseThread):
                             prev_time = clock()
                             dl = 0
                             
-            filepath = self.fix_extension(filepath)
+            filepath = self.fix_extension(filename, filepath)
             r.close()
 
             self.logger.info(filepath + " finished downloading.")
@@ -455,10 +453,28 @@ class DownloadThread(BaseThread):
 
 
     # checks image file headers and renames to proper extension when necessary
-    def fix_extension(self, imagepath):  
+    def fix_extension(self, basefilename, imagepath):  
         format = imghdr.what(imagepath)
         if not format:    # not image so do nothing
             return imagepath
+
+        format = self.ext_convention(''.join(('.', format)))
+        _, ext = os.path.splitext(imagepath)
+        if ext != format:
+            dirpath = os.path.dirname(imagepath)
+            newpath = os.path.join(dirpath, ''.join((basefilename, format)))
+
+            count = 1
+            while os.path.isfile(newpath):
+                newpath = os.path.join(dirpath, ''.join((basefilename, ' (', str(count), ')', format)))
+                count += 1
+            os.rename(imagepath, newpath)
+            return newpath
+        return imagepath
+
+
+
+
 
         format = self.ext_convention(''.join(('.', format)))
         filename, ext = os.path.splitext(imagepath)
@@ -564,6 +580,5 @@ THREADS = [
 
 def setup():
     for thread in THREADS:
-        print("STARTING")
         thread.setup()
         thread.start()
