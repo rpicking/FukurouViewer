@@ -233,6 +233,10 @@ class Program(QtWidgets.QApplication):
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
+            #with user_database.get_session(self, acquire=True) as session:
+             #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
+              #  test = results.gallery
+               # print("BREAK")
 
     # sends limit number of history entries newest first to ui
     def send_history(self, limit=0):

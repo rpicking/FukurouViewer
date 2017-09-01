@@ -2,7 +2,6 @@ import os
 import re
 import sys
 import json
-import time
 import queue
 import imghdr
 import random
@@ -23,13 +22,18 @@ from watchdog.events import FileSystemEventHandler
 import FukurouViewer
 from FukurouViewer import exceptions
 from . import user_database
+from .request_manager import request_manager, ex_request_manager
 from .host import Host
 from .utils import Utils
 from .config import Config
 from .logger import Logger
+<<<<<<< HEAD
 from .foundation import Foundation
+=======
+from .search import Search
+from .gallery import GenericGallery
+>>>>>>> develop
 
-from PyQt5 import QtCore, QtMultimedia
 
 class BaseThread(threading.Thread, Logger):
     THREAD_COUNT = 4
@@ -40,7 +44,7 @@ class BaseThread(threading.Thread, Logger):
         self.queue = queue.Queue()
 
     def setup(self):
-        print("base signals?")
+        pass
         # basesignals.exception.connect
 
     def _run(self):
@@ -123,10 +127,10 @@ class MessengerThread(BaseThread, Host):
                     payload = self.delete_task(msg)
                 elif task in ["save", "saveManga"]:
                     download_manager.queue.put(msg)
-                    payload = { "task": "empty" }
+                    payload = { "task": "none" } 
                 else:   # unknown message
-                    payload = { "task": "empty" }
-                
+                    payload = { "task": "none" }
+
                 self.send_message(payload)
 
                 #response = self.process_message(msg)
@@ -134,7 +138,8 @@ class MessengerThread(BaseThread, Host):
                 #self.send_message(response)
 
             except win32pipe.error as e:    # messenger has closed
-                print(e)
+                self.logger.error("Messenger closed")
+                self.logger.error(e)
                 self.pipe.Close()
                 self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
                                 win32pipe.PIPE_ACCESS_DUPLEX,
@@ -277,7 +282,6 @@ class DownloadThread(BaseThread):
             elif task == "saveManga":
                 self.saveManga_task(msg)
 
-
     # download individual file and favicon from site
     def save_task(self, msg):
         while True: #get unique uid for new download in ui
@@ -376,7 +380,7 @@ class DownloadThread(BaseThread):
                             prev_time = clock()
                             dl = 0
                             
-            filepath = self.fix_extension(filepath)
+            filepath = self.fix_extension(filename, filepath)
             r.close()
 
             self.logger.info(filepath + " finished downloading.")
@@ -385,7 +389,7 @@ class DownloadThread(BaseThread):
             mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
             mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
             mixer.music.play()
-
+            
             # add to history table in database
             with user_database.get_session(self) as session:
                 result = session.execute(insert(user_database.History).values(
@@ -398,11 +402,22 @@ class DownloadThread(BaseThread):
                         "full_path": filepath,
                         "favicon_url": msg.get('favicon_url')
                     }))
+                db_id = int(result.inserted_primary_key[0])
+
             #winsound.PlaySound(self.SUCCESS_CHIME, winsound.SND_FILENAME)
             from pygame import mixer
             mixer.init()
             mixer.music.load(self.SUCCESS_CHIME)
             mixer.music.play()
+            
+            kwargs = { "url": msg.get("pageUrl"), 
+                      "history_id": db_id, 
+                      "domain": msg.get("domain"),
+                      "history_item": db_id,
+                      "galleryUrl": msg.get("galleryUrl", "") } 
+
+            gal = GenericGallery(**kwargs)
+            search_thread.queue.put(gal)
 
             #playsound(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
             # send successful download response to extension
@@ -448,10 +463,28 @@ class DownloadThread(BaseThread):
 
 
     # checks image file headers and renames to proper extension when necessary
-    def fix_extension(self, imagepath):  
+    def fix_extension(self, basefilename, imagepath):  
         format = imghdr.what(imagepath)
         if not format:    # not image so do nothing
             return imagepath
+
+        format = self.ext_convention(''.join(('.', format)))
+        _, ext = os.path.splitext(imagepath)
+        if ext != format:
+            dirpath = os.path.dirname(imagepath)
+            newpath = os.path.join(dirpath, ''.join((basefilename, format)))
+
+            count = 1
+            while os.path.isfile(newpath):
+                newpath = os.path.join(dirpath, ''.join((basefilename, ' (', str(count), ')', format)))
+                count += 1
+            os.rename(imagepath, newpath)
+            return newpath
+        return imagepath
+
+
+
+
 
         format = self.ext_convention(''.join(('.', format)))
         filename, ext = os.path.splitext(imagepath)
@@ -469,8 +502,21 @@ class DownloadThread(BaseThread):
         return ext
 
 
-#download_thread = DownloadThread()
+class SearchThread(BaseThread):
+    API_URL = "https://exhentai.org/api.php"
+    GAL_PAYLOAD = {"method": "gdata", "gidlist": [], "namespace": 1}
+    IND_PAYLOAD = {"method": "gtoken", "pagelist": []}
+    API_MAX_ENTRIES = 25
 
+
+    def _run(self):
+        while True:
+            gal = self.queue.get()  # generic gallery class
+            done = gal.search()
+            if not done:
+                self.queue.put(gal)
+
+search_thread = SearchThread()
 
 class GalleryThread(BaseThread):
     running = False
@@ -488,7 +534,7 @@ class GalleryThread(BaseThread):
             with FukurouViewer.app.gallery_lock:
                 print("HUH")
 
-gallery_thread = GalleryThread()
+#gallery_thread = GalleryThread()
 
 
 class WatcherThread(BaseThread):
@@ -509,7 +555,7 @@ class WatcherThread(BaseThread):
         for folder in Config.folders:
             self.observer.schedule(self.Handler(), folder, recursive=True)
 
-watcher_thread = WatcherThread()
+#watcher_thread = WatcherThread()
 
 
 class EventThread(BaseThread):
@@ -530,20 +576,19 @@ class EventThread(BaseThread):
             elif event.event_type == "modified":
                 self.logger.info("modified")
 
-event_thread = EventThread()
+#event_thread = EventThread()
 
 
 THREADS = [
     messenger_thread,
     download_manager,
+    search_thread,
     #download_thread,
     #gallery_thread,
     #watcher_thread,
-    #event_thread,
 ]
 
 def setup():
     for thread in THREADS:
-        print("STARTING")
         thread.setup()
         thread.start()
