@@ -7,6 +7,12 @@ Current Features
 ---------------------
 * Custom save directories
   * Saving directories for one click downloading with extension
+* Tray Icon/mini window
+  * Download History
+  * In progress download infomation
+  * Favorite Folders Editing/Viewing/Reordering
+* Multiple Concurrent Downloading
+* Metadata gathering from supported sites
 
 Major Feature TODO List 
 ---------------------
@@ -25,9 +31,7 @@ Major Feature TODO List
   * RSS and automatic searches based on favorited tags
   * Torrent support
 * Embeded formats viewer
-* Linking with browser extension
-  * downloading galleries/individual files
-  * Syncing favorites
+* downloading galleries/individual files
 * Browsing select websites
 * Proxy support
 
