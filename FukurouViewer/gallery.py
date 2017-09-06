@@ -43,32 +43,30 @@ class EHIdentifier(BaseIdentifier):
         HASH = 2    # file sha1 hash search
 
     class GalIdentity():
-        PAYLOAD = {"method": "gdata", "gidlist": [], "namespace": 1}
-
         gid = None   # int
         token = ""  # str
+
         def __init__(self, **kwargs):
             self.gid = kwargs.get('gid')
             self.token = kwargs.get('token')
 
         def payload(self):
-            payload = self.PAYLOAD
+            payload = {"method": "gdata", "gidlist": [], "namespace": 1}
             payload["gidlist"].append([self.gid, self.token])
             return payload
 
     class PageIdentity():
-        PAYLOAD = {"method": "gtoken", "pagelist": []}
-
         gid = None   # int
         page_token = ""  # str
         page_number = None # int
+
         def __init__(self, **kwargs):
             self.gid = kwargs.get('gid')
             self.page_token = kwargs.get('page_token')
             self.page_number = kwargs.get('page_number')
         
         def payload(self):
-            payload = self.PAYLOAD
+            payload = {"method": "gtoken", "pagelist": []}
             payload["pagelist"].append([self.gid, self.page_token, self.page_number])
             return payload
 
@@ -140,10 +138,11 @@ class ExIdentifier(EHIdentifier):
     
 
 class GenericGallery(Logger):
-    VALID_SITES = [
-        ("e-hentai.org", EHIdentifier),
-        ("exhentai.org", ExIdentifier),
-    ]
+
+    VALID_SITES = {
+        "e-hentai.org": "EHIdentifier",
+        "exhentai.org": "ExIdentifier",
+    }
 
     IMAGE_WIDTH = 200
     IMAGE_HEIGHT = 280
@@ -160,11 +159,11 @@ class GenericGallery(Logger):
     url = ""
     virtual = None
 
-    history_items = []
     identifier = None       # identifier for site specific gallery linking
     dead = False
     
     def __init__(self, **kwargs):
+        self.history_items = []
         self.url = kwargs.get("galleryUrl", "")
 
         item = kwargs.get('history_item')
@@ -178,9 +177,10 @@ class GenericGallery(Logger):
                 
     def match_site(self, **kwargs):
         domain = kwargs.get("domain")
-        for site in self.VALID_SITES:
-            if domain == site[0]:
-                return site[1](**kwargs)
+
+        if domain in self.VALID_SITES:
+            test = globals()[self.VALID_SITES.get(domain)](**kwargs)
+            return test
         return None
 
 

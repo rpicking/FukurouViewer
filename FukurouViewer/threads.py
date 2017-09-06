@@ -27,12 +27,9 @@ from .host import Host
 from .utils import Utils
 from .config import Config
 from .logger import Logger
-<<<<<<< HEAD
 from .foundation import Foundation
-=======
 from .search import Search
 from .gallery import GenericGallery
->>>>>>> develop
 
 
 class BaseThread(threading.Thread, Logger):
