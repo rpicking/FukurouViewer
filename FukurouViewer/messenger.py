@@ -161,7 +161,8 @@ class Messenger(Logger):
                 self.extension.send_message(msg)
                 continue
             except Exception as e:
-                self.logger.error("Crashed: " + e)
+                self.logger.error("Crashed")
+                self.logger.error(e)
                 return
 
     def close(self):

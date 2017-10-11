@@ -31,6 +31,10 @@ from .foundation import Foundation
 from .search import Search
 from .gallery import GenericGallery
 
+import pygame.mixer as mixer
+
+mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
+
 
 class BaseThread(threading.Thread, Logger):
     THREAD_COUNT = 4
@@ -381,9 +385,6 @@ class DownloadThread(BaseThread):
             r.close()
 
             self.logger.info(filepath + " finished downloading.")
-            from pygame import mixer
-            mixer.init()
-            mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
             mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
             mixer.music.play()
             
@@ -401,11 +402,7 @@ class DownloadThread(BaseThread):
                     }))
                 db_id = int(result.inserted_primary_key[0])
 
-            #winsound.PlaySound(self.SUCCESS_CHIME, winsound.SND_FILENAME)
-            from pygame import mixer
-            mixer.init()
-            mixer.music.load(self.SUCCESS_CHIME)
-            mixer.music.play()
+
             
             kwargs = { "url": msg.get("pageUrl"), 
                       "history_id": db_id, 
