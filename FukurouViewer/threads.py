@@ -291,6 +291,9 @@ class DownloadThread(BaseThread):
                 break
         # create item in ui with uid
 
+        if msg.get('srcUrl') == None:
+            return
+
         try:
             headers = {}
             if "headers" in msg:

@@ -18,11 +18,18 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def __init__(self, icon, parent=None):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
         self.menu = QtWidgets.QMenu(parent)
+        self.createMenu()
 
-        folder_options = Config.folder_options
-        for folder in sorted(folder_options):
-            uid = folder_options.get(folder).get("uid")
-            item = FolderMenuItem(folder, self, uid)
+    def createMenu(self):
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Folders]).order_by(user_database.Folders.order)))
+
+        for folder in results:
+            name = folder.get("name")
+            uid = folder.get("uid")
+            path = folder.get("path")
+            item = FolderMenuItem(self, name, path, uid)
             self.menu.addAction(item)
 
         self.exitAction = QtWidgets.QAction('&Exit', self)
@@ -32,18 +39,18 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
            
 
 class FolderMenuItem(QtWidgets.QAction):
-    def __init__(self, folder, parent, _uid):
-        super().__init__(folder, parent)
+
+
+    def __init__(self, parent, _name, _path, _uid):
+        super().__init__(_name, parent)
+        self.name = _name
         self.uid = _uid
+        self.path = _path
         self.triggered.connect(self.openFolder)
 
     def openFolder(self):
-        folder_options = Config.folder_options
-        for folder in folder_options:
-            if self.uid in folder_options.get(folder).values():
-                dir = folder_options.get(folder).get("path")
-                QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(Utils.norm_path(dir)))
-                return
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(Utils.norm_path(self.path)))
+        return
 
 
 class Download(object):
@@ -312,6 +319,8 @@ class Program(QtWidgets.QApplication):
                     "order": order,
                     "type": type
                 })) 
+
+
 
 
     # updates ui indicator if folder path is accessable
