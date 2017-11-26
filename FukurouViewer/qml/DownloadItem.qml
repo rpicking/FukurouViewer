@@ -13,6 +13,8 @@ Component {
 
         Text {
             id: filename
+            width: 250
+            height: 20
             text: model.filename
             font.pointSize: 12
             elide: Text.ElideRight
@@ -21,24 +23,23 @@ Component {
                 topMargin: 10
                 left: parent.left
                 leftMargin: 10
-                right: speed.left
             }
         }
 
         Text {
             id: speed
-            width: 70
-            text: "10,000 B/s"
+            text: model.speed + "/s"
             font.pointSize: 10
             anchors {
                 verticalCenter: filename.verticalCenter
-                right: parent.right
-                rightMargin: 15
+                right: folderColorRound.left
+                rightMargin: 5
             }
         }
 
         ProgressBar {
             id: progress
+            value: model.percent
             anchors {
                 top: filename.bottom
                 topMargin: 10
@@ -50,7 +51,7 @@ Component {
 
         Text {
             id: percentField
-            text: "0%"
+            text: Math.round(model.percent * 100) + "%"
             font.pointSize: 10
             anchors {
                 verticalCenter: progress.verticalCenter
@@ -61,7 +62,7 @@ Component {
 
         Text {
             id: progressSize
-            text: "0B"
+            text: model.cur_size
             font.pointSize: 10
             anchors {
                 top: progress.bottom
@@ -71,7 +72,7 @@ Component {
         }
         Text {
             id: totalProgressSize
-            text: " / 0B"
+            text: " / " + model.total_size
             font.pointSize: 10
             anchors {
                 top: progress.bottom

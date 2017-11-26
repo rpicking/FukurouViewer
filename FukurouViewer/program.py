@@ -54,52 +54,125 @@ class FolderMenuItem(QtWidgets.QAction):
 
 
 class Download(object):
-    def __init__(self, filename, color):
-        self._filename = filename
-        self._color = color
+    def __init__(self, _id, _filename, _total_size, _color):
+        self.id = _id
+        self.filename = _filename
+        self.total_size = _total_size
+        self.color = _color
+        self.cur_size = 0
+        self.percent = 0
+        self.speed = 0
 
-    def filename(self):
-        return self._filename
+    def getID(self):
+        return self.id
+
+    def getFilename(self):
+        return self.filename
+
+    def getTotalSize(self):
+        return self.total_size
     
-    def color(self):
-        return self._color
+    def getColor(self):
+        return self.color
+
+    def getCurSize(self):
+        return self.cur_size
+
+    def getPercent(self):
+        return self.percent
+
+    def getSpeed(self):
+        return self.speed
+
+    def update(self, _cur_size, _percent, _speed):
+        self.cur_size = _cur_size
+        self.percent = _percent
+        self.speed = _speed
 
 
 class DownloadsModel(QtCore.QAbstractListModel):
-    FilenameRole = QtCore.Qt.UserRole + 1
-    ColorRole = QtCore.Qt.UserRole + 2
+    IDRole = QtCore.Qt.UserRole + 1
+    FilenameRole = QtCore.Qt.UserRole + 2
+    TotalSizeRole = QtCore.Qt.UserRole + 3
+    ColorRole = QtCore.Qt.UserRole + 4
+    CurSizeRole = QtCore.Qt.UserRole + 5
+    PercentRole = QtCore.Qt.UserRole + 6
+    SpeedRole = QtCore.Qt.UserRole + 7
 
-    _roles = {FilenameRole: "filename", ColorRole: "color"}
+    _roles = {IDRole: "id", FilenameRole: "filename", TotalSizeRole: "total_size", ColorRole: "color",
+              CurSizeRole: "cur_size", PercentRole: "percent", SpeedRole: "speed"}
 
     def __init__(self, parent=None):
         super(DownloadsModel, self).__init__(parent)
         self._items = []
 
-    def addItem(self, item):
+    def addItem(self, id, filename, total_size, color):
         self.beginInsertRows(QtCore.QModelIndex(), self.rowCount(), self.rowCount())
-        self._items.append(item)
+
+        self._items.append(Download(id, filename, total_size, color))
         self.endInsertRows()
+        
+        #self.do_update()
 
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._items)
 
-    def data(self, index, role=QtCore.Qt.DisplayRole):
+    def data(self, index, role):
         try:
             item = self._items[index.row()]
         except IndexError:
             return QtCore.QVariant()
 
+        if role == self.IDRole:
+            return item.getID()
         if role == self.FilenameRole:
-            return item.filename()
+            return item.getFilename()
+        if role == self.TotalSizeRole:
+            return item.getTotalSize()
         if role == self.ColorRole:
-            return item.color()
+            return item.getColor()
+        if role == self.CurSizeRole:
+            return item.getCurSize()
+        if role == self.PercentRole:
+            return item.getPercent()
+        if role == self.SpeedRole:
+            return item.getSpeed()
 
         return QtCore.QVariant()
 
     def roleNames(self):
         return {x: self._roles[x].encode() for x in self._roles}
 
+    # get list of ids from items
+    def getIDs(self):
+        return [item.getID() for item in self._items]
 
+    # creates new unique id for download item in UI
+    def createID(self):
+        used_ids = self.getIDs()
+        return Foundation.uniqueID(used_ids)
+
+    # THIS MIGHT NEED TO BE SWITCHED TO SETDATA  https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
+    # updates filename and color of current download item with id
+    def updateItem(self, id, cur_size, progress, speed):
+        for index, item in enumerate(self._items):
+            if item.getID() == id:
+                break
+        else:   # id doesn't exist
+            return
+
+        self._items[index].update(cur_size, progress, speed)
+
+        #self.do_update()
+
+        model_index = self.index(index)
+        self.dataChanged.emit(model_index, model_index, [])
+
+    def do_update(self):
+        start_index = self.createIndex(0,0)
+        end_index = self.createIndex(len(self._items) - 1, 0)
+        self.dataChanged.emit(start_index, end_index, [])
+        
 
 class ImageProvider(QtQuick.QQuickImageProvider):
     TMP_DIR = Utils.fv_path("tmp")
@@ -218,11 +291,9 @@ class Program(QtWidgets.QApplication):
             self.engine.addImageProvider("fukurou", self.image_provider)
 
             self.downloadsModel = DownloadsModel()
-            self.downloadsModel.addItem(Download("item1", "red"))
-            self.downloadsModel.addItem(Download("item2", "red"))
-            self.downloadsModel.addItem(Download("item3", "red"))
-            self.downloadsModel.addItem(Download("item4", "red"))
-            self.downloadsModel.addItem(Download("item5", "red"))
+            #self.create_download_item("XXXXX", "test1.pdf", 1000, "red")
+            #self.create_download_item("SSSSS", "test2.pdf", 1000, "blue")
+
             self.context = self.engine.rootContext()
             self.context.setContextProperty("downloadsModel", self.downloadsModel)
 
@@ -239,6 +310,9 @@ class Program(QtWidgets.QApplication):
             self.app_window.openItem.connect(self.open_item)
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
+
+            #self.create_download_item("AAAAA", "test3.pdf", 1000, "green")
+            #self.create_download_item("BBBBB", "test4.pdf", 1000, "purple")
 
             #with user_database.get_session(self, acquire=True) as session:
              #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
@@ -306,8 +380,14 @@ class Program(QtWidgets.QApplication):
 
     # add new folder entry into database
     def add_folder(self, name, path, color, type):
-        uid = Foundation.uniqueId()
+        uid = Foundation.uniqueFolderID()
         order = Foundation.lastOrder()
+
+        # testing stuff
+        test_id = self.downloadsModel.getIDs()[0]
+        self.downloadsModel.updateItem(test_id, "CHANGED", "black")
+
+        return
 
         with user_database.get_session(self) as session:
             session.execute(insert(user_database.Folders).values(
@@ -319,8 +399,6 @@ class Program(QtWidgets.QApplication):
                     "order": order,
                     "type": type
                 })) 
-
-
 
 
     # updates ui indicator if folder path is accessable
@@ -343,6 +421,11 @@ class Program(QtWidgets.QApplication):
                             "order": folder.get("order")
                         }))
 
+    def create_download_item(self, id, filename, total_size, color):
+        self.downloadsModel.addItem(id, filename, total_size, color)
+
+    def update_download_item(self, id, cur_size, progress, speed):
+        self.downloadsModel.updateItem(id, cur_size, progress, speed)
 
     # open application window
     def open(self):

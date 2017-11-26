@@ -7,11 +7,12 @@ import imghdr
 import random
 import string
 import struct
-import winsound
+import humanize
 import requests
 import linecache
 import threading
 import subprocess
+from PyQt5 import QtCore
 from time import clock, time
 from collections import namedtuple
 from mimetypes import guess_extension
@@ -274,6 +275,16 @@ class DownloadThread(BaseThread):
     FAVICON_PATH = Utils.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
 
+    def setup(self):
+        super().setup()
+        self.signals = self.Signals()
+        self.signals.create.connect(FukurouViewer.app.create_download_item)
+        self.signals.update.connect(FukurouViewer.app.update_download_item)
+
+    class Signals(QtCore.QObject):
+        create = QtCore.pyqtSignal(str, str, str, str)
+        update = QtCore.pyqtSignal(str, str, float, str)
+
     def _run(self):
         while True:
             msg = download_manager.queue.get()
@@ -285,12 +296,6 @@ class DownloadThread(BaseThread):
 
     # download individual file and favicon from site
     def save_task(self, msg):
-        while True: #get unique uid for new download in ui
-            uid = Foundation.id_generator()
-            if id not in []:
-                break
-        # create item in ui with uid
-
         if msg.get('srcUrl') == None:
             return
 
@@ -301,7 +306,7 @@ class DownloadThread(BaseThread):
 
             headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
             cookies = {}
-            filename = ""
+            base_filename = ""
 
             # process message from extension
             self.logger.debug("--- Starting Download ---")
@@ -338,51 +343,62 @@ class DownloadThread(BaseThread):
             if 'Content-Disposition' in r.headers:    # check for content-disposition header, if exists try and set filename
                 contdisp = re.findall("filename=(.+)", r.headers['content-disposition'])
                 if len(contdisp) > 0:
-                    filename = contdisp[0]
-            if not filename:    # still havn't gotten filename
-                filename = msg.get('srcUrl').split('/')[-1]   # get filename from srcUrl
-                filename = filename.split('?')[0]   # strip query string parameters
-                filename = filename.split('#')[0]   # strip anchor
+                    base_filename = contdisp[0]
+            if not base_filename:    # still havn't gotten filename
+                base_filename = msg.get('srcUrl').split('/')[-1]   # get filename from srcUrl
+                base_filename = base_filename.split('?')[0]   # strip query string parameters
+                base_filename = base_filename.split('#')[0]   # strip anchor
 
 
             # format filename to valid
             valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
-            filename = ''.join(c for c in filename if c in valid_chars)
+            base_filename = ''.join(c for c in base_filename if c in valid_chars)
             # get file extension from header if not already found
-            filename, ext = os.path.splitext(filename)
+            base_filename, ext = os.path.splitext(base_filename)
             if not ext:
                 ext = guess_extension(r.headers['content-type'].split()[0].rstrip(";"))   #get extension from content-type header
 
             # set filename to name recommended by ext if available
-            filename = msg.get('filename', filename)
+            base_filename = msg.get('filename', base_filename)
 
-            filepath = os.path.join(folder.get("path"), ''.join((filename, ext)))
+            filepath = os.path.join(folder.get("path"), ''.join((base_filename, ext)))
 
             # check and rename if file already exists
             count = 1
             while os.path.isfile(filepath):
-                filepath = os.path.join(folder.get("path"), ''.join((filename, ' (', str(count), ')', ext)))
+                filename = ''.join((base_filename, ' (', str(count), ')', ext))
+                filepath = os.path.join(folder.get("path"), filename)
                 count += 1
+            else:
+                filename = base_filename
 
-            # Download file
-            total_length = int(r.headers.get('content-length'))
-            total_dl = 0
-            dl = 0
+            # ----------------------
+            # --- START DOWNLOAD ---
+            # ----------------------
+
+            total_size = int(r.headers.get('content-length'))
+
+            id = self.create_id()
+            self.signals.create.emit(id, filename, humanize.naturalsize(total_size, gnu=True), folder.get("color"))
+            
+            cur_size = 0    # amount downloaded so far
             prev_time = start
+            chunk_size = 1024 * 1024
+
             with open(filepath, "wb") as f:
-                for chunk in r.iter_content(1024):
+                for chunk in r.iter_content(chunk_size):
                     if chunk:
-                        total_dl += len(chunk)
-                        dl += len(chunk)
+                        cur_size += len(chunk)
 
                         f.write(chunk)
                         duration = clock() - prev_time
-                        if duration >= 1 or total_dl == total_length:
-                            done = total_dl / total_length
-                            cur_speed = int((dl / duration) / 1000)
-                            FukurouViewer.app.app_window.updateProgress.emit(done, cur_speed)
-                            prev_time = clock()
-                            dl = 0
+                        prev_time = clock()
+                        percent = cur_size / total_size  # file progress
+                        cur_speed = humanize.naturalsize(int(chunk_size / duration), gnu=True)
+
+                        # update download item ui
+                        self.signals.update.emit(id, humanize.naturalsize(cur_size, gnu=True), percent, cur_speed)
+
                             
             filepath = self.fix_extension(filename, filepath)
             r.close()
@@ -405,8 +421,7 @@ class DownloadThread(BaseThread):
                     }))
                 db_id = int(result.inserted_primary_key[0])
 
-
-            
+                            
             kwargs = { "url": msg.get("pageUrl"), 
                       "history_id": db_id, 
                       "domain": msg.get("domain"),
@@ -429,14 +444,18 @@ class DownloadThread(BaseThread):
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             self.logger.error("Request for " + msg.get('srcUrl') + " timed out. ")
             self.logger.error(e)
-            if os.path.isfile(filepath):
-                os.remove(filepath)
+            self.delete_file(filepath)
             return {'task': 'save', 'type': 'timeout'}
 
         except Exception as e:
             self.log_exception()
+            self.delete_file(filepath)
             return {'task': 'save', 'type': 'crash'}
 
+    # returns unique id for download item in UI
+    def create_id(self):
+        used_ids = FukurouViewer.app.downloadsModel.getIDs()
+        return Foundation.uniqueID(used_ids)
 
     def saveManga_task(self, msg):
         self.logger.debug("--- Downloading Manga ---")
@@ -447,6 +466,10 @@ class DownloadThread(BaseThread):
         doujin_downloader.append("nogui")
         subprocess.Popen(doujin_downloader)
 
+    # delete file
+    def delete_file(self, filepath):
+        if os.path.isfile(filepath):
+            os.remove(filepath)
 
     # logs raised general exception
     def log_exception(self):
@@ -475,18 +498,6 @@ class DownloadThread(BaseThread):
             while os.path.isfile(newpath):
                 newpath = os.path.join(dirpath, ''.join((basefilename, ' (', str(count), ')', format)))
                 count += 1
-            os.rename(imagepath, newpath)
-            return newpath
-        return imagepath
-
-
-
-
-
-        format = self.ext_convention(''.join(('.', format)))
-        filename, ext = os.path.splitext(imagepath)
-        if ext != format:
-            newpath = os.path.join(os.path.dirname(imagepath), ''.join((filename, format)))
             os.rename(imagepath, newpath)
             return newpath
         return imagepath

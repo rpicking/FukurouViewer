@@ -15,15 +15,20 @@ class Foundation(Logger):
 
     # returns a unique id of length 6 for folder
     @classmethod
-    def uniqueId(cls):
+    def uniqueID(cls, items):
+        while True:
+            id = cls.id_generator()
+            if id not in items:
+                return id
+
+    @classmethod
+    def uniqueFolderID(cls):
         with user_database.get_session(cls, acquire=True) as session:
             used_ids = Utils.convert_result(session.execute(
                 select([user_database.Folders.uid])))
-        while True:
-            id = cls.id_generator()
-            if not any(d['uid'] == id for d in used_ids):
-                return id
 
+        used_ids = [item['uid'] for item in used_ids]
+        return cls.uniqueID(used_ids)
 
     # generates a id string
     @staticmethod
