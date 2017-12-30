@@ -9,7 +9,7 @@ import QtQuick.Controls.Styles 1.4
 import "controls" as Awesome
 
 Window {
-    id: window
+    id: trayWindow
     //visible: false
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     width: 400
@@ -32,7 +32,7 @@ Window {
         y = _y - height;
         show();
         requestActivate();
-        mainWindow.requestHistory(0);   //0 = get all history
+        requestHistory(0);
         mainWindow.requestFolders();
         //console.log(active);
     }
@@ -42,24 +42,53 @@ Window {
         hide();
     }
 
+    function requestHistory(index) {
+        var count = 50;
+        mainWindow.requestHistory(index, count);   //0 = get all history
+    }
+
     function setHistory(items) {
         historyModel.clear();
 
-        var monthNames = [
+        var tD = new Date();
+        var today = getDateFormat(tD);
+
+        var yD = new Date(today);
+        yD.setDate(tD.getDate() - 1);
+        var yesterday = getDateFormat(yD);
+
+        for(var i = 0; i < items.length; ++i) {
+            var d = new Date(items[i].time_added * 1000);
+            var date = getDateFormat(d);
+            if (date === today) {
+                date = "Today";
+            }
+            else if (date === yesterday) {
+                date = "Yesterday";
+            }
+
+            items[i]["date"] = date;
+            historyModel.append(items[i]);
+        }
+    }
+
+    function deleteHistoryItem(id) {
+        mainWindow.deleteHistoryItem(id, historyModel.count);
+    }
+
+    function getDateFormat(date) {
+        const monthNames = [
             "January", "February", "March",
             "April", "May", "June", "July",
             "August", "September", "October",
             "November", "December"
         ];
 
-        for(var i = 0; i < items.length; ++i) {
-            var d = new Date(items[i].time_added * 1000);
-            var month = monthNames[d.getMonth()];
-            var day = d.getDate();
-            var year = d.getFullYear();
-            items[i]["date"] = month + ' ' + day + ', ' + year
-            historyModel.append(items[i]);
-        }
+        var month = monthNames[date.getMonth()];
+        var day = date.getDate();
+        var year = date.getFullYear();
+
+        return month + ' ' + day + ', ' + year;
     }
 
     function setFolders(items) {
@@ -191,6 +220,7 @@ Window {
         Tab {
             id: historyTab
             title: "History"
+
             ScrollView {
                 ListView {
                     id: historyView
@@ -204,8 +234,13 @@ Window {
                     section.delegate: sectionHeading
                     spacing: 6
                     snapMode: ListView.NoSnap
-                    footer: seeMoreButton
                     clip: true
+
+                    onAtYEndChanged: {
+                        if (atYEnd) {
+                            requestHistory(historyModel.count);
+                        }
+                    }
                 }
             }
         }
@@ -248,22 +283,5 @@ Window {
     }
     ListModel {
         id: foldersModel
-    }
-
-    Component {
-        id: seeMoreButton
-        Rectangle {
-            height: 50
-            anchors.right: parent.right
-            anchors.rightMargin: 15
-            anchors.left: parent.left
-            anchors.leftMargin: 0
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.horizontalCenter: parent.horizontalCenter
-                font.underline: true
-                text: qsTr("SEE MORE")
-            }
-        }
     }
 }

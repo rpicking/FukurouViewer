@@ -54,35 +54,16 @@ class FolderMenuItem(QtWidgets.QAction):
 
 
 class Download(object):
-    def __init__(self, _id, _filename, _total_size, _color):
+    def __init__(self, _id, _filename, _filePath, _total_size, _folderName, _color):
         self.id = _id
         self.filename = _filename
+        self.filePath = _filePath
         self.total_size = _total_size
+        self.folderName = _folderName
         self.color = _color
         self.cur_size = 0
         self.percent = 0
         self.speed = 0
-
-    def getID(self):
-        return self.id
-
-    def getFilename(self):
-        return self.filename
-
-    def getTotalSize(self):
-        return self.total_size
-    
-    def getColor(self):
-        return self.color
-
-    def getCurSize(self):
-        return self.cur_size
-
-    def getPercent(self):
-        return self.percent
-
-    def getSpeed(self):
-        return self.speed
 
     def update(self, _cur_size, _percent, _speed):
         self.cur_size = _cur_size
@@ -93,23 +74,26 @@ class Download(object):
 class DownloadsModel(QtCore.QAbstractListModel):
     IDRole = QtCore.Qt.UserRole + 1
     FilenameRole = QtCore.Qt.UserRole + 2
-    TotalSizeRole = QtCore.Qt.UserRole + 3
-    ColorRole = QtCore.Qt.UserRole + 4
-    CurSizeRole = QtCore.Qt.UserRole + 5
-    PercentRole = QtCore.Qt.UserRole + 6
-    SpeedRole = QtCore.Qt.UserRole + 7
+    FilePathRole = QtCore.Qt.UserRole + 3
+    TotalSizeRole = QtCore.Qt.UserRole + 4
+    FolderNameRole = QtCore.Qt.UserRole + 5
+    ColorRole = QtCore.Qt.UserRole + 6
+    CurSizeRole = QtCore.Qt.UserRole + 7
+    PercentRole = QtCore.Qt.UserRole + 8
+    SpeedRole = QtCore.Qt.UserRole + 9
 
-    _roles = {IDRole: "id", FilenameRole: "filename", TotalSizeRole: "total_size", ColorRole: "color",
-              CurSizeRole: "cur_size", PercentRole: "percent", SpeedRole: "speed"}
+    _roles = {IDRole: "id", FilenameRole: "filename", FilePathRole: "folderPath", TotalSizeRole: "total_size", 
+              FolderNameRole: "folderName", ColorRole: "color", CurSizeRole: "cur_size", 
+              PercentRole: "percent", SpeedRole: "speed"}
 
     def __init__(self, parent=None):
         super(DownloadsModel, self).__init__(parent)
         self._items = []
 
-    def addItem(self, id, filename, total_size, color):
+    def addItem(self, id, filename, filePath, total_size, folderName, color):
         self.beginInsertRows(QtCore.QModelIndex(), self.rowCount(), self.rowCount())
 
-        self._items.append(Download(id, filename, total_size, color))
+        self._items.insert(0, Download(id, filename, filePath, total_size, folderName, color))
         self.endInsertRows()
         
         #self.do_update()
@@ -124,19 +108,23 @@ class DownloadsModel(QtCore.QAbstractListModel):
             return QtCore.QVariant()
 
         if role == self.IDRole:
-            return item.getID()
+            return item.id
         if role == self.FilenameRole:
-            return item.getFilename()
+            return item.filename
+        if role == self.FilePathRole:
+            return item.filePath
         if role == self.TotalSizeRole:
-            return item.getTotalSize()
+            return item.total_size
+        if role == self.FolderNameRole:
+            return item.folderName
         if role == self.ColorRole:
-            return item.getColor()
+            return item.color
         if role == self.CurSizeRole:
-            return item.getCurSize()
+            return item.cur_size
         if role == self.PercentRole:
-            return item.getPercent()
+            return item.percent
         if role == self.SpeedRole:
-            return item.getSpeed()
+            return item.speed
 
         return QtCore.QVariant()
 
@@ -280,7 +268,7 @@ class Program(QtWidgets.QApplication):
             self.start_application()
 
     
-    def start_application(self, mode="MINI"):
+    def start_application(self, mode="TRAY"):
         try:
             self.engine
         except AttributeError:  # qml engine not started
@@ -291,8 +279,6 @@ class Program(QtWidgets.QApplication):
             self.engine.addImageProvider("fukurou", self.image_provider)
 
             self.downloadsModel = DownloadsModel()
-            #self.create_download_item("XXXXX", "test1.pdf", 1000, "red")
-            #self.create_download_item("SSSSS", "test2.pdf", 1000, "blue")
 
             self.context = self.engine.rootContext()
             self.context.setContextProperty("downloadsModel", self.downloadsModel)
@@ -309,26 +295,25 @@ class Program(QtWidgets.QApplication):
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
 
-            self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
+            self.create_download_item("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green")
 
-            #self.create_download_item("AAAAA", "test3.pdf", 1000, "green")
-            #self.create_download_item("BBBBB", "test4.pdf", 1000, "purple")
+
+            self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
             #with user_database.get_session(self, acquire=True) as session:
              #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
               #  test = results.gallery
                # print("BREAK")
 
-    # sends limit number of history entries newest first to ui
-    def send_history(self, limit=0):
+    # sends limited number of history entries newest first to ui
+    def send_history(self, index, limit=0):
         self.history_health_check()
+
         with user_database.get_session(self, acquire=True) as session:
-            if not limit:
-                results = Utils.convert_result(session.execute(
-                    select([user_database.History]).order_by(user_database.History.time_added.desc())))
-            else:
-                results = Utils.convert_result(session.execute(
-                    select([user_database.History]).order_by(user_database.History.time_added.desc()).limit(limit)))
+            results = Utils.convert_result(session.execute(
+                select([user_database.History]).order_by(user_database.History.time_added.desc())))
+
+            results = results[index: index + limit]
             self.app_window.receiveHistory.emit(results)
 
 
@@ -346,23 +331,20 @@ class Program(QtWidgets.QApplication):
 
 
     # delete history item
-    def delete_history_item(self, id):
+    def delete_history_item(self, id, count):
         with user_database.get_session(self, acquire=True) as session:
             session.execute(delete(user_database.History).where(user_database.History.id == id))
-        self.send_history()
+        self.send_history(0, count - 1)
 
 
     # open history item file in default application or open file explorer to directory
     def open_item(self, path, type):
         if type == "file":
             qurl = QtCore.QUrl.fromLocalFile(path)
-            #QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
         elif type == "folder":
             qurl = QtCore.QUrl.fromLocalFile(os.path.dirname(os.path.abspath(path)))
-            #QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
         elif type == "url":
             qurl = QtCore.QUrl(path)
-            #QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
         QtGui.QDesktopServices.openUrl(qurl)
 
 
@@ -421,8 +403,8 @@ class Program(QtWidgets.QApplication):
                             "order": folder.get("order")
                         }))
 
-    def create_download_item(self, id, filename, total_size, color):
-        self.downloadsModel.addItem(id, filename, total_size, color)
+    def create_download_item(self, id, filename, filepath, total_size, folderName, color):
+        self.downloadsModel.addItem(id, filename, filepath, total_size, folderName, color)
 
     def update_download_item(self, id, cur_size, progress, speed):
         self.downloadsModel.updateItem(id, cur_size, progress, speed)

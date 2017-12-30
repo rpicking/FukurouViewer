@@ -166,7 +166,7 @@ Component {
 
             mouseArea.onClicked: {
                 //console.log(model.id);
-                mainWindow.deleteHistoryItem(model.id);
+                trayWindow.deleteHistoryItem(model.id);
             }
         }
 
@@ -236,15 +236,6 @@ Component {
                 PropertyChanges {
                     target: deleteButton
                     anchors.topMargin: 5
-                }
-            },
-            State {
-                name: "shrink"
-                StateChangeScript {
-                    name: "shrinkScript"
-                    script: {
-                        //thumbnail.forceActiveFocus();
-                    }
                 }
             }
         ]

@@ -32,7 +32,7 @@ ApplicationWindow {
 
     property string mode: "NONE"
 
-    signal requestHistory(int limit)
+    signal requestHistory(int index, int limit)
     signal receiveHistory(var items)
     signal requestFolders
     signal receiveFolders(var items)
@@ -40,7 +40,7 @@ ApplicationWindow {
     signal onWindowClose
     signal requestValidFolder(string path)
     signal receiveValidFolder(bool valid)
-    signal deleteHistoryItem(int id)
+    signal deleteHistoryItem(int id, int count)
     signal updateFolders(var items)
     signal openItem(string path, string type)
     signal openUrl(string url)
@@ -54,17 +54,16 @@ ApplicationWindow {
 
     function openWindow(geometry) {
         switch(mode) {
-            case "MINI":
-                mode = "MINI";
-                history_window.openWindow(geometry.x, geometry.y);
+            case "TRAY":
+                trayWindow.openWindow(geometry.x, geometry.y);
                 //requestHistory();
                 break;
             case "APP":
-                mode = "APP";
                 show();
                 break;
             default:
                 console.log("NOT SUPPOSED TO BE HERE");
+                console.log(mode);
                 popup.open();
         }
     }
@@ -78,8 +77,8 @@ ApplicationWindow {
         source: "fonts/fontawesome-webfont.ttf"
     }
 
-    MiniWindow {
-        id: history_window
+    TrayWindow {
+        id: trayWindow
     }
 
     Popup {

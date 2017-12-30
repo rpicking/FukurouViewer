@@ -1,10 +1,11 @@
 import QtQuick 2.0
+import QtQuick.Controls 2.1
 import QtQuick.Controls 1.4
 
-//Item {
-Component {
-    //width: 400
-    //height: 100
+Item {
+    //Component {
+    width: 400
+    height: 100
     Rectangle {
         id: root
         height: 100
@@ -39,6 +40,7 @@ Component {
 
         ProgressBar {
             id: progress
+            height: 20
             value: model.percent
             anchors {
                 top: filename.bottom
@@ -55,30 +57,49 @@ Component {
             font.pointSize: 10
             anchors {
                 verticalCenter: progress.verticalCenter
-                right: parent.right
-                rightMargin: 15
+                right: pauseButton.left
+                rightMargin: 5
+            }
+        }
+
+        TextIconButton {
+            id: pauseButton
+            property bool paused: false
+            enabled: model.percent !== 1
+            anchors.right: parent.right
+            anchors.rightMargin: 15
+            anchors.verticalCenter: progress.verticalCenter
+            ToolTip.visible: this.mouseArea.containsMouse
+            ToolTip.text: paused ? qsTr("Resume") : qsTr("Pause")
+            fontFamily: fontAwesome.name
+            buttonText: paused ? "\uf04b" : "\uf04c"
+
+            mouseArea.onClicked: {
+                if (paused) {
+                    paused = false;
+                }
+                else {
+                    paused = true;
+                }
             }
         }
 
         Text {
             id: progressSize
             text: model.cur_size
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 10
             font.pointSize: 10
-            anchors {
-                top: progress.bottom
-                topMargin: 10
-                left: filename.left
-            }
+            anchors.left: filename.left
         }
+
         Text {
             id: totalProgressSize
             text: " / " + model.total_size
+            anchors.verticalCenter: progressSize.verticalCenter
             font.pointSize: 10
-            anchors {
-                top: progress.bottom
-                topMargin: 10
-                left: progressSize.right
-            }
+            anchors.left: progressSize.right
+
         }
 
         Rectangle {
@@ -86,20 +107,33 @@ Component {
             width: 10
             color: model.color
             radius: 5
+
+            ToolTip.visible: folderMouseArea.containsMouse
+            ToolTip.text: model.folderName
+
             anchors {
                 top: parent.top
                 bottom: parent.bottom
                 right: parent.right
             }
-        }
-        Rectangle {
-            id: folderColor
-            color: model.color
-            width: folderColorRound.radius
-            anchors {
-                top: folderColorRound.top
-                bottom: folderColorRound.bottom
-                right: folderColorRound.right
+
+            MouseArea {
+                id: folderMouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+            }
+
+            Rectangle {
+                id: folderColor
+                x: 5
+                y: 0
+                color: model.color
+                width: parent.radius
+                anchors {
+                    top: parent.top
+                    bottom: parent.bottom
+                    right: parent.right
+                }
             }
         }
     }

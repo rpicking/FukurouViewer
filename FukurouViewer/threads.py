@@ -344,7 +344,8 @@ class DownloadThread(BaseThread):
                 contdisp = re.findall("filename=(.+)", r.headers['content-disposition'])
                 if len(contdisp) > 0:
                     base_filename = contdisp[0]
-            if not base_filename:    # still havn't gotten filename
+
+            if not base_filename:    # get filename from url
                 base_filename = msg.get('srcUrl').split('/')[-1]   # get filename from srcUrl
                 base_filename = base_filename.split('?')[0]   # strip query string parameters
                 base_filename = base_filename.split('#')[0]   # strip anchor
@@ -370,7 +371,7 @@ class DownloadThread(BaseThread):
                 filepath = os.path.join(folder.get("path"), filename)
                 count += 1
             else:
-                filename = base_filename
+                filename = ''.join((base_filename, ext))
 
             # ----------------------
             # --- START DOWNLOAD ---
@@ -379,7 +380,7 @@ class DownloadThread(BaseThread):
             total_size = int(r.headers.get('content-length'))
 
             id = self.create_id()
-            self.signals.create.emit(id, filename, humanize.naturalsize(total_size, gnu=True), folder.get("color"))
+            self.signals.create.emit(id, filename, filepath, humanize.naturalsize(total_size, gnu=True), folder.get("name"), folder.get("color"))
             
             cur_size = 0    # amount downloaded so far
             prev_time = start
