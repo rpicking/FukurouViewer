@@ -25,7 +25,7 @@ from . import program, threads
 
 # workaround to use material style
 sys_argv = sys.argv
-sys_argv += ['-style', 'material']
+#sys_argv += ['-style', 'material']
 
 app = program.Program(sys_argv)
 app.setup(sys.argv)

@@ -1,33 +1,42 @@
 import QtQuick 2.0
 import QtQuick.Controls 2.1
 
-Rectangle {
-    property alias buttonText : textField.text
-    property alias fontFamily : textField.font.family
-    property alias textField : textField
-    property alias mouseArea : iconButtonMouseArea
+Button {
+    id: root
+    property string textColor : hovered ? theme.highlighted : theme.accent
+    property string backgroundColor : "transparent"
+    property string borderColor: "transparent"
     property int verticalOffset : 0
     property int horizontalOffset : 0
 
-    width: 25
     height: 25
-    color: "transparent"
-    radius: 5
+    width: height
 
-    Text {
-        id: textField
-        color: iconButtonMouseArea.containsMouse ? theme.highlighted : theme.accent
-        font.pointSize: 20
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.horizontalCenterOffset: horizontalOffset
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: verticalOffset
+    padding: 0
+    font: fontAwesome.name
+    baselineOffset: 0
+
+    contentItem: Text {
+        font.family: root.font
+        font.pixelSize: root.height
+        color: textColor
+        text: root.text
+        fontSizeMode: Text.Fit
+        //minimumPointSize: root.height
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        anchors {
+            horizontalCenter: root.horizontalCenter
+            horizontalCenterOffset: horizontalOffset
+            verticalCenter: root.verticalCenter
+            verticalCenterOffset: verticalOffset
+        }
     }
 
-    MouseArea {
-        id: iconButtonMouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        //onClicked: {}
+    background: Rectangle {
+        border.color: borderColor
+        color: backgroundColor
+        implicitHeight: root.height
+        implicitWidth: root.height
     }
 }

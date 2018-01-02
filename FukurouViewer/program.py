@@ -133,7 +133,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
 
     # get list of ids from items
     def getIDs(self):
-        return [item.getID() for item in self._items]
+        return [item.id for item in self._items]
 
     # creates new unique id for download item in UI
     def createID(self):
@@ -144,7 +144,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
     # updates filename and color of current download item with id
     def updateItem(self, id, cur_size, progress, speed):
         for index, item in enumerate(self._items):
-            if item.getID() == id:
+            if item.id == id:
                 break
         else:   # id doesn't exist
             return
@@ -296,6 +296,7 @@ class Program(QtWidgets.QApplication):
             self.app_window.openItem.connect(self.open_item)
 
             self.create_download_item("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green")
+            self.update_download_item("AAAAA", 9990, .5, "4 MB")
 
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default

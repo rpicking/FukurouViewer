@@ -74,7 +74,7 @@ ApplicationWindow {
 
     FontLoader {
         id: fontAwesome
-        source: "fonts/fontawesome-webfont.ttf"
+        source: "fonts/fontawesome.4.7.webfont.ttf"
     }
 
     TrayWindow {

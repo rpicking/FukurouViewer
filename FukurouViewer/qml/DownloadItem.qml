@@ -1,11 +1,11 @@
 import QtQuick 2.0
 import QtQuick.Controls 2.1
-import QtQuick.Controls 1.4
+import QtGraphicalEffects 1.0
 
-Item {
-    //Component {
-    width: 400
-    height: 100
+//Item {
+Component {
+    //width: 400
+    //height: 100
     Rectangle {
         id: root
         height: 100
@@ -41,45 +41,88 @@ Item {
         ProgressBar {
             id: progress
             height: 20
+            width: 280
             value: model.percent
+            background: Rectangle {
+                    implicitWidth: 200
+                    implicitHeight: 6
+                    color: "#cecece"
+                    radius: 3
+                }
+
+            contentItem: Item {
+                implicitWidth: 200
+                implicitHeight: 4
+
+                Rectangle {
+                    width: parent.parent.visualPosition * parent.width
+                    height: parent.height
+                    radius: 2
+                    color: "#17a81a"
+                }
+            }
             anchors {
                 top: filename.bottom
                 topMargin: 10
                 left: filename.left
-                right: percentField.left
-                rightMargin: 10
             }
         }
 
         Text {
             id: percentField
             text: Math.round(model.percent * 100) + "%"
-            font.pointSize: 10
+            font.pointSize: 12
             anchors {
                 verticalCenter: progress.verticalCenter
-                right: pauseButton.left
+                right: pausePlayButton.left
                 rightMargin: 5
             }
         }
 
         TextIconButton {
-            id: pauseButton
+            id: pausePlayButton
             property bool paused: false
+            height: 20
             enabled: model.percent !== 1
-            anchors.right: parent.right
-            anchors.rightMargin: 15
+            anchors.right: stopButton.left
+            anchors.rightMargin: 5
             anchors.verticalCenter: progress.verticalCenter
-            ToolTip.visible: this.mouseArea.containsMouse
+            ToolTip.visible: hovered
             ToolTip.text: paused ? qsTr("Resume") : qsTr("Pause")
-            fontFamily: fontAwesome.name
-            buttonText: paused ? "\uf04b" : "\uf04c"
+            //fontFamily: fontAwesome.name
+            text: paused ? "\uf04b" : "\uf04c"
 
-            mouseArea.onClicked: {
-                if (paused) {
+            onClicked: {
+                if (paused) { // start dl
                     paused = false;
+                    stopButton.stopped = false
+                    console.log("start");
                 }
-                else {
+                else {  // pause dl
                     paused = true;
+                    console.log("pause");
+                }
+            }
+        }
+
+        TextIconButton {
+            id: stopButton
+            property bool stopped: false
+            height: 15
+            enabled: model.percent !== 1 || !stopped
+            anchors.right: folderColorRound.left
+            anchors.rightMargin: 5
+            anchors.verticalCenter: progress.verticalCenter
+
+            ToolTip.visible: hovered
+            ToolTip.text: qsTr("Stop")
+            text: "\uf04d"
+
+            onClicked: {
+                if (!stopped) {
+                    stopped = true;
+                    pausePlayButton.paused = true
+                    console.log("stopping");
                 }
             }
         }

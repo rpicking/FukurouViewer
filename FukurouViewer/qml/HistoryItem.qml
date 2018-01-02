@@ -152,19 +152,18 @@ Component {
 
         TextIconButton {
             id: deleteButton
-            fontFamily: fontAwesome.name
-            buttonText: "\uf00d"
-            textField.font.pointSize: 16
-            textField.color: mouseArea.containsMouse ? "#919191" : "#cecece"
-            ToolTip.visible: mouseArea.containsMouse
+            text: "\uf00d"
+            height: 16
+            textColor: hovered ? "#919191" : "#cecece"
+            ToolTip.visible: hovered
             ToolTip.text: qsTr("Remove item from list")
             ToolTip.delay: 1000
             anchors.right: parent.right
             anchors.rightMargin: 0
             anchors.verticalCenter: parent.verticalCenter
-            verticalOffset: -1
+            //verticalOffset: -1
 
-            mouseArea.onClicked: {
+            onClicked: {
                 //console.log(model.id);
                 trayWindow.deleteHistoryItem(model.id);
             }

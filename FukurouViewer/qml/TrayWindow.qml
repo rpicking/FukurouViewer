@@ -139,12 +139,11 @@ Window {
             TextIconButton {
                 id: createFavFolder
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                ToolTip.visible: this.mouseArea.containsMouse
+                ToolTip.visible: hovered
                 ToolTip.text: qsTr("Add new folder")
-                fontFamily: fontAwesome.name
-                buttonText: "\uf067"
+                text: "\uf067"
                 verticalOffset: 1
-                mouseArea.onClicked: {
+                onClicked: {
                     forceActiveFocus();
                     folderPopup.visible = true;
                 }
@@ -153,24 +152,22 @@ Window {
             TextIconButton {
                 id: openHistoryButton
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                ToolTip.visible: this.mouseArea.containsMouse
+                ToolTip.visible: hovered
                 ToolTip.text: qsTr("Open history page")
-                fontFamily: fontAwesome.name
-                buttonText: "\uf1da"
-                mouseArea.onClicked: {
+                text: "\uf1da"
+                onClicked: {
                     forceActiveFocus();
-                    console.log("opening settings");
+                    console.log("opening history");
                 }
             }
 
             TextIconButton {
                 id: openSettingsButton
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                ToolTip.visible: this.mouseArea.containsMouse
+                ToolTip.visible: hovered
                 ToolTip.text: qsTr("Open settings page")
-                fontFamily: fontAwesome.name
-                buttonText: "\uf013"
-                mouseArea.onClicked: {
+                text: "\uf013"
+                onClicked: {
                     forceActiveFocus();
                     console.log("opening settings");
                 }
