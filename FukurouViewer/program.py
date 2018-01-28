@@ -274,7 +274,6 @@ class Program(QtWidgets.QApplication):
         except AttributeError:  # qml engine not started
             self.engine = QtQml.QQmlApplicationEngine()
             self.engine.addImportPath(self.QML_DIR)
-            #self.setAttribute(QtCore.Qt.AA_UseOpenGLES, True) gui non responsive with this in
             self.image_provider = ImageProvider()
             self.engine.addImageProvider("fukurou", self.image_provider)
 
@@ -365,12 +364,6 @@ class Program(QtWidgets.QApplication):
     def add_folder(self, name, path, color, type):
         uid = Foundation.uniqueFolderID()
         order = Foundation.lastOrder()
-
-        # testing stuff
-        test_id = self.downloadsModel.getIDs()[0]
-        self.downloadsModel.updateItem(test_id, "CHANGED", "black")
-
-        return
 
         with user_database.get_session(self) as session:
             session.execute(insert(user_database.Folders).values(

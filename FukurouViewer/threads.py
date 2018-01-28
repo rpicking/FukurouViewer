@@ -282,8 +282,8 @@ class DownloadThread(BaseThread):
         self.signals.update.connect(FukurouViewer.app.update_download_item)
 
     class Signals(QtCore.QObject):
-        create = QtCore.pyqtSignal(str, str, str, str)
-        update = QtCore.pyqtSignal(str, str, float, str)
+        create = QtCore.pyqtSignal(str, str, str, int, str, str)
+        update = QtCore.pyqtSignal(str, int, float, str)
 
     def _run(self):
         while True:

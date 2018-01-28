@@ -394,6 +394,7 @@ Window {
                 onClicked: {
                     mainWindow.createFavFolder(nameInput.text, folderInput.text, colorField.color, 2);
                     clearValues();
+                    mainWindow.requestFolders();
                     newFolderWindow.close();
                 }
             }
