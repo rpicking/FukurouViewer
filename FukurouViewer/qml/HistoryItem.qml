@@ -8,10 +8,11 @@ Component {
     Rectangle {
         id: root
         height: 60
-        anchors.right: parent.right
+        width: 380
+        //anchors.right: parent.right
         anchors.rightMargin: 6
-        anchors.left: parent.left
-        anchors.leftMargin: 0
+        //anchors.left: parent.left
+        //anchors.leftMargin: 0
         //border.width: 1
 
         property bool expanded : false

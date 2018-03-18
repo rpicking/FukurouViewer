@@ -48,7 +48,7 @@ Window {
     }
 
     function setHistory(items) {
-        historyModel.clear();
+        //historyModel.clear();
 
         var tD = new Date();
         var today = getDateFormat(tD);
@@ -232,6 +232,7 @@ Window {
                     spacing: 6
                     snapMode: ListView.NoSnap
                     clip: true
+                    cacheBuffer: 0
 
                     onAtYEndChanged: {
                         if (atYEnd) {
