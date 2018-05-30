@@ -36,6 +36,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
+        self.setToolTip("Fukurou Viewer")
            
 
 class FolderMenuItem(QtWidgets.QAction):

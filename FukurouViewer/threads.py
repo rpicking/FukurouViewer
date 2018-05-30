@@ -121,6 +121,7 @@ class MessengerThread(BaseThread, Host):
                 msg = self.read_message()
                 # process message and perform task
                 task = msg.get("task")
+                #self.logger.error(task)
                 if task == "sync":
                     payload = self.sync_task(msg)
                 elif task == "edit":
@@ -140,8 +141,8 @@ class MessengerThread(BaseThread, Host):
                 #self.send_message(response)
 
             except win32pipe.error as e:    # messenger has closed
-                self.logger.error("Messenger closed")
-                self.logger.error(e)
+                #self.logger.error("Messenger closed")
+                #self.logger.error(e)
                 self.pipe.Close()
                 self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
                                 win32pipe.PIPE_ACCESS_DUPLEX,
@@ -306,7 +307,7 @@ class DownloadThread(BaseThread):
 
             headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
             cookies = {}
-            base_filename = ""
+            
 
             # process message from extension
             self.logger.debug("--- Starting Download ---")
@@ -340,6 +341,7 @@ class DownloadThread(BaseThread):
             #headers = r.headers
                 
             # get filename
+            base_filename = ""
             if 'Content-Disposition' in r.headers:    # check for content-disposition header, if exists try and set filename
                 contdisp = re.findall("filename=(.+)", r.headers['content-disposition'])
                 if len(contdisp) > 0:
