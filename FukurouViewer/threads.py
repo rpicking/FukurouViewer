@@ -4,16 +4,20 @@ import sys
 import json
 import queue
 import imghdr
+import pycurl
 import random
 import string
 import struct
-import humanize
+import certifi
+import datetime
 import requests
 import linecache
 import threading
 import subprocess
+
 from PyQt5 import QtCore
 from time import clock, time
+from humanize import naturalsize
 from collections import namedtuple
 from mimetypes import guess_extension
 from watchdog.observers import Observer
@@ -265,6 +269,7 @@ class DownloadManager(Logger):
             thread.start()
             self.threads.append(thread)
 
+
     def start(self):
         pass
 
@@ -272,28 +277,349 @@ download_manager = DownloadManager()
 
 
 class DownloadThread(BaseThread):
-    running = False
+
     FAVICON_PATH = Utils.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
+    ETA_LIMIT = 2592000
+
+    def __init__(self):
+        super().__init__()
+        self.id = None
+        self.running = False
+
+        self.url = None
+        self.page_url = None
+        self.domain = None
+        self.favicon_url = None
+
+        self.start_time = None
+        self._last_time = None
+        self.downloaded = None
+        self.content_length = None
+        self.resume = False
+        self.paused = False
+        self.max_speed = None
+        self.f = None   #file object
+
+        self.headers = {}
+        self.cookies = ""
+
+        self.dir = None
+        self.filepath = None
+        self.filename =  None
+        self.base_name = None
+        self.ext =  None
+
+        self.gallery_url = None
+
+        self._curl = None 
+
+        self.clean_up()
+
 
     def setup(self):
         super().setup()
         self.signals = self.Signals()
         self.signals.create.connect(FukurouViewer.app.create_download_item)
         self.signals.update.connect(FukurouViewer.app.update_download_item)
+        FukurouViewer.app.app_window.togglePaused.connect(self.togglePause)
 
     class Signals(QtCore.QObject):
         create = QtCore.pyqtSignal(str, str, str, int, str, str)
         update = QtCore.pyqtSignal(str, int, float, str)
 
+
     def _run(self):
-        while True:
-            msg = download_manager.queue.get()
-            task = msg.get("task")
-            if task == "save":
-                self.save_task(msg)
-            elif task == "saveManga":
-                self.saveManga_task(msg)
+        try:
+            while True:
+                msg = download_manager.queue.get()
+                task = msg.get("task")
+                if task == "save":
+                    self.init_download(msg)
+                    #self.test_run()
+                    self.start_download()
+                    print("Done")
+                    #self.save_task(msg)
+                elif task == "saveManga":
+                    self.saveManga_task(msg)
+        except Exception as e:
+            self.log_exception()
+            #self.delete_file(self.filepath)
+            #return {'task': 'save', 'type': 'crash'}
+
+    
+
+
+    # NEW
+    def togglePause(self, id):
+        if id == self.id:
+            print("received toggle for own id " + id)
+            if self.paused:
+                self.unpause()
+            else:
+                self.pause()
+
+    # NEW
+    def pause(self):
+        self.curl.pause(pycurl.PAUSE_ALL)
+        self.paused = True
+
+    # NEW
+    def unpause(self):
+        self.curl.pause(pycurl.PAUSE_CONT)
+        self.paused = False
+
+    # NEW
+    def init_download(self, msg):
+        self.url = msg.get('srcUrl')   
+        self.page_url = msg.get('pageUrl')
+        self.domain = msg.get('domain')
+        
+        self.favicon_url = msg.get('favicon_url', "")
+        if self.favicon_url:
+            # DOWNLOAD FAVICON IS FIRST BECAUSE OF UNKNOWN TIMEOUT ERROR IF AFTER FILE DOWNLOAD FIX BY MOVING DOWNLOAD TO OWN CLASS
+            favicon = os.path.join(self.FAVICON_PATH, self.domain + ".ico")
+            if not os.path.exists(favicon):
+                icon = requests.get(self.favicon_url, headers=headers, cookies=cookies, timeout=10)
+                with open(favicon, "wb") as f:
+                    for chunk in icon:
+                        f.write(chunk)
+
+
+        self.folder = {} 
+        with user_database.get_session(self, acquire=True) as session:
+            folder = Utils.convert_result(session.execute(
+                select([user_database.Folders]).where(user_database.Folders.uid == msg.get('uid'))))[0]
+
+        self.dir = msg.get("dir", folder.get("path"))
+        self.filepath = msg.get("filepath", None)    
+        self.filename =  msg.get("filename", None)    # basename and extension filename.txt
+        self.base_name = msg.get("base_name", None)   # filename before .ext
+        self.ext =  msg.get("ext", None)
+
+        for cookie in msg.get('cookies'):
+            self.cookies += " %s=%s;" % (cookie[0], cookie[1])
+
+        if self.filepath:
+            self.resume = True
+
+        self.gallery_url = msg.get("galleryUrl", "")
+
+
+    def start_download(self):
+        self.curl = pycurl.Curl()
+
+        self.curl.setopt(pycurl.CAINFO, certifi.where())
+        self.curl.setopt(pycurl.URL, self.url)
+        self.curl.setopt(pycurl.FOLLOWLOCATION, 1)
+        self.curl.setopt(pycurl.MAXREDIRS, 5)
+        self.curl.setopt(pycurl.COOKIE, self.cookies)
+
+        self.curl.setopt(pycurl.MAX_RECV_SPEED_LARGE, self.max_speed)
+        self.curl.setopt(pycurl.CONNECTTIMEOUT, 30)
+        self.curl.setopt(pycurl.TIMEOUT, 300)
+        self.curl.setopt(pycurl.NOSIGNAL, 1)
+
+        self.curl.setopt(pycurl.WRITEFUNCTION, self.writer)
+        self.curl.setopt(pycurl.NOPROGRESS, 0)
+        self.curl.setopt(pycurl.PROGRESSFUNCTION, self.progress)
+        
+        self.curl.setopt(pycurl.HEADERFUNCTION, self.header)
+        if len(self.headers) > 0:
+            self.curl.setopt(pycurl.HTTPHEADER, [k+': '+v for k,v in self.headers.items()])
+            
+        try:
+            self.curl.perform()
+        except:
+            self.log_exception()
+
+        self.curl.close()
+        self.f.close()
+
+        self.logger.info(self.filepath + " finished downloading.")
+        mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
+        mixer.music.play()
+
+            # add to history table in database
+        with user_database.get_session(self) as session:
+            result = session.execute(insert(user_database.History).values(
+                {
+                    "filename": os.path.basename(self.filename),
+                    "src_url": self.url,
+                    "page_url": self.page_url,
+                    "domain": self.domain,
+                    "time_added": time(),
+                    "full_path": self.filepath,
+                    "favicon_url": self.favicon_url
+                }))
+            db_id = int(result.inserted_primary_key[0])
+
+                            
+        kwargs = { "url": self.page_url, 
+                    "history_id": db_id, 
+                    "domain": self.domain,
+                    "history_item": db_id,
+                    "galleryUrl": self.gallery_url } 
+
+        gal = GenericGallery(**kwargs)
+        search_thread.queue.put(gal)
+
+        self.clean_up()
+
+
+    def writer(self, data):
+        self.f.write(data)
+
+
+    def header(self, header):
+        header = header.decode("utf-8")
+        header = header.strip()
+        
+        if ":" not in header and header:
+            key = "http_code"
+            value = header
+        elif header:
+            key, value = header.split(":", 1)
+        else:   # end of headers
+            if not self.filename:   # no filename in Content-Disposition header
+                self.filename = self.get_filename()
+                self.filename = self.format_filename(self.filename)
+
+            temp_base_name, ext = os.path.splitext(self.filename)
+            if not self.ext:    # no extension gotten from Content-Type header
+                self.ext = ext
+
+            self.ext = self.ext_convention(self.ext)
+
+            if not self.base_name:  # no recommended basename provided
+                self.base_name = temp_base_name
+
+            self.filepath = os.path.join(self.dir, ''.join((self.base_name, self.ext)))
+
+            # check and rename if file already exists and not resume
+            count = 1
+            while os.path.isfile(self.filepath):
+                self.filename = ''.join((self.base_name, ' (', str(count), ')', self.ext))
+                self.filepath = os.path.join(self.dir, self.filename)
+                count += 1
+
+            mode = "wb"
+            if self.resume:
+                mode = "ab"
+                self.downloaded = os.path.getsize(self.filepath)
+                self._curl.setopt(pycurl.RESUME_FROM, self.downloaded)
+
+            self.f = open(self.filepath, mode)
+            return
+
+        if key == "Content-Disposition":
+            contdisp = re.findall("filename=(.+)", value)
+            if contdisp:
+                self.filename = contdisp[0].strip('\'"')
+
+        elif key == "Content-Type":
+            self.ext = guess_extension(value.split()[0].rstrip(";"))
+        
+        self.headers[key] = value
+
+
+    def progress(self, download_t, download_d, upload_t, upload_d):
+        self.content_length = self.downloaded + int(download_t)
+        if int(download_t) == 0:
+            return
+
+        if self.start_time is None:
+            self.start_time = time()
+            
+        duration = time() - self.start_time + 1
+        speed = download_d / duration
+        speed_s = naturalsize(speed, binary=True)
+        speed_s += '/s'
+        if speed == 0.0:
+            eta = self.ETA_LIMIT
+        else:
+            eta = int((download_t - download_d) / speed)
+        if eta < self.ETA_LIMIT:
+            eta_s = str(datetime.timedelta(seconds=eta))
+        else:
+            eta_s = 'n/a'
+        downloaded = self.downloaded + download_d
+        downloaded_s = naturalsize(downloaded, binary=True)
+        percent = int(downloaded / self.content_length * 100)
+
+        current_time = time()
+        if self._last_time == 0.0:
+            self._last_time = current_time
+            self.id = self.create_id()
+            self.signals.create.emit(self.id, self.filename, 
+                                     self.filepath, 
+                                     naturalsize(self.content_length, gnu=True), 
+                                     self.folder.get("name"), 
+                                     self.folder.get("color"))
+            
+        else:
+            interval = current_time - self._last_time
+            if interval < 0.5:
+                return
+            self._last_time = current_time
+        #p = (self.progress_template + '\n') % params
+        # update download item ui
+        # eta_s is eta 
+        self.signals.update.emit(self.id, downloaded_s, percent, speed_s)
+
+
+    def ext_convention(self, ext):
+        """Formats extension using desired convention '.JPG' -> '.jpg' """
+        if ext.lower() in ['.jpeg', '.jpe']:
+            return '.jpg'
+        return ext.lower()
+
+
+    def get_filename(self):
+        """Returns filename from url"""
+        full_filename = self.url.split('/')[-1]   # get filename from srcUrl
+        full_filename = full_filename.split('?')[0]   # strip query string parameters
+        full_filename = full_filename.split('#')[0]   # strip anchor
+        return full_filename
+
+
+    def format_filename(self, filename):
+        """Remove invalid characters from string"""
+        invalid_chars = '<>:"/\|?*'
+        return ''.join(c for c in filename if c not in invalid_chars)
+
+
+    def clean_up(self):
+        self.id = ""
+        self.running = False
+
+        self.url = None
+        self.page_url = None
+        self.domain = None
+        self.favicon_url = None
+
+        self.start_time = None
+        self._last_time = 0.0
+        self.downloaded = 0
+        self.content_length = 0
+        self.resume = False
+        self.paused = False
+        self.max_speed = 1024 * 1024
+        self.f = None   #file object
+        self.headers = {}
+        self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
+        self.cookies = ""
+
+        self.dir = None
+        self.filepath = None
+        self.filename =  None
+        self.base_name = None
+        self.ext =  None
+
+        self.gallery_url = None
+        
+        self._curl = None
+
 
     # download individual file and favicon from site
     def save_task(self, msg):
@@ -381,8 +707,8 @@ class DownloadThread(BaseThread):
 
             total_size = int(r.headers.get('content-length'))
 
-            id = self.create_id()
-            self.signals.create.emit(id, filename, filepath, humanize.naturalsize(total_size, gnu=True), folder.get("name"), folder.get("color"))
+            self.id = self.create_id()
+            self.signals.create.emit(self.id, filename, filepath, humanize.naturalsize(total_size, gnu=True), folder.get("name"), folder.get("color"))
             
             cur_size = 0    # amount downloaded so far
             prev_time = start
@@ -400,10 +726,11 @@ class DownloadThread(BaseThread):
                         cur_speed = humanize.naturalsize(int(chunk_size / duration), gnu=True)
 
                         # update download item ui
-                        self.signals.update.emit(id, humanize.naturalsize(cur_size, gnu=True), percent, cur_speed)
+                        self.signals.update.emit(self.id, humanize.naturalsize(cur_size, gnu=True), percent, cur_speed)
 
-                            
+            
             filepath = self.fix_extension(filename, filepath)
+            self.id = ""
             r.close()
 
             self.logger.info(filepath + " finished downloading.")
@@ -486,31 +813,31 @@ class DownloadThread(BaseThread):
 
 
     # checks image file headers and renames to proper extension when necessary
-    def fix_extension(self, basefilename, imagepath):  
-        format = imghdr.what(imagepath)
-        if not format:    # not image so do nothing
-            return imagepath
+    #def fix_extension(self, basefilename, imagepath):  
+    #    format = imghdr.what(imagepath)
+    #    if not format:    # not image so do nothing
+    #        return imagepath
 
-        format = self.ext_convention(''.join(('.', format)))
-        _, ext = os.path.splitext(imagepath)
-        if ext != format:
-            dirpath = os.path.dirname(imagepath)
-            newpath = os.path.join(dirpath, ''.join((basefilename, format)))
+    #    format = self.ext_convention(''.join(('.', format)))
+    #    _, ext = os.path.splitext(imagepath)
+    #    if ext != format:
+    #        dirpath = os.path.dirname(imagepath)
+    #        newpath = os.path.join(dirpath, ''.join((basefilename, format)))
 
-            count = 1
-            while os.path.isfile(newpath):
-                newpath = os.path.join(dirpath, ''.join((basefilename, ' (', str(count), ')', format)))
-                count += 1
-            os.rename(imagepath, newpath)
-            return newpath
-        return imagepath
+    #        count = 1
+    #        while os.path.isfile(newpath):
+    #            newpath = os.path.join(dirpath, ''.join((basefilename, ' (', str(count), ')', format)))
+    #            count += 1
+    #        os.rename(imagepath, newpath)
+    #        return newpath
+    #    return imagepath
 
 
-    # rename extension based on personal naming convention
-    def ext_convention(self, ext):
-        if ext in {'.jpeg', '.jpe'}:
-            return '.jpg'
-        return ext
+    ## rename extension based on personal naming convention
+    #def ext_convention(self, ext):
+    #    if ext in {'.jpeg', '.jpe'}:
+    #        return '.jpg'
+    #    return ext
 
 
 class SearchThread(BaseThread):

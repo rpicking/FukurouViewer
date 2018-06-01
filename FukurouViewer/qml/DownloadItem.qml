@@ -12,6 +12,32 @@ Component {
         anchors.right: parent.right
         anchors.left: parent.left
 
+        property bool paused: false
+        property bool stopped: false
+
+        function togglePause() {
+            if (paused) { // unpause
+                paused = false;
+                stopped = false
+                console.log("unpause " + model.id);
+            } else {
+                // pause dl
+                paused = true;
+                console.log("pause " + model.id);
+            }
+
+            mainWindow.togglePaused(model.id);
+
+        }
+
+        function stop() {
+            if (!stopped) {
+                stopped = true;
+                pausePlayButton.paused = true
+                console.log("stopping");
+            }
+        }
+
         Text {
             id: filename
             width: 250
@@ -81,7 +107,7 @@ Component {
 
         TextIconButton {
             id: pausePlayButton
-            property bool paused: false
+
             height: 20
             enabled: model.percent !== 1
             anchors.right: stopButton.left
@@ -93,21 +119,12 @@ Component {
             text: paused ? "\uf04b" : "\uf04c"
 
             onClicked: {
-                if (paused) { // start dl
-                    paused = false;
-                    stopButton.stopped = false
-                    console.log("start");
-                }
-                else {  // pause dl
-                    paused = true;
-                    console.log("pause");
-                }
+                togglePause();
             }
         }
 
         TextIconButton {
             id: stopButton
-            property bool stopped: false
             height: 15
             enabled: model.percent !== 1 || !stopped
             anchors.right: folderColorRound.left
@@ -119,11 +136,7 @@ Component {
             text: "\uf04d"
 
             onClicked: {
-                if (!stopped) {
-                    stopped = true;
-                    pausePlayButton.paused = true
-                    console.log("stopping");
-                }
+                stop();
             }
         }
 
