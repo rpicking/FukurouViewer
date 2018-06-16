@@ -20,20 +20,18 @@ Component {
                 paused = false;
                 stopped = false
                 console.log("unpause " + model.id);
-            } else {
-                // pause dl
+            } else { // pause dl
                 paused = true;
                 console.log("pause " + model.id);
             }
 
             mainWindow.togglePaused(model.id);
-
         }
 
         function stop() {
             if (!stopped) {
                 stopped = true;
-                pausePlayButton.paused = true
+                paused = true
                 console.log("stopping");
             }
         }
@@ -69,6 +67,7 @@ Component {
             height: 20
             width: 280
             value: model.percent
+            to: 100
             background: Rectangle {
                     implicitWidth: 200
                     implicitHeight: 6
@@ -96,7 +95,7 @@ Component {
 
         Text {
             id: percentField
-            text: Math.round(model.percent * 100) + "%"
+            text: model.percent + "%"
             font.pointSize: 12
             anchors {
                 verticalCenter: progress.verticalCenter
@@ -109,7 +108,7 @@ Component {
             id: pausePlayButton
 
             height: 20
-            enabled: model.percent !== 1
+            enabled: model.percent !== 100
             anchors.right: stopButton.left
             anchors.rightMargin: 5
             anchors.verticalCenter: progress.verticalCenter
@@ -126,7 +125,7 @@ Component {
         TextIconButton {
             id: stopButton
             height: 15
-            enabled: model.percent !== 1 || !stopped
+            enabled: model.percent !== 100 || !stopped
             anchors.right: folderColorRound.left
             anchors.rightMargin: 5
             anchors.verticalCenter: progress.verticalCenter
@@ -141,7 +140,7 @@ Component {
         }
 
         Text {
-            id: progressSize
+            id: curSize
             text: model.cur_size
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 10
@@ -150,11 +149,11 @@ Component {
         }
 
         Text {
-            id: totalProgressSize
+            id: totalSize
             text: " / " + model.total_size
-            anchors.verticalCenter: progressSize.verticalCenter
+            anchors.verticalCenter: curSize.verticalCenter
             font.pointSize: 10
-            anchors.left: progressSize.right
+            anchors.left: curSize.right
 
         }
 

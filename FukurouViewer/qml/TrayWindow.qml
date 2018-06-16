@@ -72,7 +72,9 @@ Window {
         }
     }
 
-    function deleteHistoryItem(id) {
+    function deleteHistoryItem(id, index) {
+        historyModel.remove(index);
+        topBar.forceActiveFocus();
         mainWindow.deleteHistoryItem(id, historyModel.count);
     }
 
