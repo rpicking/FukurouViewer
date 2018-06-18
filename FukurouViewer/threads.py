@@ -298,7 +298,7 @@ class DownloadThread(BaseThread):
         self.total_size = None
         self.resume = False
         self.paused = False
-        self.max_speed = None
+        self.max_speed = 1024 * 1024 * 1024
         self.f = None   #file object
 
         self.headers = {}
@@ -336,18 +336,12 @@ class DownloadThread(BaseThread):
                 task = msg.get("task")
                 if task == "save":
                     self.init_download(msg)
-                    #self.test_run()
                     self.start_download()
-                    print("Done")
-                    #self.save_task(msg)
                 elif task == "saveManga":
                     self.saveManga_task(msg)
         except Exception as e:
             self.log_exception()
             #self.delete_file(self.filepath)
-            #return {'task': 'save', 'type': 'crash'}
-
-    
 
 
     # NEW
@@ -432,7 +426,9 @@ class DownloadThread(BaseThread):
             self.curl.perform()
         except:
             self.log_exception()
+            return
 
+        self.signals.update.emit(self.id, self.total_size, "100", "")
         self.curl.close()
         self.f.close()
 
@@ -483,10 +479,10 @@ class DownloadThread(BaseThread):
         else:   # end of headers
             if not self.filename:   # no filename in Content-Disposition header
                 self.filename = self.get_filename()
-                self.filename = self.format_filename(self.filename)
+                self.filename = Foundation.remove_invalid_chars(self.filename)
 
             temp_base_name, ext = os.path.splitext(self.filename)
-            if not self.ext:    # no extension gotten from Content-Type header
+            if ext:    # have extension
                 self.ext = ext
 
             self.ext = self.ext_convention(self.ext)
@@ -549,7 +545,7 @@ class DownloadThread(BaseThread):
         if self._last_time == 0.0:
             self.total_size = download_t
             self._last_time = current_time
-            self.id = self.create_id()
+            self.id = self.create_download_id()
             self.signals.create.emit(self.id, self.filename, 
                                      self.filepath, 
                                      naturalsize(download_t, gnu=True), 
@@ -558,21 +554,14 @@ class DownloadThread(BaseThread):
         # update UI entry
         else:
             interval = current_time - self._last_time
-            #if interval < 0.5:
-            #    return
+            if interval < 0.5:
+                return
             self._last_time = current_time
             self.downloaded = download_d
             downloaded_s = naturalsize(self.downloaded, gnu=True)
             percent = int((self.downloaded / download_t) * 100)
             # eta_s is eta 
             self.signals.update.emit(self.id, downloaded_s, percent, speed_s)
-
-
-    def ext_convention(self, ext):
-        """Formats extension using desired convention '.JPG' -> '.jpg' """
-        if ext.lower() in ['.jpeg', '.jpe']:
-            return '.jpg'
-        return ext.lower()
 
 
     def get_filename(self):
@@ -583,10 +572,54 @@ class DownloadThread(BaseThread):
         return full_filename
 
 
-    def format_filename(self, filename):
-        """Remove invalid characters from string"""
-        invalid_chars = '<>:"/\|?*'
-        return ''.join(c for c in filename if c not in invalid_chars)
+    def ext_convention(self, ext):
+        """Formats extension using desired convention '.JPG' -> '.jpg' """
+        if ext.lower() in ['.jpeg', '.jpe']:
+            return '.jpg'
+        return ext.lower()
+
+
+    def fix_image_extension(self):  
+        """checks image file headers and renames image to proper extension when necessary"""
+        format = imghdr.what(self.filepath)
+        if not format:    # not image so do nothing
+            return
+
+        format = self.ext_convention(''.join(('.', format)))
+        _, ext = os.path.splitext(self.filepath)
+        if ext != format:
+            dirpath = os.path.dirname(self.filepath)
+            newpath = os.path.join(dirpath, ''.join((self.base_name, format)))
+
+            count = 1
+            while os.path.isfile(newpath):
+                newpath = os.path.join(dirpath, ''.join((self.base_name, ' (', str(count), ')', format)))
+                count += 1
+            os.rename(self.filepath, newpath)
+            self.filepath = newpath
+            return
+
+
+    def create_download_id(self):
+        """returns unique id for download item in UI"""
+        used_ids = FukurouViewer.app.downloadsModel.getIDs()
+        return Foundation.uniqueID(used_ids)
+
+
+    def saveManga_task(self, msg):
+        self.logger.debug("--- Downloading Manga ---")
+        url = [msg.get('url')]
+
+        doujin_downloader = [Config.doujin_downloader]
+        doujin_downloader.append(url)
+        doujin_downloader.append("nogui")
+        subprocess.Popen(doujin_downloader)
+
+
+    # delete file
+    def delete_file(self, filepath):
+        if os.path.isfile(filepath):
+            os.remove(filepath)
 
 
     def clean_up(self):
@@ -604,7 +637,7 @@ class DownloadThread(BaseThread):
         self.total_size = 0
         self.resume = False
         self.paused = False
-        self.max_speed = 1024 * 1024
+        self.max_speed = 1024 * 1024 * 1024
         self.f = None   #file object
         self.headers = {}
         self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
@@ -620,26 +653,6 @@ class DownloadThread(BaseThread):
         
         self._curl = None
 
-
-    # returns unique id for download item in UI
-    def create_id(self):
-        used_ids = FukurouViewer.app.downloadsModel.getIDs()
-        return Foundation.uniqueID(used_ids)
-
-    def saveManga_task(self, msg):
-        self.logger.debug("--- Downloading Manga ---")
-        url = [msg.get('url')]
-
-        doujin_downloader = [Config.doujin_downloader]
-        doujin_downloader.append(url)
-        doujin_downloader.append("nogui")
-        subprocess.Popen(doujin_downloader)
-
-    # delete file
-    def delete_file(self, filepath):
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-
     # logs raised general exception
     def log_exception(self):
         exc_type, exc_obj, tb = sys.exc_info()
@@ -650,33 +663,6 @@ class DownloadThread(BaseThread):
         line = linecache.getline(filename, lineno, f.f_globals)
         self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
-
-    # checks image file headers and renames to proper extension when necessary
-    #def fix_extension(self, basefilename, imagepath):  
-    #    format = imghdr.what(imagepath)
-    #    if not format:    # not image so do nothing
-    #        return imagepath
-
-    #    format = self.ext_convention(''.join(('.', format)))
-    #    _, ext = os.path.splitext(imagepath)
-    #    if ext != format:
-    #        dirpath = os.path.dirname(imagepath)
-    #        newpath = os.path.join(dirpath, ''.join((basefilename, format)))
-
-    #        count = 1
-    #        while os.path.isfile(newpath):
-    #            newpath = os.path.join(dirpath, ''.join((basefilename, ' (', str(count), ')', format)))
-    #            count += 1
-    #        os.rename(imagepath, newpath)
-    #        return newpath
-    #    return imagepath
-
-
-    ## rename extension based on personal naming convention
-    #def ext_convention(self, ext):
-    #    if ext in {'.jpeg', '.jpe'}:
-    #        return '.jpg'
-    #    return ext
 
 
 class SearchThread(BaseThread):
