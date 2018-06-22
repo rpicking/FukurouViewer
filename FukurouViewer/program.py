@@ -134,7 +134,13 @@ class DownloadsModel(QtCore.QAbstractListModel):
 
     # get list of ids from items
     def getIDs(self):
-        return [item.id for item in self._items]
+        cur_ids = [item.id for item in self._items]
+
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Downloads])))
+        unfinished_ids = [item.get("id") for item in results]
+        return cur_ids + list(set(unfinished_ids) - set(cur_ids))
 
     # creates new unique id for download item in UI
     def createID(self):
@@ -152,10 +158,9 @@ class DownloadsModel(QtCore.QAbstractListModel):
 
         self._items[index].update(cur_size, progress, speed)
 
-        #self.do_update()
-
-        model_index = self.index(index)
-        self.dataChanged.emit(model_index, model_index, [])
+        self.do_update()
+        #model_index = self.index(index, 0)
+        #self.dataChanged.emit(model_index, model_index, self.roleNames())
 
     def do_update(self):
         start_index = self.createIndex(0,0)
@@ -195,9 +200,9 @@ class ImageProvider(QtQuick.QQuickImageProvider):
         height = requestedSize.height()
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.History]).where( user_database.History.id == id)))
+                select([user_database.History]).where( user_database.History.id == id)))[0]
 
-        path = results[0].get("full_path")
+        path = results.get("full_path")
         if not os.path.exists(path):
             _, ext = os.path.splitext(path)
             tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
@@ -295,8 +300,8 @@ class Program(QtWidgets.QApplication):
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
 
-            self.create_download_item("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green")
-            self.update_download_item("AAAAA", 9990, .5, "4 MB")
+            #self.create_download_item("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green")
+            #self.update_download_item("AAAAA", 1000, 100, "4 MB")
 
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default

@@ -46,7 +46,9 @@ ApplicationWindow {
     signal openUrl(string url)
     signal updateProgress(var progress, int speed)
     signal addDownloadItem(string uid, var info)
-    signal togglePaused(string id)
+    signal downloader_task(string id, string task)
+    signal resume_download(string id)
+
 
     function closeWindows() {
         hide();

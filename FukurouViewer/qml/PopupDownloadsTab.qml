@@ -5,29 +5,6 @@ Item {
     id: downloadsWrapper
     anchors.fill: parent
 
-    Component.onCompleted: {
-        mainWindow.updateProgress.connect(updateProgress);
-        mainWindow.addDownloadItem.connect(addDownloadItem);
-    }
-
-    function updateProgress(percent, speed) {
-        totalProgressBar.value = percent;
-        totalSpeedField.text = speed + "KB/s"
-
-        if (percent === 1) {
-            downloadsField.text = 0
-            runningField.text = 0
-        }
-        else {
-            downloadsField.text = 1
-            runningField.text = 1
-        }
-    }
-
-    function addDownloadItem(info) {
-        downloadsModel.append(info);
-    }
-
     Rectangle {
         id: statusBar
         color: theme.background

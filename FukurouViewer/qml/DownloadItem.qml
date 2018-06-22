@@ -16,24 +16,34 @@ Component {
         property bool stopped: false
 
         function togglePause() {
+            if (stopped) {
+                console.log("resume" + model.id);
+                stopped = false;
+                paused  = false;
+                resume();
+                return;
+            }
+
             if (paused) { // unpause
                 paused = false;
-                stopped = false
                 console.log("unpause " + model.id);
             } else { // pause dl
                 paused = true;
                 console.log("pause " + model.id);
             }
 
-            mainWindow.togglePaused(model.id);
+            mainWindow.downloader_task(model.id, "pause");
         }
 
         function stop() {
-            if (!stopped) {
-                stopped = true;
-                paused = true
-                console.log("stopping");
-            }
+            stopped = true;
+            paused = true;
+            console.log("stopping " + model.id);
+            mainWindow.downloader_task(model.id, "stop");
+        }
+
+        function resume() {
+            mainWindow.resume_download(model.id);
         }
 
         Text {
@@ -53,7 +63,7 @@ Component {
 
         Text {
             id: speed
-            text: model.speed + "/s"
+            text: model.speed ? model.speed + "/s" : ""
             font.pointSize: 10
             anchors {
                 verticalCenter: filename.verticalCenter
@@ -65,7 +75,7 @@ Component {
         ProgressBar {
             id: progress
             height: 20
-            width: 280
+            //width: 280
             value: model.percent
             to: 100
             background: Rectangle {
@@ -90,11 +100,14 @@ Component {
                 top: filename.bottom
                 topMargin: 10
                 left: filename.left
+                right: percentField.left
+                rightMargin: 10
             }
         }
 
         Text {
             id: percentField
+            width: 43
             text: model.percent + "%"
             font.pointSize: 12
             anchors {
@@ -125,12 +138,12 @@ Component {
         TextIconButton {
             id: stopButton
             height: 15
-            enabled: model.percent !== 100 || !stopped
+            enabled: model.percent !== 100 && !stopped
             anchors.right: folderColorRound.left
             anchors.rightMargin: 5
             anchors.verticalCenter: progress.verticalCenter
 
-            ToolTip.visible: hovered
+            ToolTip.visible: hovered && enabled
             ToolTip.text: qsTr("Stop")
             text: "\uf04d"
 

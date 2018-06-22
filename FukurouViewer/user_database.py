@@ -78,6 +78,23 @@ class Folders(Base):
     type = sqlalchemy.Column(sqlalchemy.Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
 
 
+class Downloads(Base):
+    __tablename__ = "downloads"
+
+    id = sqlalchemy.Column(sqlalchemy.Text, primary_key=True)   # ui download item id
+    filepath = sqlalchemy.Column(sqlalchemy.Text)
+    filename = sqlalchemy.Column(sqlalchemy.Text)
+    base_name = sqlalchemy.Column(sqlalchemy.Text)
+    ext = sqlalchemy.Column(sqlalchemy.Text)
+    srcUrl = sqlalchemy.Column(sqlalchemy.Text)
+    pageUrl = sqlalchemy.Column(sqlalchemy.Text)
+    domain = sqlalchemy.Column(sqlalchemy.Text)
+    favicon_url = sqlalchemy.Column(sqlalchemy.Text)
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
+
+    folder = relationship("Folders", foreign_keys=[folder_id])
+
+
 def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):
