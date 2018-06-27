@@ -17,7 +17,6 @@ import subprocess
 
 from PyQt5 import QtCore
 from time import clock, time
-from humanize import naturalsize
 from collections import namedtuple
 from mimetypes import guess_extension
 from watchdog.observers import Observer
@@ -255,13 +254,25 @@ else:
     messenger_thread = MessengerThread(False)
 
 
+class Download_UI_Signals(QtCore.QObject):
+    create = QtCore.pyqtSignal(str, str, str, str, str, str)
+    update = QtCore.pyqtSignal(str, str, int, str)
+
+    def __init__(self):
+        super().__init__()
+        self.create.connect(FukurouViewer.app.create_download_item)
+        self.update.connect(FukurouViewer.app.update_download_item)
+
+
 class DownloadManager(Logger):
     THREAD_COUNT = 3    # number of simultaneous downloads
 
     def __init__(self):
         self.queue = queue.Queue()
 
+
     def setup(self):
+        self.signals = Download_UI_Signals()
         FukurouViewer.app.app_window.resume_download.connect(self.resume_download)
 
         self.threads = []
@@ -271,14 +282,30 @@ class DownloadManager(Logger):
             thread.start()
             self.threads.append(thread)
 
-        # add existing downloads to UI
+        self.load_existing()
+        
+
+    def load_existing(self):
+        """load existing unfinished downloads from db and queue them"""
         with user_database.get_session(self, acquire=True) as session:
             downloads = Utils.convert_result(session.execute(
                 select([user_database.Downloads])))
             for item in downloads:
                 item["task"] = "save"
-                #self.queue.put(item)
 
+                folder = Utils.convert_result(session.execute(
+                    select([user_database.Folders]).where(user_database.Folders.id == item.get('folder_id'))))[0]
+
+                self.signals.create.emit(item.get("id"), item.get("filename"), 
+                                        item.get("filepath"), 
+                                        Foundation.format_size(item.get("total_size")), 
+                                        folder.get("name"), 
+                                        folder.get("color"))
+                
+                downloaded = os.path.getsize(item.get("filepath"))
+                percent = int((downloaded / item.get("total_size")) * 100)
+                self.signals.update.emit(item.get("id"), Foundation.format_size(downloaded), percent, "queued")
+                self.queue.put(item)
 
     def start(self):
         pass
@@ -289,7 +316,6 @@ class DownloadManager(Logger):
                 select([user_database.Downloads]).where( user_database.Downloads.id == id)))[0]
             results["task"] = "save"
             self.queue.put(results)
-
 
 
 download_manager = DownloadManager()
@@ -322,6 +348,7 @@ class DownloadThread(BaseThread):
         self.f = None   #file object
 
         self.headers = {}
+        self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
         self.cookies = ""
 
         self.dir = None
@@ -339,14 +366,8 @@ class DownloadThread(BaseThread):
 
     def setup(self):
         super().setup()
-        self.signals = self.Signals()
-        self.signals.create.connect(FukurouViewer.app.create_download_item)
-        self.signals.update.connect(FukurouViewer.app.update_download_item)
+        self.signals = Download_UI_Signals()
         FukurouViewer.app.app_window.downloader_task.connect(self.receive_ui_task)
-
-    class Signals(QtCore.QObject):
-        create = QtCore.pyqtSignal(str, str, str, str, str, str)
-        update = QtCore.pyqtSignal(str, str, int, str)
 
 
     def _run(self):
@@ -401,6 +422,9 @@ class DownloadThread(BaseThread):
         self.url = msg.get('srcUrl')   
         self.page_url = msg.get('pageUrl')
         self.domain = msg.get('domain')
+
+        for key, value in msg.get("headers", {}).items():
+            self.headers[key] = value
 
         cookies = {}
         for cookie in msg.get('cookies', []):
@@ -469,12 +493,13 @@ class DownloadThread(BaseThread):
             self.curl.perform()
         except pycurl.error:
             print("stop request received")
+            self.clean_up()
             return
         except:
             self.log_exception()
             return
 
-        self.signals.update.emit(self.id, naturalsize(self.total_size, gnu=True), 100, "")
+        self.signals.update.emit(self.id, Foundation.format_size(self.total_size), 100, "")
         self.curl.close()
         self.f.close()
 
@@ -579,7 +604,7 @@ class DownloadThread(BaseThread):
         # speed
         duration = time() - self.start_time + 1
         speed = download_d / duration
-        speed_s = naturalsize(speed, gnu=True)
+        speed_s = ''.join((Foundation.format_size(speed), "/s"))
         if speed == 0.0:
             eta = self.ETA_LIMIT
         else:
@@ -593,17 +618,17 @@ class DownloadThread(BaseThread):
         current_time = time()
         # create UI entry
         if self._last_time == 0.0:
-            self.total_size = download_t
+            self.total_size = self.downloaded + download_t
             self._last_time = current_time
-            if not self.id:
-                self.id = self.create_download_id()
-            self.signals.create.emit(self.id, self.filename, 
-                                     self.filepath, 
-                                     naturalsize(download_t, gnu=True), 
-                                     self.folder.get("name"), 
-                                     self.folder.get("color"))
-            # TODO RIGHT NOW DONT ADD IF ALREADY EXISTS
+
             if not self.resume:
+                self.id = self.create_download_id()
+                self.signals.create.emit(self.id, self.filename, 
+                                         self.filepath, 
+                                         Foundation.format_size(download_t), 
+                                         self.folder.get("name"), 
+                                         self.folder.get("color"))
+
                 with user_database.get_session(self) as session:
                     session.execute(insert(user_database.Downloads).values(
                         {
@@ -612,13 +637,14 @@ class DownloadThread(BaseThread):
                             "filename": self.filename,
                             "base_name": self.base_name,
                             "ext": self.ext,
+                            "total_size": self.total_size,
                             "srcUrl": self.url,
                             "pageUrl": self.page_url,
                             "domain": self.domain,
                             "favicon_url": self.favicon_url,
                             "folder_id": self.folder.get("id")
                         })) 
-
+            FukurouViewer.app.downloadsModel.start(self.id)
         # update UI entry
         else:
             interval = current_time - self._last_time
@@ -626,9 +652,9 @@ class DownloadThread(BaseThread):
                 return
 
             self._last_time = current_time
-            self.downloaded = download_d
-            downloaded_s = naturalsize(self.downloaded, gnu=True)
-            percent = int((self.downloaded / download_t) * 100)
+            downloaded = self.downloaded + download_d
+            downloaded_s = Foundation.format_size(downloaded)
+            percent = int((downloaded / self.total_size) * 100)
             # eta_s is eta 
             self.signals.update.emit(self.id, downloaded_s, percent, speed_s)
 
@@ -707,7 +733,6 @@ class DownloadThread(BaseThread):
         self.resume = False
         self.paused = False
         self.stopped = False
-        self.max_speed = 1024 * 1024 * 1024
         self.f = None   #file object
         self.headers = {}
         self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"

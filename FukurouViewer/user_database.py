@@ -86,6 +86,7 @@ class Downloads(Base):
     filename = sqlalchemy.Column(sqlalchemy.Text)
     base_name = sqlalchemy.Column(sqlalchemy.Text)
     ext = sqlalchemy.Column(sqlalchemy.Text)
+    total_size = sqlalchemy.Column(sqlalchemy.Integer)
     srcUrl = sqlalchemy.Column(sqlalchemy.Text)
     pageUrl = sqlalchemy.Column(sqlalchemy.Text)
     domain = sqlalchemy.Column(sqlalchemy.Text)

@@ -1,5 +1,6 @@
 import random
 import string
+from humanize import naturalsize
 from sqlalchemy import insert, select
 from sqlalchemy.sql.expression import func
 from . import user_database
@@ -54,3 +55,9 @@ class Foundation(Logger):
         """Remove invalid characters from string"""
         invalid_chars = '<>:"/\|?*'
         return ''.join(c for c in filename if c not in invalid_chars)
+
+    @staticmethod
+    def format_size(size):
+        """Returns string of number of bytes in human readable format"""
+        size_string = naturalsize(size, binary=True)
+        return size_string.replace("i", "")

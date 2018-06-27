@@ -40,8 +40,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
            
 
 class FolderMenuItem(QtWidgets.QAction):
-
-
     def __init__(self, parent, _name, _path, _uid):
         super().__init__(_name, parent)
         self.name = _name
@@ -65,11 +63,16 @@ class Download(object):
         self.cur_size = 0
         self.percent = 0
         self.speed = 0
+        self.queued = True
 
     def update(self, _cur_size, _percent, _speed):
         self.cur_size = _cur_size
         self.percent = _percent
         self.speed = _speed
+
+    def start(self):
+        self.queued = False
+        self.speed = "0 KB/s"
 
 
 class DownloadsModel(QtCore.QAbstractListModel):
@@ -82,10 +85,12 @@ class DownloadsModel(QtCore.QAbstractListModel):
     CurSizeRole = QtCore.Qt.UserRole + 7
     PercentRole = QtCore.Qt.UserRole + 8
     SpeedRole = QtCore.Qt.UserRole + 9
+    QueuedRole = QtCore.Qt.UserRole + 10
+
 
     _roles = {IDRole: "id", FilenameRole: "filename", FilePathRole: "folderPath", TotalSizeRole: "total_size", 
               FolderNameRole: "folderName", ColorRole: "color", CurSizeRole: "cur_size", 
-              PercentRole: "percent", SpeedRole: "speed"}
+              PercentRole: "percent", SpeedRole: "speed", QueuedRole: "queued"}
 
     def __init__(self, parent=None):
         super(DownloadsModel, self).__init__(parent)
@@ -126,6 +131,8 @@ class DownloadsModel(QtCore.QAbstractListModel):
             return item.percent
         if role == self.SpeedRole:
             return item.speed
+        if role == self.QueuedRole:
+            return item.queued
 
         return QtCore.QVariant()
 
@@ -147,7 +154,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
         used_ids = self.getIDs()
         return Foundation.uniqueID(used_ids)
 
-    # THIS MIGHT NEED TO BE SWITCHED TO SETDATA  https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
+    # TODO: THIS MIGHT NEED TO BE SWITCHED TO SETDATA  https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
     # updates filename and color of current download item with id
     def updateItem(self, id, cur_size, progress, speed):
         for index, item in enumerate(self._items):
@@ -157,15 +164,25 @@ class DownloadsModel(QtCore.QAbstractListModel):
             return
 
         self._items[index].update(cur_size, progress, speed)
-
         self.do_update()
-        #model_index = self.index(index, 0)
-        #self.dataChanged.emit(model_index, model_index, self.roleNames())
+
 
     def do_update(self):
         start_index = self.createIndex(0,0)
         end_index = self.createIndex(len(self._items) - 1, 0)
         self.dataChanged.emit(start_index, end_index, [])
+        
+
+    def start(self, id):
+        for index, item in enumerate(self._items):
+            if item.id == id:
+                break
+        else:   # id doesn't exist
+            return
+
+        self._items[index].start()
+        model_index = self.index(index, 0)
+        self.dataChanged.emit(model_index, model_index, self.roleNames())
         
 
 class ImageProvider(QtQuick.QQuickImageProvider):
@@ -408,6 +425,7 @@ class Program(QtWidgets.QApplication):
 
     def update_download_item(self, id, cur_size, progress, speed):
         self.downloadsModel.updateItem(id, cur_size, progress, speed)
+
 
     # open application window
     def open(self):

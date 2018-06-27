@@ -6,14 +6,15 @@ import QtGraphicalEffects 1.0
 Component {
     //width: 400
     //height: 100
+
     Rectangle {
         id: root
         height: 100
         anchors.right: parent.right
         anchors.left: parent.left
 
-        property bool paused: false
-        property bool stopped: false
+        property bool paused: false || model.queued
+        property bool stopped: false || model.queued
 
         function togglePause() {
             if (stopped) {
@@ -46,6 +47,7 @@ Component {
             mainWindow.resume_download(model.id);
         }
 
+
         Text {
             id: filename
             width: 250
@@ -63,7 +65,7 @@ Component {
 
         Text {
             id: speed
-            text: model.speed ? model.speed + "/s" : ""
+            text: model.speed
             font.pointSize: 10
             anchors {
                 verticalCenter: filename.verticalCenter
@@ -121,7 +123,7 @@ Component {
             id: pausePlayButton
 
             height: 20
-            enabled: model.percent !== 100
+            enabled: (model.percent !== 100) && !model.queued
             anchors.right: stopButton.left
             anchors.rightMargin: 5
             anchors.verticalCenter: progress.verticalCenter
