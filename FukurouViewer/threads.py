@@ -301,7 +301,11 @@ class DownloadManager(Logger):
                                         Foundation.format_size(item.get("total_size")), 
                                         folder.get("name"), 
                                         folder.get("color"))
-                
+                # TODO FIX IF FILE PREVIOUSLY DELETED
+                if not os.path.exists(item.get("filepath")):
+                    session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
+                    continue
+
                 downloaded = os.path.getsize(item.get("filepath"))
                 percent = int((downloaded / item.get("total_size")) * 100)
                 self.signals.update.emit(item.get("id"), Foundation.format_size(downloaded), percent, "queued")
@@ -350,6 +354,8 @@ class DownloadThread(BaseThread):
         self.headers = {}
         self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
         self.cookies = ""
+        self.status_code = None
+        self.status_msg = ""
 
         self.dir = None
         self.filepath = None
@@ -558,7 +564,11 @@ class DownloadThread(BaseThread):
             if self.resume:
                 mode = "ab"
             else:
-                if not self.filename:   # no filename in Content-Disposition header
+                self.get_status_code(self.headers.get("http_code"))
+                if self.status_code == 302:
+                    return
+
+                if not self.filename:   # no filename in Content-Disposition 1header
                     self.filename = self.get_filename()
                     self.filename = Foundation.remove_invalid_chars(self.filename)
 
@@ -595,7 +605,7 @@ class DownloadThread(BaseThread):
 
 
     def progress(self, download_t, download_d, upload_t, upload_d):
-        if int(download_t) == 0:
+        if download_t == 0:
             return
 
         if self.start_time is None:
@@ -658,6 +668,11 @@ class DownloadThread(BaseThread):
             # eta_s is eta 
             self.signals.update.emit(self.id, downloaded_s, percent, speed_s)
 
+    def get_status_code(self, status_string):
+        status = self.headers.get("http_code")  #'HTTP/1.1 200 OK'
+        status_parts = status_string.split(" ")
+        self.status_code = int(status_parts[1])
+        self.status_msg = status_parts[2]
 
     def get_filename(self):
         """Returns filename from url"""
@@ -737,6 +752,8 @@ class DownloadThread(BaseThread):
         self.headers = {}
         self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
         self.cookies = ""
+        self.status_code = None
+        self.status_msg = ""
 
         self.dir = None
         self.filepath = None
