@@ -48,6 +48,7 @@ ApplicationWindow {
     signal addDownloadItem(string uid, var info)
     signal downloader_task(string id, string task)
     signal resume_download(string id)
+    signal remove_download_ui_item(string id, string status)
 
 
     function closeWindows() {

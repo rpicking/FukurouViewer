@@ -53,7 +53,7 @@ class FolderMenuItem(QtWidgets.QAction):
 
 
 class Download(object):
-    def __init__(self, _id, _filename, _filePath, _total_size, _folderName, _color):
+    def __init__(self, _id, _filename, _filePath, _total_size, _folderName, _color, _timestamp):
         self.id = _id
         self.filename = _filename
         self.filePath = _filePath
@@ -64,6 +64,7 @@ class Download(object):
         self.percent = 0
         self.speed = 0
         self.queued = True
+        self.timestamp = _timestamp
 
     def update(self, _cur_size, _percent, _speed):
         self.cur_size = _cur_size
@@ -73,6 +74,12 @@ class Download(object):
     def start(self):
         self.queued = False
         self.speed = "0 KB/s"
+
+    def finish(self, _timestamp):
+        self.cur_size = self.total_size
+        self.percent = 100
+        self.speed = ""
+        self.timestamp = _timestamp
 
 
 class DownloadsModel(QtCore.QAbstractListModel):
@@ -86,23 +93,22 @@ class DownloadsModel(QtCore.QAbstractListModel):
     PercentRole = QtCore.Qt.UserRole + 8
     SpeedRole = QtCore.Qt.UserRole + 9
     QueuedRole = QtCore.Qt.UserRole + 10
+    TimeStampRole = QtCore.Qt.UserRole + 11
 
 
     _roles = {IDRole: "id", FilenameRole: "filename", FilePathRole: "folderPath", TotalSizeRole: "total_size", 
               FolderNameRole: "folderName", ColorRole: "color", CurSizeRole: "cur_size", 
-              PercentRole: "percent", SpeedRole: "speed", QueuedRole: "queued"}
+              PercentRole: "percent", SpeedRole: "speed", QueuedRole: "queued", TimeStampRole: "timestamp"}
 
     def __init__(self, parent=None):
         super(DownloadsModel, self).__init__(parent)
         self._items = []
 
-    def addItem(self, id, filename, filePath, total_size, folderName, color):
+    def addItem(self, id, filename, filePath, total_size, folderName, color, timestamp):
         self.beginInsertRows(QtCore.QModelIndex(), self.rowCount(), self.rowCount())
-
-        self._items.insert(0, Download(id, filename, filePath, total_size, folderName, color))
+        self._items.insert(0, Download(id, filename, filePath, total_size, folderName, color, timestamp))
         self.endInsertRows()
         
-        #self.do_update()
 
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._items)
@@ -133,14 +139,16 @@ class DownloadsModel(QtCore.QAbstractListModel):
             return item.speed
         if role == self.QueuedRole:
             return item.queued
+        if role == self.TimeStampRole:
+            return item.timestamp
 
         return QtCore.QVariant()
 
     def roleNames(self):
         return {x: self._roles[x].encode() for x in self._roles}
 
-    # get list of ids from items
     def getIDs(self):
+        """Returns list of all used download UI ids"""
         cur_ids = [item.id for item in self._items]
 
         with user_database.get_session(self, acquire=True) as session:
@@ -151,38 +159,73 @@ class DownloadsModel(QtCore.QAbstractListModel):
 
     # creates new unique id for download item in UI
     def createID(self):
+        """Creates unique id for download UI list item"""
         used_ids = self.getIDs()
         return Foundation.uniqueID(used_ids)
+
+    def get_item_index(self, id):
+        """Return turns the index of the item with id if it exists in the list"""
+        for index, item in enumerate(self._items):
+            if item.id == id:
+                return index
+        else:   # id doesn't exist
+            return None
 
     # TODO: THIS MIGHT NEED TO BE SWITCHED TO SETDATA  https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
     # updates filename and color of current download item with id
     def updateItem(self, id, cur_size, progress, speed):
-        for index, item in enumerate(self._items):
-            if item.id == id:
-                break
-        else:   # id doesn't exist
+        """Updates active download values"""
+        index = self.get_item_index(id)
+        if index == None:
             return
 
         self._items[index].update(cur_size, progress, speed)
-        self.do_update()
+        self.do_item_update(index)
 
 
-    def do_update(self):
+    def do_full_update(self):
+        """Forces all items in UI to update to new data from model"""
         start_index = self.createIndex(0,0)
         end_index = self.createIndex(len(self._items) - 1, 0)
         self.dataChanged.emit(start_index, end_index, [])
+
+    
+    def do_item_update(self, index):
+        """Forces specific item at index to update in UI"""
+        model_index = self.index(index, 0)
+        self.dataChanged.emit(model_index, model_index, self.roleNames())
         
 
-    def start(self, id):
-        for index, item in enumerate(self._items):
-            if item.id == id:
-                break
-        else:   # id doesn't exist
+    def start_item(self, id):
+        """Sets start values for item that has begun downloading"""
+        index = self.get_item_index(id)
+        if index == None:
             return
 
         self._items[index].start()
-        model_index = self.index(index, 0)
-        self.dataChanged.emit(model_index, model_index, self.roleNames())
+        self.do_item_update(index)
+
+
+    def finish_item(self, id, timestamp):
+        """Sets values for item that has finished downloading"""
+        index = self.get_item_index(id)
+        if index == None:
+            return
+
+        self._items[index].finish(timestamp)
+        self.do_item_update(index)
+
+
+    def remove_item(self, id, status):
+        """Remove an item at id from the download list and updates UI"""
+        index = self.get_item_index(id)
+        if index == None:
+            return
+
+        self.beginRemoveRows(QtCore.QModelIndex(), index, index)
+        self._items.pop(index)
+        self.endRemoveRows()
+
         
 
 class ImageProvider(QtQuick.QQuickImageProvider):
@@ -316,9 +359,11 @@ class Program(QtWidgets.QApplication):
             self.app_window.deleteHistoryItem.connect(self.delete_history_item)
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
+            self.app_window.remove_download_ui_item.connect(self.downloadsModel.remove_item)
 
-            #self.create_download_item("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green")
-            #self.update_download_item("AAAAA", 1000, 100, "4 MB")
+
+            self.downloadsModel.addItem("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green", time.time())
+            self.downloadsModel.updateItem("AAAAA", 1000, 100, "4 MB/s")
 
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
@@ -420,11 +465,6 @@ class Program(QtWidgets.QApplication):
                             "order": folder.get("order")
                         }))
 
-    def create_download_item(self, id, filename, filepath, total_size, folderName, color):
-        self.downloadsModel.addItem(id, filename, filepath, total_size, folderName, color)
-
-    def update_download_item(self, id, cur_size, progress, speed):
-        self.downloadsModel.updateItem(id, cur_size, progress, speed)
 
 
     # open application window

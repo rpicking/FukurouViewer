@@ -255,13 +255,17 @@ else:
 
 
 class Download_UI_Signals(QtCore.QObject):
-    create = QtCore.pyqtSignal(str, str, str, str, str, str)
+    create = QtCore.pyqtSignal(str, str, str, str, str, str, float)
     update = QtCore.pyqtSignal(str, str, int, str)
+    start = QtCore.pyqtSignal(str)
+    finish = QtCore.pyqtSignal(str, float)
 
     def __init__(self):
         super().__init__()
-        self.create.connect(FukurouViewer.app.create_download_item)
-        self.update.connect(FukurouViewer.app.update_download_item)
+        self.create.connect(FukurouViewer.app.downloadsModel.addItem)
+        self.update.connect(FukurouViewer.app.downloadsModel.updateItem)
+        self.start.connect(FukurouViewer.app.downloadsModel.start_item)
+        self.finish.connect(FukurouViewer.app.downloadsModel.finish_item)
 
 
 class DownloadManager(Logger):
@@ -505,7 +509,8 @@ class DownloadThread(BaseThread):
             self.log_exception()
             return
 
-        self.signals.update.emit(self.id, Foundation.format_size(self.total_size), 100, "")
+        finish_time = time()
+        self.signals.finish.emit(self.id, finish_time)
         self.curl.close()
         self.f.close()
 
@@ -525,7 +530,7 @@ class DownloadThread(BaseThread):
                     "src_url": self.url,
                     "page_url": self.page_url,
                     "domain": self.domain,
-                    "time_added": time(),
+                    "time_added": finish_time,
                     "full_path": self.filepath,
                     "favicon_url": self.favicon_url
                 }))
@@ -610,6 +615,10 @@ class DownloadThread(BaseThread):
 
         if self.start_time is None:
             self.start_time = time()
+
+        # don't update UI unless request succeeded
+        if self.status_code != 200:
+            return
             
         # speed
         duration = time() - self.start_time + 1
@@ -637,7 +646,8 @@ class DownloadThread(BaseThread):
                                          self.filepath, 
                                          Foundation.format_size(download_t), 
                                          self.folder.get("name"), 
-                                         self.folder.get("color"))
+                                         self.folder.get("color"),
+                                         current_time)
 
                 with user_database.get_session(self) as session:
                     session.execute(insert(user_database.Downloads).values(
@@ -654,7 +664,7 @@ class DownloadThread(BaseThread):
                             "favicon_url": self.favicon_url,
                             "folder_id": self.folder.get("id")
                         })) 
-            FukurouViewer.app.downloadsModel.start(self.id)
+            self.signals.start(self.id)
         # update UI entry
         else:
             interval = current_time - self._last_time
@@ -668,11 +678,13 @@ class DownloadThread(BaseThread):
             # eta_s is eta 
             self.signals.update.emit(self.id, downloaded_s, percent, speed_s)
 
+
     def get_status_code(self, status_string):
         status = self.headers.get("http_code")  #'HTTP/1.1 200 OK'
         status_parts = status_string.split(" ")
         self.status_code = int(status_parts[1])
         self.status_msg = status_parts[2]
+
 
     def get_filename(self):
         """Returns filename from url"""

@@ -47,6 +47,21 @@ Component {
             mainWindow.resume_download(model.id);
         }
 
+        function testDate(timestamp) {
+            var time = new Date(timestamp * 1000);
+            var mm = time.getMonth() + 1;
+            var dd = time.getDay();
+            var hr = time.getHours();
+            var min = time.getMinutes();
+            var ampm = hr >= 12 ? "pm" : "am";
+
+            hr = hr % 12;
+            hr = hr ? hr : 12;  // hr = 0 would be 12
+
+            min = min < 10 ? "0" + min : min;   // pad single digit minutes with 0
+
+            return mm + "/" + dd + " " + hr + ":" + min + " " + ampm;
+        }
 
         Text {
             id: filename
@@ -69,8 +84,33 @@ Component {
             font.pointSize: 10
             anchors {
                 verticalCenter: filename.verticalCenter
-                right: folderColorRound.left
-                rightMargin: 5
+                right: deleteButton.left
+                rightMargin: 10
+            }
+        }
+
+        TextIconButton {
+            id: deleteButton
+            text: "\uf00d"
+            height: 16
+            textColor: hovered ? "#919191" : "#cecece"
+            cursorShape: Qt.PointingHandCursor
+            anchors {
+                right:folderColorRound.left
+                rightMargin: 2
+                top: parent.top
+                topMargin: 5
+            }
+
+            onClicked: {
+                if (model.percent !== 100) {
+                    console.log("Are you sure you want to stop and remove an unfinished download?")
+                    return;
+                }
+
+                console.log("Deleting download ui item with id: " + model.id)
+                remove_download_ui_item(model.id, "done")
+
             }
         }
 
@@ -169,6 +209,16 @@ Component {
             anchors.verticalCenter: curSize.verticalCenter
             font.pointSize: 10
             anchors.left: curSize.right
+
+        }
+
+        Text {
+            id: timestamp
+            text: testDate(model.timestamp)
+            anchors.verticalCenter: curSize.verticalCenter
+            font.pointSize: 10
+            anchors.right: folderColorRound.left
+            anchors.rightMargin: 15
 
         }
 
