@@ -304,7 +304,8 @@ class DownloadManager(Logger):
                                         item.get("filepath"), 
                                         Foundation.format_size(item.get("total_size")), 
                                         folder.get("name"), 
-                                        folder.get("color"))
+                                        folder.get("color"),
+                                        item.get("timestamp"))
                 # TODO FIX IF FILE PREVIOUSLY DELETED
                 if not os.path.exists(item.get("filepath")):
                     session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
@@ -526,19 +527,19 @@ class DownloadThread(BaseThread):
         with user_database.get_session(self) as session:
             result = session.execute(insert(user_database.History).values(
                 {
-                    "filename": os.path.basename(self.filename),
+                    "filename": self.filename,
                     "src_url": self.url,
                     "page_url": self.page_url,
                     "domain": self.domain,
                     "time_added": finish_time,
                     "full_path": self.filepath,
-                    "favicon_url": self.favicon_url
+                    "favicon_url": self.favicon_url,
+                    "folder_id": self.folder.get("id")
                 }))
             db_id = int(result.inserted_primary_key[0])
 
                             
-        kwargs = { "url": self.page_url, 
-                    "history_id": db_id, 
+        kwargs = { "url": self.page_url,
                     "domain": self.domain,
                     "history_item": db_id,
                     "galleryUrl": self.gallery_url } 
@@ -662,9 +663,10 @@ class DownloadThread(BaseThread):
                             "pageUrl": self.page_url,
                             "domain": self.domain,
                             "favicon_url": self.favicon_url,
+                            "timestamp": current_time,
                             "folder_id": self.folder.get("id")
                         })) 
-            self.signals.start(self.id)
+            self.signals.start.emit(self.id)
         # update UI entry
         else:
             interval = current_time - self._last_time

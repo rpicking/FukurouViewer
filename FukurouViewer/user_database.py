@@ -40,10 +40,11 @@ class History(Base):
     type = sqlalchemy.Column(sqlalchemy.Integer, default=1)
     full_path = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
-    folder = sqlalchemy.Column(sqlalchemy.Text)
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
     gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
 
+    folder = relationship("Folders", foreign_keys=[folder_id])
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
 
@@ -91,6 +92,7 @@ class Downloads(Base):
     pageUrl = sqlalchemy.Column(sqlalchemy.Text)
     domain = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text)
+    timestamp = sqlalchemy.Column(sqlalchemy.Integer)
     folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
 
     folder = relationship("Folders", foreign_keys=[folder_id])

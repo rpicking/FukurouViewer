@@ -362,8 +362,8 @@ class Program(QtWidgets.QApplication):
             self.app_window.remove_download_ui_item.connect(self.downloadsModel.remove_item)
 
 
-            self.downloadsModel.addItem("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green", time.time())
-            self.downloadsModel.updateItem("AAAAA", 1000, 100, "4 MB/s")
+            #self.downloadsModel.addItem("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green", time.time())
+            #self.downloadsModel.updateItem("AAAAA", 1000, 100, "4 MB/s")
 
 
             self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
@@ -372,6 +372,7 @@ class Program(QtWidgets.QApplication):
              #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
               #  test = results.gallery
                # print("BREAK")
+
 
     # sends limited number of history entries newest first to ui
     def send_history(self, index, limit=0):

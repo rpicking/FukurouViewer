@@ -108,9 +108,7 @@ Component {
                     return;
                 }
 
-                console.log("Deleting download ui item with id: " + model.id)
                 remove_download_ui_item(model.id, "done")
-
             }
         }
 
