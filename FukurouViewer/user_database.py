@@ -41,7 +41,7 @@ class History(Base):
     full_path = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
-    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("folders.id"))
     gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
 
     folder = relationship("Folders", foreign_keys=[folder_id])
