@@ -60,4 +60,5 @@ class Foundation(Logger):
     def format_size(size):
         """Returns string of number of bytes in human readable format"""
         size_string = naturalsize(size, binary=True)
-        return size_string.replace("i", "")
+        size_string = size_string.replace("i", "")
+        return size_string.replace("ytes", "")

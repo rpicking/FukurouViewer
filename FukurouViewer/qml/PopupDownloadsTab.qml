@@ -27,7 +27,7 @@ Item {
         }
         Text {
             id: downloadsField
-            text: "0"
+            text: downloadManager.total_downloads
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -48,7 +48,7 @@ Item {
         }
         Text {
             id: runningField
-            text: "0"
+            text: downloadManager.running_downloads
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -66,9 +66,10 @@ Item {
             anchors.top: runningLabel.bottom
             anchors.topMargin: 5
         }
+
         Text {
-            id: totalProgressField
-            text: "0B / 0B"
+            id: curProgress
+            text: downloadManager.current_progress
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -76,6 +77,19 @@ Item {
                 left: downloadsField.left
             }
         }
+
+        Text {
+            id: totalSize
+            text: " / " + downloadManager.total_progress
+            color: "white"
+            font.pixelSize: 16
+            anchors {
+                verticalCenter: curProgress.verticalCenter
+                left: curProgress.right
+            }
+
+        }
+
         Text {
             id: totalSpeedLabel
             text: qsTr("Speed:")
@@ -87,7 +101,7 @@ Item {
         }
         Text {
             id: totalSpeedField
-            text: "0B/s"
+            text: downloadManager.speed
             color: "white"
             font.pixelSize: 16
             anchors {

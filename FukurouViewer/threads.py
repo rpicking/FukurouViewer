@@ -27,7 +27,6 @@ import FukurouViewer
 from FukurouViewer import exceptions
 from . import user_database
 from .request_manager import request_manager, ex_request_manager
-from .host import Host
 from .utils import Utils
 from .config import Config
 from .logger import Logger
@@ -94,7 +93,7 @@ class BaseThread(threading.Thread, Logger):
                         pass
 
 
-class MessengerThread(BaseThread, Host):
+class MessengerThread(BaseThread):
     THREAD_COUNT = 1
     PIPE_PATH = "/tmp/fukurou.fifo"
     WIN_PIPE_PATH = r'\\.\pipe\fukurou_pipe'
@@ -116,6 +115,9 @@ class MessengerThread(BaseThread, Host):
         if not os.path.exists(self.pipe):
             os.mkfifo(self.pipe)
 
+    def setup(self):
+        self.signals = Download_UI_Signals()
+
     def _run(self):
         win32pipe.ConnectNamedPipe(self.pipe, None)
         while True:
@@ -124,7 +126,6 @@ class MessengerThread(BaseThread, Host):
                 msg = self.read_message()
                 # process message and perform task
                 task = msg.get("task")
-                #self.logger.error(task)
                 if task == "sync":
                     payload = self.sync_task(msg)
                 elif task == "edit":
@@ -132,7 +133,10 @@ class MessengerThread(BaseThread, Host):
                 elif task == "delete":
                     payload = self.delete_task(msg)
                 elif task in ["save", "saveManga"]:
-                    download_manager.queue.put(msg)
+                    item = self.create_download_item(msg)
+                    download_manager.queue.put(item)
+                    # TODO create uid
+                    # create item in manager
                     payload = { "task": "none" } 
                 else:   # unknown message
                     payload = { "task": "none" }
@@ -183,6 +187,13 @@ class MessengerThread(BaseThread, Host):
 
         with open(self.pipe, "w") as pipe:
             pipe.write(byte_message)
+
+    def create_download_item(self, msg):
+        """creates DownloadItem to put in queue 
+            adds download item to UI """
+        item = DownloadItem(msg)
+        self.signals.create.emit(item)
+        return item
 
     # sync folders with extension
     def sync_task(self, msg):
@@ -254,18 +265,222 @@ else:
     messenger_thread = MessengerThread(False)
 
 
+class DownloadItem():
+    FAVICON_PATH = Utils.fv_path("favicons")
+
+    def __init__(self, msg):
+        self.task = msg.get("task")
+        self.resume = False
+
+        if self.task == "saveManga":    
+            self.url = msg.get("url")
+            return
+
+        self.id = msg.get("id", None)
+        if not self.id:
+            self.set_id()
+
+        self.url = msg.get('srcUrl')   
+        self.page_url = msg.get('pageUrl')
+        self.domain = msg.get('domain')
+
+        self.send_headers = {}
+        self.send_headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
+        for key, value in msg.get("headers", {}).items():
+            self.send_headers[key] = value
+
+        self.cookies = {}
+        for cookie in msg.get('cookies', []):
+            self.cookies[cookie[0]] = cookie[1]
+        
+        self.favicon_url = msg.get('favicon_url', "")
+        self.download_favicon()
+
+        # folder
+        self.folder = {} 
+        with user_database.get_session(self, acquire=True) as session:
+            folder_id = msg.get('uid', None)
+            if folder_id:
+                self.folder = Utils.convert_result(session.execute(
+                    select([user_database.Folders]).where(user_database.Folders.uid == folder_id)))[0]
+            else:
+                self.folder = Utils.convert_result(session.execute(
+                    select([user_database.Folders]).where(user_database.Folders.id == msg.get('folder_id'))))[0]
+
+        self.dir = msg.get("dir", self.folder.get("path"))
+        self.filepath = msg.get("filepath", None)
+        self.filename =  msg.get("filename", None)    # basename and extension filename.txt
+        self.base_name = msg.get("base_name", None)   # filename before .ext
+        self.ext =  msg.get("ext", None)
+        self.total_size = msg.get("total_size", None)
+        if self.total_size:
+            self.total_size_str = Foundation.format_size(self.total_size)
+        self.downloaded = msg.get("downloaded", 0)
+
+        if self.filepath:
+            self.resume = True
+
+        self.gallery_url = msg.get("galleryUrl", "")
+        self.start_time = time()
+
+        if self.task == "load":
+            self.task = "save"
+        else:
+            self.get_information()
+            with user_database.get_session(self) as session:
+                session.execute(insert(user_database.Downloads).values(
+                    {
+                        "id": self.id,
+                        "filepath": self.filepath,
+                        "filename": self.filename,
+                        "base_name": self.base_name,
+                        "ext": self.ext,
+                        "total_size": self.total_size,
+                        "srcUrl": self.url,
+                        "pageUrl": self.page_url,
+                        "domain": self.domain,
+                        "favicon_url": self.favicon_url,
+                        "timestamp": self.start_time,
+                        "folder_id": self.folder.get("id")
+                    })) 
+
+
+    def get_information(self):
+        """Downloads item information before downloading gets
+             filename, size, tmp_path"""
+        response = requests.head(self.url)
+        headers = response.headers
+
+        # content-length
+        self.total_size = int(headers.get("Content-Length", 0))
+        self.total_size_str = Foundation.format_size(self.total_size)
+
+        # filename
+        contdisp = re.findall("filename=(.+)", headers.get("Content-Disposition", ""))
+        if contdisp:
+            self.filename = contdisp[0].strip('\'"')
+
+        # extension
+        if "Content-Type" in headers:
+            self.ext = guess_extension(headers.get("Content-Type").split()[0].rstrip(";"))
+
+        if not self.filename:   # no filename in Content-Disposition header
+            self.set_filename()
+            self.filename = Foundation.remove_invalid_chars(self.filename)
+
+        temp_base_name, ext = os.path.splitext(self.filename)
+        if ext:    # have extension
+            self.ext = ext
+        self.ext = self.ext_convention(self.ext)
+
+        if not self.base_name:  # no recommended basename provided
+            self.base_name = temp_base_name
+
+        self.filepath = os.path.join(self.dir, ''.join((self.base_name, self.ext)))
+
+        # check and rename if file already exists and not resume
+        count = 1
+        while os.path.isfile(self.filepath) or os.path.isfile(self.filepath + ".part"):
+            self.filename = ''.join((self.base_name, ' (', str(count), ')', self.ext))
+            self.filepath = os.path.join(self.dir, self.filename)
+            count += 1
+        open(self.filepath + ".part", 'a').close()  # create .part temp file
+
+    def set_id(self):
+        self.id = FukurouViewer.app.downloadsModel.createID()
+
+    def download_favicon(self):
+        """Download favicon if not already downloaded"""
+        if self.favicon_url:
+            favicon_path = os.path.join(self.FAVICON_PATH, self.domain + ".ico")
+            if not os.path.exists(favicon_path):
+                icon = requests.get(self.favicon_url, headers=self.send_headers, cookies=self.cookies, timeout=10)
+                with open(favicon_path, "wb") as f:
+                    for chunk in icon:
+                        f.write(chunk)
+
+    def set_filename(self):
+        """Sets self.filename from url"""
+        full_filename = self.url.split('/')[-1]   # get filename from srcUrl
+        full_filename = full_filename.split('?')[0]   # strip query string parameters
+        full_filename = full_filename.split('#')[0]   # strip anchor
+        self.filename = full_filename
+
+    def ext_convention(self, ext):
+        """Formats extension using desired convention '.JPG' -> '.jpg' """
+        if ext.lower() in ['.jpeg', '.jpe']:
+            return '.jpg'
+        return ext.lower()
+
+    def fix_image_extension(self):  
+        """checks image file headers and renames image to proper extension when necessary"""
+        format = imghdr.what(self.filepath)
+        if not format:    # not image so do nothing
+            return
+
+        format = self.ext_convention(''.join(('.', format)))
+        _, ext = os.path.splitext(self.filepath)
+        if ext != format:
+            dirpath = os.path.dirname(self.filepath)
+            newpath = os.path.join(dirpath, ''.join((self.base_name, format)))
+
+            count = 1
+            while os.path.isfile(newpath):
+                newpath = os.path.join(dirpath, ''.join((self.base_name, ' (', str(count), ')', format)))
+                count += 1
+            os.rename(self.filepath, newpath)
+            self.filepath = newpath
+            return
+
+    def get_cookie_str(self):
+        """returns string of cookies for pycurl"""
+        cookies_str = ""
+        for key, value in self.cookies.items():
+            cookies_str += " %s=%s;" % (key, value)
+        return cookies_str
+
+    def finish(self, finish_time):
+        os.rename(self.filepath + ".part", self.filepath)
+        self.fix_image_extension()
+
+        with user_database.get_session(self, acquire=True) as session:
+            session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == self.id))
+
+            # add to history table in database
+            result = session.execute(insert(user_database.History).values(
+                {
+                    "filename": self.filename,
+                    "src_url": self.url,
+                    "page_url": self.page_url,
+                    "domain": self.domain,
+                    "time_added": finish_time,
+                    "full_path": self.filepath,
+                    "favicon_url": self.favicon_url,
+                    "folder_id": self.folder.get("id")
+                }))
+            db_id = int(result.inserted_primary_key[0])
+
+        kwargs = { "url": self.page_url,
+                "domain": self.domain,
+                "history_item": db_id,
+                "galleryUrl": self.gallery_url } 
+
+        gal = GenericGallery(**kwargs)
+        search_thread.queue.put(gal)
+
+
 class Download_UI_Signals(QtCore.QObject):
-    create = QtCore.pyqtSignal(str, str, str, str, str, str, float)
-    update = QtCore.pyqtSignal(str, str, int, str)
+    create = QtCore.pyqtSignal(DownloadItem)
     start = QtCore.pyqtSignal(str)
-    finish = QtCore.pyqtSignal(str, float)
+    update = QtCore.pyqtSignal(str, int, int, int)    
+    finish = QtCore.pyqtSignal(str, float, int)
 
     def __init__(self):
         super().__init__()
-        self.create.connect(FukurouViewer.app.downloadsModel.addItem)
-        self.update.connect(FukurouViewer.app.downloadsModel.updateItem)
-        self.start.connect(FukurouViewer.app.downloadsModel.start_item)
-        self.finish.connect(FukurouViewer.app.downloadsModel.finish_item)
+        self.create.connect(FukurouViewer.app.create_download_ui_item)
+        self.start.connect(FukurouViewer.app.start_download_ui_item)
+        self.update.connect(FukurouViewer.app.update_download_ui_item)        
+        self.finish.connect(FukurouViewer.app.finish_download_ui_item)
 
 
 class DownloadManager(Logger):
@@ -273,7 +488,6 @@ class DownloadManager(Logger):
 
     def __init__(self):
         self.queue = queue.Queue()
-
 
     def setup(self):
         self.signals = Download_UI_Signals()
@@ -288,43 +502,49 @@ class DownloadManager(Logger):
 
         self.load_existing()
         
+    def start(self):
+        pass
 
     def load_existing(self):
         """load existing unfinished downloads from db and queue them"""
         with user_database.get_session(self, acquire=True) as session:
             downloads = Utils.convert_result(session.execute(
                 select([user_database.Downloads])))
-            for item in downloads:
-                item["task"] = "save"
 
-                folder = Utils.convert_result(session.execute(
-                    select([user_database.Folders]).where(user_database.Folders.id == item.get('folder_id'))))[0]
+        for item in downloads:
+            item["task"] = "load"
+            filepath = item.get("filepath") + ".part"
+            if os.path.exists(filepath):
+                item["downloaded"] = os.path.getsize(filepath)
+            else:
+                item["downloaded"] = 0
 
-                self.signals.create.emit(item.get("id"), item.get("filename"), 
-                                        item.get("filepath"), 
-                                        Foundation.format_size(item.get("total_size")), 
-                                        folder.get("name"), 
-                                        folder.get("color"),
-                                        item.get("timestamp"))
-                # TODO FIX IF FILE PREVIOUSLY DELETED
-                if not os.path.exists(item.get("filepath")):
+            download_item = DownloadItem(item)
+            self.signals.create.emit(download_item)
+
+            if not os.path.exists(item.get("filepath") + ".part"):
+                with user_database.get_session(self, acquire=True) as session:
                     session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
-                    continue
 
-                downloaded = os.path.getsize(item.get("filepath"))
-                percent = int((downloaded / item.get("total_size")) * 100)
-                self.signals.update.emit(item.get("id"), Foundation.format_size(downloaded), percent, "queued")
-                self.queue.put(item)
+            percent = int((download_item.downloaded / download_item.total_size) * 100)
+            self.signals.update.emit(download_item.id, download_item.downloaded, percent, "queued")
 
-    def start(self):
-        pass
+            self.queue.put(download_item)
+
 
     def resume_download(self, id):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
                 select([user_database.Downloads]).where( user_database.Downloads.id == id)))[0]
-            results["task"] = "save"
-            self.queue.put(results)
+        results["task"] = "load"
+        filepath = results.get("filepath") + ".part"
+        if os.path.exists(filepath):
+            results["downloaded"] = os.path.getsize(filepath)
+        else:
+            results["downloaded"] = 0
+
+        download_item = DownloadItem(results)
+        self.queue.put(download_item)
 
 
 download_manager = DownloadManager()
@@ -338,41 +558,17 @@ class DownloadThread(BaseThread):
 
     def __init__(self):
         super().__init__()
-        self.id = None
-        self.running = False
-
-        self.url = None
-        self.page_url = None
-        self.domain = None
-        self.favicon_url = None
-
-        self.start_time = None
+        self.download_item = None
         self._last_time = None
-        self.downloaded = None
-        self.total_size = None
-        self.resume = False
         self.paused = False
         self.stopped = False
         self.max_speed = 1024 * 1024 * 1024
         self.f = None   #file object
-
         self.headers = {}
-        self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
-        self.cookies = ""
         self.status_code = None
         self.status_msg = ""
 
-        self.dir = None
-        self.filepath = None
-        self.filename =  None
-        self.base_name = None
-        self.ext =  None
-
-        self.gallery_url = None
-
         self._curl = None 
-
-        self.clean_up()
 
 
     def setup(self):
@@ -384,27 +580,23 @@ class DownloadThread(BaseThread):
     def _run(self):
         try:
             while True:
-                msg = download_manager.queue.get()
-                task = msg.get("task")
-                if task == "save":
-                    self.init_download(msg)
+                self.download_item = download_manager.queue.get()                
+                if self.download_item.task == "save":
                     self.start_download()
-                elif task == "saveManga":
-                    self.saveManga_task(msg)
+                elif self.download_item.task == "saveManga":
+                    self.saveManga_task()
         except Exception as e:
             self.log_exception()
             #self.delete_file(self.filepath)
 
 
     def receive_ui_task(self, id, task):
-        if id != self.id:
+        if self.download_item is None or id != self.download_item.id:
             return
-
         if task == "pause":
             self.togglePause()
         elif task == "stop":
             self.stopDownload()
-
 
     def stopDownload(self):
         print("stop download and remove from queue")
@@ -428,60 +620,18 @@ class DownloadThread(BaseThread):
         self.paused = False
 
 
-    def init_download(self, msg):
-        self.id = msg.get('id', None)
-        self.url = msg.get('srcUrl')   
-        self.page_url = msg.get('pageUrl')
-        self.domain = msg.get('domain')
-
-        for key, value in msg.get("headers", {}).items():
-            self.headers[key] = value
-
-        cookies = {}
-        for cookie in msg.get('cookies', []):
-            self.cookies += " %s=%s;" % (cookie[0], cookie[1])
-            cookies[cookie[0]] = cookie[1]
-        
-        self.favicon_url = msg.get('favicon_url', "")
-        if self.favicon_url:
-            # DOWNLOAD FAVICON IS FIRST BECAUSE OF UNKNOWN TIMEOUT ERROR IF AFTER FILE DOWNLOAD FIX BY MOVING DOWNLOAD TO OWN CLASS
-            favicon = os.path.join(self.FAVICON_PATH, self.domain + ".ico")
-            if not os.path.exists(favicon):
-                icon = requests.get(self.favicon_url, headers=self.headers, cookies=cookies, timeout=10)
-                with open(favicon, "wb") as f:
-                    for chunk in icon:
-                        f.write(chunk)
-
-        self.folder = {} 
-        with user_database.get_session(self, acquire=True) as session:
-            folder_id = msg.get('uid', None)
-            if folder_id:
-                self.folder = Utils.convert_result(session.execute(
-                    select([user_database.Folders]).where(user_database.Folders.uid == folder_id)))[0]
-            else:
-                self.folder = Utils.convert_result(session.execute(
-                    select([user_database.Folders]).where(user_database.Folders.id == msg.get('folder_id'))))[0]
-
-        self.dir = msg.get("dir", self.folder.get("path"))
-        self.filepath = msg.get("filepath", None)    
-        self.filename =  msg.get("filename", None)    # basename and extension filename.txt
-        self.base_name = msg.get("base_name", None)   # filename before .ext
-        self.ext =  msg.get("ext", None)
-
-        if self.filepath:
-            self.resume = True
-
-        self.gallery_url = msg.get("galleryUrl", "")
-
-
     def start_download(self):
+        self.paused = False
+        self.stopped = False
+        self._last_time = time()
+        self.headers = {}
         self.curl = pycurl.Curl()
 
         self.curl.setopt(pycurl.CAINFO, certifi.where())
-        self.curl.setopt(pycurl.URL, self.url)
+        self.curl.setopt(pycurl.URL, self.download_item.url)
         self.curl.setopt(pycurl.FOLLOWLOCATION, 1)
         self.curl.setopt(pycurl.MAXREDIRS, 5)
-        self.curl.setopt(pycurl.COOKIE, self.cookies)
+        self.curl.setopt(pycurl.COOKIE, self.download_item.get_cookie_str())
 
         self.curl.setopt(pycurl.MAX_RECV_SPEED_LARGE, self.max_speed)
         self.curl.setopt(pycurl.CONNECTTIMEOUT, 30)
@@ -493,61 +643,41 @@ class DownloadThread(BaseThread):
         self.curl.setopt(pycurl.XFERINFOFUNCTION, self.progress)
         
         self.curl.setopt(pycurl.HEADERFUNCTION, self.header)
-        if len(self.headers) > 0:
-            self.curl.setopt(pycurl.HTTPHEADER, [k+': '+v for k,v in self.headers.items()])
-            
-        if self.resume:
-            self.downloaded = os.path.getsize(self.filepath)
-            self.curl.setopt(pycurl.RESUME_FROM, self.downloaded)
+        self.curl.setopt(pycurl.HTTPHEADER, [k+': '+v for k,v in self.download_item.send_headers.items()])
+
+        
+        # TODO MOVE TO LOADING FROM DB PART NOT HERE
+        if self.download_item.resume:
+            #self.downloaded = os.path.getsize(self.download_item.filepath) TODO MOVE TO LOADING FROM DB PART NOT HERE
+            self.curl.setopt(pycurl.RESUME_FROM, self.download_item.downloaded)
+
+        mode = "wb"
+        if self.download_item.resume:
+            mode = "ab"
+        self.f = open(self.download_item.filepath + ".part", mode)
+
+        self.signals.start.emit(self.download_item.id)
 
         try:
             self.curl.perform()
-        except pycurl.error:
+        except pycurl.error as error:
             print("stop request received")
-            self.clean_up()
+            self.logger.error(error)
             return
         except:
             self.log_exception()
             return
 
         finish_time = time()
-        self.signals.finish.emit(self.id, finish_time)
+        self.signals.finish.emit(self.download_item.id, finish_time, self.download_item.total_size)
         self.curl.close()
         self.f.close()
+        self.download_item.finish(finish_time)
 
-        self.logger.info(self.filepath + " finished downloading.")
-
-        with user_database.get_session(self, acquire=True) as session:
-            session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == self.id))
+        self.logger.info(self.download_item.filepath + " finished downloading.")
 
         mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
         mixer.music.play()
-
-            # add to history table in database
-        with user_database.get_session(self) as session:
-            result = session.execute(insert(user_database.History).values(
-                {
-                    "filename": self.filename,
-                    "src_url": self.url,
-                    "page_url": self.page_url,
-                    "domain": self.domain,
-                    "time_added": finish_time,
-                    "full_path": self.filepath,
-                    "favicon_url": self.favicon_url,
-                    "folder_id": self.folder.get("id")
-                }))
-            db_id = int(result.inserted_primary_key[0])
-
-                            
-        kwargs = { "url": self.page_url,
-                    "domain": self.domain,
-                    "history_item": db_id,
-                    "galleryUrl": self.gallery_url } 
-
-        gal = GenericGallery(**kwargs)
-        search_thread.queue.put(gal)
-
-        self.clean_up()
 
 
     def writer(self, data):
@@ -566,47 +696,9 @@ class DownloadThread(BaseThread):
         elif header:
             key, value = header.split(":", 1)
         else:   # end of headers
-            mode = "wb"
-            if self.resume:
-                mode = "ab"
-            else:
-                self.get_status_code(self.headers.get("http_code"))
-                if self.status_code == 302:
-                    return
-
-                if not self.filename:   # no filename in Content-Disposition 1header
-                    self.filename = self.get_filename()
-                    self.filename = Foundation.remove_invalid_chars(self.filename)
-
-                temp_base_name, ext = os.path.splitext(self.filename)
-                if ext:    # have extension
-                    self.ext = ext
-
-                self.ext = self.ext_convention(self.ext)
-
-                if not self.base_name:  # no recommended basename provided
-                    self.base_name = temp_base_name
-
-                self.filepath = os.path.join(self.dir, ''.join((self.base_name, self.ext)))
-
-                # check and rename if file already exists and not resume
-                count = 1
-                while os.path.isfile(self.filepath):
-                    self.filename = ''.join((self.base_name, ' (', str(count), ')', self.ext))
-                    self.filepath = os.path.join(self.dir, self.filename)
-                    count += 1
-
-            self.f = open(self.filepath, mode)
+            self.get_status_code(self.headers.get("http_code"))
             return
 
-        if key == "Content-Disposition":
-            contdisp = re.findall("filename=(.+)", value)
-            if contdisp:
-                self.filename = contdisp[0].strip('\'"')
-
-        elif key == "Content-Type":
-            self.ext = guess_extension(value.split()[0].rstrip(";"))
-        
         self.headers[key] = value
 
 
@@ -614,71 +706,35 @@ class DownloadThread(BaseThread):
         if download_t == 0:
             return
 
-        if self.start_time is None:
-            self.start_time = time()
-
         # don't update UI unless request succeeded
-        if self.status_code != 200:
+        if self.status_code < 200 or self.status_code > 299:
             return
             
+        current_time = time()
         # speed
-        duration = time() - self.start_time + 1
-        speed = download_d / duration
-        speed_s = ''.join((Foundation.format_size(speed), "/s"))
-        if speed == 0.0:
+        duration = current_time - self.download_item.start_time + 1
+        avg_speed = download_d / duration
+        #speed_s = ''.join((Foundation.format_size(speed), "/s"))
+        if avg_speed == 0.0:
             eta = self.ETA_LIMIT
         else:
-            eta = int((download_t - download_d) / speed)
+            eta = int((download_t - download_d) / avg_speed)
         if eta < self.ETA_LIMIT:
             eta_s = str(datetime.timedelta(seconds=eta))
         else:
             eta_s = 'n/a'
         
-
-        current_time = time()
-        # create UI entry
-        if self._last_time == 0.0:
-            self.total_size = self.downloaded + download_t
-            self._last_time = current_time
-
-            if not self.resume:
-                self.id = self.create_download_id()
-                self.signals.create.emit(self.id, self.filename, 
-                                         self.filepath, 
-                                         Foundation.format_size(download_t), 
-                                         self.folder.get("name"), 
-                                         self.folder.get("color"),
-                                         current_time)
-
-                with user_database.get_session(self) as session:
-                    session.execute(insert(user_database.Downloads).values(
-                        {
-                            "id": self.id,
-                            "filepath": self.filepath,
-                            "filename": self.filename,
-                            "base_name": self.base_name,
-                            "ext": self.ext,
-                            "total_size": self.total_size,
-                            "srcUrl": self.url,
-                            "pageUrl": self.page_url,
-                            "domain": self.domain,
-                            "favicon_url": self.favicon_url,
-                            "timestamp": current_time,
-                            "folder_id": self.folder.get("id")
-                        })) 
-            self.signals.start.emit(self.id)
         # update UI entry
-        else:
-            interval = current_time - self._last_time
-            if interval < 0.5:
-                return
+        interval = current_time - self._last_time
+        if interval < 0.5:
+            return
 
-            self._last_time = current_time
-            downloaded = self.downloaded + download_d
-            downloaded_s = Foundation.format_size(downloaded)
-            percent = int((downloaded / self.total_size) * 100)
-            # eta_s is eta 
-            self.signals.update.emit(self.id, downloaded_s, percent, speed_s)
+        self._last_time = current_time
+        downloaded = self.download_item.downloaded + download_d
+        #downloaded_s = Foundation.format_size(downloaded)
+        percent = int((downloaded / self.download_item.total_size) * 100)
+        # eta_s is eta 
+        self.signals.update.emit(self.download_item.id, downloaded, percent, avg_speed)
 
 
     def get_status_code(self, status_string):
@@ -688,51 +744,9 @@ class DownloadThread(BaseThread):
         self.status_msg = status_parts[2]
 
 
-    def get_filename(self):
-        """Returns filename from url"""
-        full_filename = self.url.split('/')[-1]   # get filename from srcUrl
-        full_filename = full_filename.split('?')[0]   # strip query string parameters
-        full_filename = full_filename.split('#')[0]   # strip anchor
-        return full_filename
-
-
-    def ext_convention(self, ext):
-        """Formats extension using desired convention '.JPG' -> '.jpg' """
-        if ext.lower() in ['.jpeg', '.jpe']:
-            return '.jpg'
-        return ext.lower()
-
-
-    def fix_image_extension(self):  
-        """checks image file headers and renames image to proper extension when necessary"""
-        format = imghdr.what(self.filepath)
-        if not format:    # not image so do nothing
-            return
-
-        format = self.ext_convention(''.join(('.', format)))
-        _, ext = os.path.splitext(self.filepath)
-        if ext != format:
-            dirpath = os.path.dirname(self.filepath)
-            newpath = os.path.join(dirpath, ''.join((self.base_name, format)))
-
-            count = 1
-            while os.path.isfile(newpath):
-                newpath = os.path.join(dirpath, ''.join((self.base_name, ' (', str(count), ')', format)))
-                count += 1
-            os.rename(self.filepath, newpath)
-            self.filepath = newpath
-            return
-
-
-    def create_download_id(self):
-        """returns unique id for download item in UI"""
-        used_ids = FukurouViewer.app.downloadsModel.getIDs()
-        return Foundation.uniqueID(used_ids)
-
-
-    def saveManga_task(self, msg):
+    def saveManga_task(self):
         self.logger.debug("--- Downloading Manga ---")
-        url = [msg.get('url')]
+        url = [self.download_item.url]
 
         doujin_downloader = [Config.doujin_downloader]
         doujin_downloader.append(url)
@@ -745,39 +759,6 @@ class DownloadThread(BaseThread):
         if os.path.isfile(filepath):
             os.remove(filepath)
 
-
-    def clean_up(self):
-        self.id = ""
-        self.running = False
-
-        self.url = None
-        self.page_url = None
-        self.domain = None
-        self.favicon_url = None
-
-        self.start_time = None
-        self._last_time = 0.0
-        self.downloaded = 0
-        self.total_size = 0
-        self.resume = False
-        self.paused = False
-        self.stopped = False
-        self.f = None   #file object
-        self.headers = {}
-        self.headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
-        self.cookies = ""
-        self.status_code = None
-        self.status_msg = ""
-
-        self.dir = None
-        self.filepath = None
-        self.filename =  None
-        self.base_name = None
-        self.ext =  None
-
-        self.gallery_url = None
-        
-        self._curl = None
 
     # logs raised general exception
     def log_exception(self):

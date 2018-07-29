@@ -50,7 +50,7 @@ Component {
         function testDate(timestamp) {
             var time = new Date(timestamp * 1000);
             var mm = time.getMonth() + 1;
-            var dd = time.getDay();
+            var dd = time.getDate();
             var hr = time.getHours();
             var min = time.getMinutes();
             var ampm = hr >= 12 ? "pm" : "am";
