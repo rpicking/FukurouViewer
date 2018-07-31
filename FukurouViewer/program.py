@@ -66,10 +66,25 @@ class Download(object):
         self.queued = True
         self.timestamp = item.start_time
 
-    def update(self, _cur_size, _percent, _speed):
-        self.cur_size = Foundation.format_size(_cur_size)
-        self.percent = _percent
-        self.speed = Foundation.format_size(_speed)
+    def update(self, kwargs):
+        self.filename = kwargs.get("filename", self.filename)
+        self.filepath = kwargs.get("filepath", self.filepath)
+        self.total_size = kwargs.get("total_size", self.total_size)
+        if not isinstance(self.total_size, str):
+            self.total_size = Foundation.format_size(self.total_size)
+
+        self.folderName = kwargs.get("folderName", self.folderName)
+        self.color = kwargs.get("color", self.color)
+        self.cur_size = kwargs.get("cur_size", self.cur_size)
+        if not isinstance(self.cur_size, str):
+            self.cur_size = Foundation.format_size(self.cur_size)
+
+        self.percent = kwargs.get("percent", self.percent)
+        self.speed = kwargs.get("speed", self.speed)
+        if not isinstance(self.speed, str):
+            self.speed = Foundation.format_size(self.speed)
+
+        self.queued = kwargs.get("queued", self.queued)
 
     def start(self):
         self.queued = False
@@ -173,13 +188,12 @@ class DownloadsModel(QtCore.QAbstractListModel):
 
     # TODO: THIS MIGHT NEED TO BE SWITCHED TO SETDATA  https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
     # updates filename and color of current download item with id
-    def updateItem(self, id, cur_size, progress, speed):
-        """Updates active download values"""
-        index = self.get_item_index(id)
+    def updateItem(self, kwargs):
+        """Updates active download values"""                
+        index = self.get_item_index(kwargs.pop("id"))
         if index == None:
             return
-
-        self._items[index].update(cur_size, progress, speed)
+        self._items[index].update(kwargs)
         self.do_item_update(index)
 
 
@@ -321,19 +335,19 @@ class DownloadUIManager(QtCore.QObject):
         self._running_downloads += 1
         self.on_running_downloads.emit()
 
-    def update_progress(self, id, cur_size, speed):
+    def update_progress(self, kwargs):
         self._current_progress = 0
         for item in self._downloads:
-            if item.get("id") == id:
-                item["cur_size"] = cur_size
-                item["speed"] = speed
+            if item.get("id") == kwargs.get("id"):
+                item["cur_size"] = kwargs.get("cur_size")
+                item["speed"] = kwargs.get("speed")
                 break
 
         self.on_speed.emit()
         self.on_current_progress.emit()
 
     def finish_download(self, id, total_size):
-        self.update_progress(id, total_size, 0)
+        self.update_progress({"id": id, "cur_size": total_size, "speed": 0})
 
         self._running_downloads -= 1        
         self.on_running_downloads.emit()
@@ -559,9 +573,9 @@ class Program(QtWidgets.QApplication):
         self.downloadsModel.start_item(id)
         self.downloadUIManager.start_download()
 
-    def update_download_ui_item(self, id, cur_size, progress, speed):
-        self.downloadsModel.updateItem(id, cur_size, progress, speed)
-        self.downloadUIManager.update_progress(id, cur_size, speed)
+    def update_download_ui_item(self, kwargs):
+        self.downloadsModel.updateItem(kwargs)
+        self.downloadUIManager.update_progress(kwargs)
 
     def finish_download_ui_item(self, id, timestamp, total_size):
         self.downloadsModel.finish_item(id, timestamp)

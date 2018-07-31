@@ -256,6 +256,7 @@ class MessengerThread(BaseThread):
         self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
+
 if os.name == 'nt':
     import win32api
     import win32pipe
@@ -265,10 +266,13 @@ else:
     messenger_thread = MessengerThread(False)
 
 
+
 class DownloadItem():
     FAVICON_PATH = Utils.fv_path("favicons")
 
     def __init__(self, msg):
+        self.signals = Download_UI_Signals()
+
         self.task = msg.get("task")
         self.resume = False
 
@@ -348,7 +352,7 @@ class DownloadItem():
     def get_information(self):
         """Downloads item information before downloading gets
              filename, size, tmp_path"""
-        response = requests.head(self.url)
+        response = requests.head(self.url, headers=self.send_headers, cookies=self.cookies, timeout=10, allow_redirects=True)
         headers = response.headers
 
         # content-length
@@ -420,17 +424,24 @@ class DownloadItem():
 
         format = self.ext_convention(''.join(('.', format)))
         _, ext = os.path.splitext(self.filepath)
-        if ext != format:
-            dirpath = os.path.dirname(self.filepath)
-            newpath = os.path.join(dirpath, ''.join((self.base_name, format)))
 
-            count = 1
-            while os.path.isfile(newpath):
-                newpath = os.path.join(dirpath, ''.join((self.base_name, ' (', str(count), ')', format)))
-                count += 1
-            os.rename(self.filepath, newpath)
-            self.filepath = newpath
+        if ext == format:
             return
+
+        dirpath = os.path.dirname(self.filepath)
+        self.filename = ''.join((self.base_name, format))
+        newpath = os.path.join(dirpath, self.filename)
+
+        count = 1
+        while os.path.isfile(newpath):
+            self.filename = ''.join((self.base_name, ' (', str(count), ')', format))
+            newpath = os.path.join(dirpath, self.filename)
+            count += 1
+        os.rename(self.filepath, newpath)
+        self.filepath = newpath
+        self.signals.update.emit({"id": self.id, "filename": self.filename, "filepath": self.filepath})
+
+
 
     def get_cookie_str(self):
         """returns string of cookies for pycurl"""
@@ -469,10 +480,11 @@ class DownloadItem():
         search_thread.queue.put(gal)
 
 
+
 class Download_UI_Signals(QtCore.QObject):
     create = QtCore.pyqtSignal(DownloadItem)
     start = QtCore.pyqtSignal(str)
-    update = QtCore.pyqtSignal(str, int, int, int)    
+    update = QtCore.pyqtSignal(dict)    
     finish = QtCore.pyqtSignal(str, float, int)
 
     def __init__(self):
@@ -527,7 +539,11 @@ class DownloadManager(Logger):
                     session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
 
             percent = int((download_item.downloaded / download_item.total_size) * 100)
-            self.signals.update.emit(download_item.id, download_item.downloaded, percent, "queued")
+            kwargs = {"id": download_item.id, 
+                      "cur_size": download_item.downloaded, 
+                      "percent": percent, 
+                      "speed": "queued"}
+            self.signals.update.emit(kwargs)
 
             self.queue.put(download_item)
 
@@ -734,7 +750,12 @@ class DownloadThread(BaseThread):
         #downloaded_s = Foundation.format_size(downloaded)
         percent = int((downloaded / self.download_item.total_size) * 100)
         # eta_s is eta 
-        self.signals.update.emit(self.download_item.id, downloaded, percent, avg_speed)
+
+        kwargs = {"id": self.download_item.id, 
+                  "cur_size": downloaded, 
+                  "percent": percent, 
+                  "speed": avg_speed }
+        self.signals.update.emit(kwargs)
 
 
     def get_status_code(self, status_string):
