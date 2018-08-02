@@ -62,29 +62,20 @@ class Download(object):
         self.color = item.folder.get("color")
         self.cur_size = "0 B"
         self.percent = 0
-        self.speed = ""
+        self.speed = "queued"
         self.queued = True
         self.timestamp = item.start_time
 
     def update(self, kwargs):
-        self.filename = kwargs.get("filename", self.filename)
-        self.filepath = kwargs.get("filepath", self.filepath)
-        self.total_size = kwargs.get("total_size", self.total_size)
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+
         if not isinstance(self.total_size, str):
             self.total_size = Foundation.format_size(self.total_size)
-
-        self.folderName = kwargs.get("folderName", self.folderName)
-        self.color = kwargs.get("color", self.color)
-        self.cur_size = kwargs.get("cur_size", self.cur_size)
         if not isinstance(self.cur_size, str):
             self.cur_size = Foundation.format_size(self.cur_size)
-
-        self.percent = kwargs.get("percent", self.percent)
-        self.speed = kwargs.get("speed", self.speed)
         if not isinstance(self.speed, str):
-            self.speed = Foundation.format_size(self.speed)
-
-        self.queued = kwargs.get("queued", self.queued)
+            self.speed = Foundation.format_size(self.speed) + "/s"
 
     def start(self):
         self.queued = False
@@ -110,10 +101,10 @@ class DownloadsModel(QtCore.QAbstractListModel):
     QueuedRole = QtCore.Qt.UserRole + 10
     TimeStampRole = QtCore.Qt.UserRole + 11
 
-
-    _roles = {IDRole: "id", FilenameRole: "filename", FilepathRole: "filepath", TotalSizeRole: "total_size", 
-              FolderNameRole: "folderName", ColorRole: "color", CurSizeRole: "cur_size", 
-              PercentRole: "percent", SpeedRole: "speed", QueuedRole: "queued", TimeStampRole: "timestamp"}
+    _roles = {IDRole: "id", FilenameRole: "filename", FilepathRole: "filepath", 
+              TotalSizeRole: "total_size", FolderNameRole: "folderName", 
+              ColorRole: "color", CurSizeRole: "cur_size", PercentRole: "percent", 
+              SpeedRole: "speed", QueuedRole: "queued", TimeStampRole: "timestamp"}
 
     def __init__(self, parent=None):
         super(DownloadsModel, self).__init__(parent)
@@ -576,6 +567,7 @@ class Program(QtWidgets.QApplication):
     def update_download_ui_item(self, kwargs):
         self.downloadsModel.updateItem(kwargs)
         self.downloadUIManager.update_progress(kwargs)
+
 
     def finish_download_ui_item(self, id, timestamp, total_size):
         self.downloadsModel.finish_item(id, timestamp)

@@ -541,8 +541,7 @@ class DownloadManager(Logger):
             percent = int((download_item.downloaded / download_item.total_size) * 100)
             kwargs = {"id": download_item.id, 
                       "cur_size": download_item.downloaded, 
-                      "percent": percent, 
-                      "speed": "queued"}
+                      "percent": percent }
             self.signals.update.emit(kwargs)
 
             self.queue.put(download_item)
