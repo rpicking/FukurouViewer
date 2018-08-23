@@ -101,7 +101,7 @@ class Downloads(Base):
 def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):
-        base.metadata.create_all(engine)
+        Base.metadata.create_all(engine)
         api.version_control(DATABASE_URI, MIGRATE_REPO, version=api.version(MIGRATE_REPO))
     else:
         try:

@@ -95,9 +95,10 @@ Item {
             text: qsTr("Speed:")
             color: "white"
             font.pixelSize: 16
-            anchors.left: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 20
+            anchors {
+                left: parent.horizontalCenter
+                verticalCenter: downloadsLabel.verticalCenter
+            }
         }
         Text {
             id: totalSpeedField
@@ -110,14 +111,16 @@ Item {
                 leftMargin: 5
             }
         }
+
         Text {
             id: etaLabel
             text: qsTr("ETA:")
             color: "white"
             font.pixelSize: 16
-            anchors.left: parent.horizontalCenter
-            anchors.top: totalSpeedLabel.bottom
-            anchors.topMargin: 10
+            anchors {
+                left: parent.horizontalCenter
+                verticalCenter: runningLabel.verticalCenter
+            }
         }
         Text {
             id: etaField
@@ -133,7 +136,7 @@ Item {
 
         ProgressBar {
             id: totalProgressBar
-            value: 0.0
+            value: downloadManager.percent
             height: 15
             anchors {
                 left: parent.left

@@ -53,3 +53,4 @@ FukurouViewer/host/log/
 *.sln
 *.pyproj
 scripts/log/
+log/

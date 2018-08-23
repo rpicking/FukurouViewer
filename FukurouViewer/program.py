@@ -289,7 +289,6 @@ class DownloadUIManager(QtCore.QObject):
         self._total_downloads = 0
         self._running_downloads = 0
         self._total_progress = 0
-        self._current_progress = 0
         self._downloads = []
 
     def get_total_downloads(self):
@@ -311,7 +310,15 @@ class DownloadUIManager(QtCore.QObject):
         speed = 0
         for item in self._downloads:
             speed += item.get("speed")
-        return Foundation.format_size(speed)
+        return Foundation.format_size(speed) + "/s"
+
+    def get_percent(self):
+        cur_progress = 0
+        for item in self._downloads:
+            cur_progress += item.get("cur_size")
+        else:
+            return 0
+        return cur_progress / self._total_progress
 
     def add_download(self, id, total_size):
         self._total_downloads += 1
@@ -336,6 +343,7 @@ class DownloadUIManager(QtCore.QObject):
 
         self.on_speed.emit()
         self.on_current_progress.emit()
+        self.on_current_progress.emit()
 
     def finish_download(self, id, total_size):
         self.update_progress({"id": id, "cur_size": total_size, "speed": 0})
@@ -355,6 +363,9 @@ class DownloadUIManager(QtCore.QObject):
 
     on_current_progress = QtCore.pyqtSignal()
     current_progress = QtCore.pyqtProperty(str, get_current_progress, notify=on_current_progress)
+
+    on_percent = QtCore.pyqtSignal()
+    percent = QtCore.pyqtProperty(float, get_percent, notify=on_percent)
 
     on_speed = QtCore.pyqtSignal()
     speed = QtCore.pyqtProperty(str, get_speed, notify=on_speed)

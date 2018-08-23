@@ -17,6 +17,7 @@ import subprocess
 
 from PyQt5 import QtCore
 from time import clock, time
+from urllib.parse import unquote
 from collections import namedtuple
 from mimetypes import guess_extension
 from watchdog.observers import Observer
@@ -76,8 +77,7 @@ class BaseThread(threading.Thread, Logger):
             except (KeyboardInterrupt, SystemExit):
                 return
             except Exception:
-                return 
-                # figure out if this shit necessary
+                return
                 # makes sure that error doesn't kill program?
                 ex_info = sys.exc_info()
                 extype = ex_info[0]
@@ -132,12 +132,13 @@ class MessengerThread(BaseThread):
                     payload = self.edit_task(msg)
                 elif task == "delete":
                     payload = self.delete_task(msg)
-                elif task in ["save", "saveManga"]:
+                elif task == "save":
                     item = self.create_download_item(msg)
                     download_manager.queue.put(item)
-                    # TODO create uid
-                    # create item in manager
                     payload = { "task": "none" } 
+                elif task == "saveManga":
+                    item = DownloadItem(msg)
+                    download_manager.queue.put(item)
                 else:   # unknown message
                     payload = { "task": "none" }
 
@@ -408,6 +409,7 @@ class DownloadItem():
         full_filename = self.url.split('/')[-1]   # get filename from srcUrl
         full_filename = full_filename.split('?')[0]   # strip query string parameters
         full_filename = full_filename.split('#')[0]   # strip anchor
+        full_filename = unquote(full_filename)
         self.filename = full_filename
 
     def ext_convention(self, ext):
