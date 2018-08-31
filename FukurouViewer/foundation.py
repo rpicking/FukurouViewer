@@ -1,5 +1,6 @@
 import random
 import string
+from datetime import timedelta
 from humanize import naturalsize
 from sqlalchemy import insert, select
 from sqlalchemy.sql.expression import func
@@ -62,3 +63,17 @@ class Foundation(Logger):
         size_string = naturalsize(size, binary=True)
         size_string = size_string.replace("i", "")
         return size_string.replace("ytes", "")
+
+    @staticmethod
+    def format_duration(duration):
+        time_delta = timedelta(seconds=duration)
+        days, seconds = time_delta.days, time_delta.seconds
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        seconds = seconds % 60
+
+        eta_s = "{}{}{}{}".format(str(days) + "days, " if days > 0 else "",
+                                str(hours) + "h:" if hours > 0 else "",
+                                str(minutes) + "m:" if hours > 0 or minutes > 0 else "",
+                                str(seconds) + "s")
+        return eta_s

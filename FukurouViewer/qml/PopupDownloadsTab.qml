@@ -124,7 +124,7 @@ Item {
         }
         Text {
             id: etaField
-            text: "~2hr 4min 13sec"
+            text: downloadManager.eta
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -137,7 +137,6 @@ Item {
         ProgressBar {
             id: totalProgressBar
             value: downloadManager.percent
-            height: 15
             anchors {
                 left: parent.left
                 leftMargin: 10

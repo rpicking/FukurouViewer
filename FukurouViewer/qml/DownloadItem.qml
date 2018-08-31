@@ -103,12 +103,13 @@ Component {
             }
 
             onClicked: {
+                var status = "done"
                 if (model.percent !== 100) {
                     console.log("Are you sure you want to stop and remove an unfinished download?")
-                    return;
+                    status = "delete"
                 }
 
-                remove_download_ui_item(model.id, "done")
+                remove_download_ui_item(model.id, status)
             }
         }
 
@@ -212,7 +213,7 @@ Component {
 
         Text {
             id: timestamp
-            text: testDate(model.timestamp)
+            text: model.eta || testDate(model.timestamp)
             anchors.verticalCenter: curSize.verticalCenter
             font.pointSize: 10
             anchors.right: folderColorRound.left

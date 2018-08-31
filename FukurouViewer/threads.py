@@ -9,7 +9,6 @@ import random
 import string
 import struct
 import certifi
-import datetime
 import requests
 import linecache
 import threading
@@ -270,6 +269,7 @@ else:
 
 class DownloadItem():
     FAVICON_PATH = Utils.fv_path("favicons")
+    ETA_LIMIT = 2592000
 
     def __init__(self, msg):
         self.signals = Download_UI_Signals()
@@ -571,7 +571,6 @@ class DownloadThread(BaseThread):
 
     FAVICON_PATH = Utils.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
-    ETA_LIMIT = 2592000
 
     def __init__(self):
         super().__init__()
@@ -678,10 +677,10 @@ class DownloadThread(BaseThread):
         try:
             self.curl.perform()
         except pycurl.error as error:
-            print("stop request received")
-            self.logger.error(error)
+            #stop requested
             return
-        except:
+        except Exception as error:
+            self.logger.error(error)
             self.log_exception()
             return
 
@@ -731,31 +730,28 @@ class DownloadThread(BaseThread):
         # speed
         duration = current_time - self.download_item.start_time + 1
         avg_speed = download_d / duration
-        #speed_s = ''.join((Foundation.format_size(speed), "/s"))
-        if avg_speed == 0.0:
-            eta = self.ETA_LIMIT
-        else:
-            eta = int((download_t - download_d) / avg_speed)
-        if eta < self.ETA_LIMIT:
-            eta_s = str(datetime.timedelta(seconds=eta))
-        else:
-            eta_s = 'n/a'
+        
         
         # update UI entry
         interval = current_time - self._last_time
-        if interval < 0.5:
+        if interval < 0.2:
             return
 
         self._last_time = current_time
         downloaded = self.download_item.downloaded + download_d
-        #downloaded_s = Foundation.format_size(downloaded)
         percent = int((downloaded / self.download_item.total_size) * 100)
-        # eta_s is eta 
+        
+        # ETA
+        if avg_speed == 0.0:
+            eta = self.download_item.ETA_LIMIT
+        else:
+            eta = int((self.download_item.total_size - downloaded) / avg_speed)
 
         kwargs = {"id": self.download_item.id, 
                   "cur_size": downloaded, 
                   "percent": percent, 
-                  "speed": avg_speed }
+                  "speed": avg_speed,
+                  "eta": eta }
         self.signals.update.emit(kwargs)
 
 

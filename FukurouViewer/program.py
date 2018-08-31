@@ -65,6 +65,7 @@ class Download(object):
         self.speed = "queued"
         self.queued = True
         self.timestamp = item.start_time
+        self.eta = item.ETA_LIMIT
 
     def update(self, kwargs):
         for key in kwargs:
@@ -76,6 +77,8 @@ class Download(object):
             self.cur_size = Foundation.format_size(self.cur_size)
         if not isinstance(self.speed, str):
             self.speed = Foundation.format_size(self.speed) + "/s"
+        if not isinstance(self.eta, str):
+            self.eta = Foundation.format_duration(self.eta)
 
     def start(self):
         self.queued = False
@@ -86,6 +89,7 @@ class Download(object):
         self.percent = 100
         self.speed = ""
         self.timestamp = _timestamp
+        self.eta = ""
 
 
 class DownloadsModel(QtCore.QAbstractListModel):
@@ -100,11 +104,13 @@ class DownloadsModel(QtCore.QAbstractListModel):
     SpeedRole = QtCore.Qt.UserRole + 9
     QueuedRole = QtCore.Qt.UserRole + 10
     TimeStampRole = QtCore.Qt.UserRole + 11
+    EtaRole = QtCore.Qt.UserRole + 12
 
     _roles = {IDRole: "id", FilenameRole: "filename", FilepathRole: "filepath", 
               TotalSizeRole: "total_size", FolderNameRole: "folderName", 
               ColorRole: "color", CurSizeRole: "cur_size", PercentRole: "percent", 
-              SpeedRole: "speed", QueuedRole: "queued", TimeStampRole: "timestamp"}
+              SpeedRole: "speed", QueuedRole: "queued", TimeStampRole: "timestamp",
+              EtaRole: "eta"}
 
     def __init__(self, parent=None):
         super(DownloadsModel, self).__init__(parent)
@@ -147,6 +153,8 @@ class DownloadsModel(QtCore.QAbstractListModel):
             return item.queued
         if role == self.TimeStampRole:
             return item.timestamp
+        if role == self.EtaRole:
+            return item.eta
 
         return QtCore.QVariant()
 
@@ -181,7 +189,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
     # updates filename and color of current download item with id
     def updateItem(self, kwargs):
         """Updates active download values"""                
-        index = self.get_item_index(kwargs.pop("id"))
+        index = self.get_item_index(kwargs.get("id"))
         if index == None:
             return
         self._items[index].update(kwargs)
@@ -222,7 +230,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
         return self._items[index].total_size
 
 
-    def remove_item(self, id, status):
+    def remove_item(self, id):
         """Remove an item at id from the download list and updates UI"""
         index = self.get_item_index(id)
         if index == None:
@@ -303,7 +311,7 @@ class DownloadUIManager(QtCore.QObject):
     def get_current_progress(self):
         cur_progress = 0
         for item in self._downloads:
-            cur_progress += item.get("cur_size")
+            cur_progress += item.get("cur_size", 0)
         return Foundation.format_size(cur_progress)
 
     def get_speed(self):
@@ -316,15 +324,23 @@ class DownloadUIManager(QtCore.QObject):
         cur_progress = 0
         for item in self._downloads:
             cur_progress += item.get("cur_size")
-        else:
-            return 0
-        return cur_progress / self._total_progress
+
+        percent = 0 if not cur_progress else cur_progress / self._total_progress
+        #percent = cur_progress / self._total_progress
+        return percent
+
+    def get_eta(self):
+        eta = 0
+        for item in self._downloads:
+            eta += item.get("eta")
+
+        return Foundation.format_duration(eta)
 
     def add_download(self, id, total_size):
         self._total_downloads += 1
         self._total_progress += total_size
 
-        self._downloads.append({"id": id, "cur_size": 0, "speed": 0})
+        self._downloads.append({"id": id, "total_size": total_size, "cur_size": 0, "speed": 0, "eta": 0 })
 
         self.on_total_downloads.emit()
         self.on_total_progress.emit()
@@ -334,22 +350,43 @@ class DownloadUIManager(QtCore.QObject):
         self.on_running_downloads.emit()
 
     def update_progress(self, kwargs):
-        self._current_progress = 0
         for item in self._downloads:
             if item.get("id") == kwargs.get("id"):
-                item["cur_size"] = kwargs.get("cur_size")
-                item["speed"] = kwargs.get("speed")
+                item["cur_size"] = kwargs.get("cur_size", item["cur_size"])
+                item["speed"] = kwargs.get("speed", item["speed"])
+                item["eta"] = kwargs.get("eta", item["eta"])
                 break
 
         self.on_speed.emit()
         self.on_current_progress.emit()
-        self.on_current_progress.emit()
+        self.on_percent.emit()
+        self.on_eta.emit()
 
     def finish_download(self, id, total_size):
         self.update_progress({"id": id, "cur_size": total_size, "speed": 0})
 
         self._running_downloads -= 1        
         self.on_running_downloads.emit()
+
+    def remove_download(self, id, status):
+        for item in self._downloads:
+            if item.get("id") == id:
+                self._total_progress -= item.get("total_size")
+                self.on_total_progress.emit()
+                self._downloads.remove(item)
+                break
+
+        if status != "done":
+            self._running_downloads -= 1
+            self.on_running_downloads.emit()
+
+        self._total_downloads -= 1
+        self.on_total_downloads.emit()
+
+        self.on_speed.emit()
+        self.on_current_progress.emit()
+        self.on_percent.emit()
+        self.on_eta.emit()
 
 
     on_total_downloads = QtCore.pyqtSignal()
@@ -369,6 +406,9 @@ class DownloadUIManager(QtCore.QObject):
 
     on_speed = QtCore.pyqtSignal()
     speed = QtCore.pyqtProperty(str, get_speed, notify=on_speed)
+
+    on_eta = QtCore.pyqtSignal()
+    eta = QtCore.pyqtProperty(str, get_eta, notify=on_eta)
 
 
 
@@ -458,7 +498,7 @@ class Program(QtWidgets.QApplication):
             self.app_window.deleteHistoryItem.connect(self.delete_history_item)
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
-            self.app_window.remove_download_ui_item.connect(self.downloadsModel.remove_item)
+            self.app_window.remove_download_ui_item.connect(self.remove_download_ui_item)
 
 
             #self.downloadsModel.addItem("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green", time.time())
@@ -579,10 +619,13 @@ class Program(QtWidgets.QApplication):
         self.downloadsModel.updateItem(kwargs)
         self.downloadUIManager.update_progress(kwargs)
 
-
     def finish_download_ui_item(self, id, timestamp, total_size):
         self.downloadsModel.finish_item(id, timestamp)
         self.downloadUIManager.finish_download(id, total_size)
+
+    def remove_download_ui_item(self, id, status):
+        self.downloadsModel.remove_item(id)
+        self.downloadUIManager.remove_download(id, status)
 
     # open application window
     def open(self):
