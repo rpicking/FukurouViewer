@@ -6,7 +6,7 @@ import QtQuick.Controls 2.1
 import QtQuick.Controls 1.4
 import QtQuick.Controls.Styles 1.4
 
-import "controls" as Awesome
+import "."
 
 Window {
     id: trayWindow
@@ -112,7 +112,7 @@ Window {
     Rectangle {
         id: topBar
         height: 40
-        color: theme.background
+        color: Styles.background
 
         anchors {
             top: parent.top
@@ -123,7 +123,7 @@ Window {
         Text {
             id: titleText
             height: 28
-            color: theme.foreground
+            color: Styles.foreground
             text: "Fukurou"
             anchors.verticalCenter: parent.verticalCenter
             font.family: "Verdana"
@@ -139,25 +139,23 @@ Window {
             id: row
             spacing: 5
             anchors.verticalCenter: parent.verticalCenter
-            layoutDirection: Qt.RightToLeft
             anchors {
                 right: parent.right
                 margins: 5
             }
 
             TextIconButton {
-                id: openSettingsButton
+                id: createFavFolder
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Open settings page")
-                text: "\uf013"
+                ToolTip.text: qsTr("Add new folder")
+                text: "\uf067"
+                //verticalOffset: 1
                 onClicked: {
-                    mainWindow.show();
-                    //forceActiveFocus();
-                    console.log("opening settings");
+                    forceActiveFocus();
+                    folderPopup.visible = true;
                 }
             }
-
             TextIconButton {
                 id: openHistoryButton
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
@@ -169,17 +167,15 @@ Window {
                     console.log("opening history");
                 }
             }
-
             TextIconButton {
-                id: createFavFolder
+                id: openSettingsButton
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Add new folder")
-                text: "\uf067"
-                verticalOffset: 1
+                ToolTip.text: qsTr("Open settings page")
+                text: "\uf013"
                 onClicked: {
-                    forceActiveFocus();
-                    folderPopup.visible = true;
+                    mainWindow.show();
+                    closeWindow();
                 }
             }
         }
@@ -203,7 +199,7 @@ Window {
         style: TabViewStyle {
             frameOverlap: 0
             tab: Rectangle {
-                color: styleData.selected ? theme.background :"white"
+                color: styleData.selected ? Styles.background :"white"
                 //border.color:  "transparent"
                 implicitWidth: Math.max(tabTitle.width + 8, 80)
                 implicitHeight: 20

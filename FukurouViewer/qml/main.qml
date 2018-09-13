@@ -18,16 +18,6 @@ ApplicationWindow {
     height: 640
     title: "Fukurou Viewer"
 
-    //theme colors
-    QtObject {
-        id: theme
-        property string primary: "#393D3F"
-        property string accent: "#9B1D20"
-        property string foreground: "#FFFFFF"
-        property string background: "#272727"
-        property string highlighted: "#AD4648"
-    }
-
     Settings {
         id: settings
         property alias x: mainWindow.x
@@ -77,21 +67,7 @@ ApplicationWindow {
         }
     }
 
-    FontLoader {
-        id: fontAwesome
-        source: "fonts/fontawesome.4.7.webfont.ttf"
-    }
-
-    FontLoader {
-        id: testFont
-        source: "fonts/Lato-Regular.ttf"
-    }
-
-    FontLoader { id: fixedFont; name: "Courier" }
-
-    TrayWindow {
-        id: trayWindow
-    }
+    TrayWindow { id: trayWindow }
 
     // *********************************************
     // **** Main Window ****************************
@@ -115,7 +91,7 @@ ApplicationWindow {
     Rectangle {
         id: topBar
         height: 64
-        color: theme.background
+        color: Styles.background
         anchors {
             left: parent.left
             top: parent.top
@@ -126,7 +102,7 @@ ApplicationWindow {
             id: title
             text: "Fukurou"
             font.pointSize: 18
-            color: theme.foreground
+            color: Styles.foreground
             anchors {
                 left: parent.left
                 leftMargin: 20
@@ -151,13 +127,13 @@ ApplicationWindow {
 
             Label {
                 id: searchIcon
-                color: theme.primary
+                color: Styles.primary
+                font.family: Fonts.solidIcons
+                font.pixelSize: 20
                 text: "\uf002"
                 anchors.verticalCenterOffset: 0
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 8
-                font.family: fontAwesome.name
-                font.pixelSize: 20
                 anchors.left: parent.left
 
             }
@@ -178,7 +154,7 @@ ApplicationWindow {
             TextIconButton {
                 id: clearSearch
                 text: "\uf00d"
-                textColor: theme.primary
+                textColor: Styles.primary
                 visible: searchText.text !== ""
                 anchors {
                     verticalCenter: parent.verticalCenter

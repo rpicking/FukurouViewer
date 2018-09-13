@@ -1,13 +1,15 @@
 import QtQuick 2.0
 import QtQuick.Controls 1.4
 
+import "."
+
 Item {
     id: downloadsWrapper
     anchors.fill: parent
 
     Rectangle {
         id: statusBar
-        color: theme.background
+        color: Styles.background
         height: 150
         anchors {
             left: parent.left

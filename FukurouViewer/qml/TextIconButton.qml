@@ -1,10 +1,13 @@
 import QtQuick 2.0
 import QtQuick.Controls 2.1
 
+import "."
+
 Item {
     id: root
     property alias text : iconText.text
-    property string textColor : mouseArea.containsMouse ? theme.highlighted : theme.accent
+    property alias font : iconText.font.family
+    property string textColor : mouseArea.containsMouse ? Styles.highlighted : Styles.accent
     property string backgroundColor : "transparent"
     property string borderColor: "transparent"
     property int verticalOffset : 0
@@ -24,7 +27,7 @@ Item {
     baselineOffset: 0
     Text {
         id: iconText
-        font.family: fontAwesome.name
+        font.family: Fonts.solidIcons
         font.pixelSize: root.height
         color: textColor
         fontSizeMode: Text.Fit
