@@ -13,6 +13,8 @@ from .foundation import Foundation
 
 from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
+from urllib.parse import unquote
+
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def __init__(self, icon, parent=None):
@@ -411,8 +413,85 @@ class DownloadUIManager(QtCore.QObject):
     eta = QtCore.pyqtProperty(str, get_eta, notify=on_eta)
 
 
+class GridModel(QtCore.QAbstractListModel):
+    IDRole = QtCore.Qt.UserRole + 1
+    NameRole = QtCore.Qt.UserRole + 2
+    FilepathRole = QtCore.Qt.UserRole + 3
+
+    _roles = { IDRole: "id", NameRole: "name", FilepathRole: "filepath" }
+
+    def __init__(self, items, parent=None):
+        super(GridModel, self).__init__(parent)
+        self._items = items
+        #self.setRoleNames(dict(enumerate(GridModel.COLUMNS)))
+
+    def rowCount(self, parent=QtCore.QModelIndex()):
+        return len(self._items)
+
+    def roleNames(self):
+        return {x: self._roles[x].encode() for x in self._roles}
+
+    def data(self, index, role):
+        if index.isValid():
+            return self._items[index.row()]
+        return None
+
+    def data(self, index, role):
+        try:
+            item = self._items[index.row()]
+        except IndexError:
+            return QtCore.QVariant()
+
+        return item.get(GridModel._roles.get(role), QtCore.QVariant())
+
+
+class ThumbnailProvider(QtQuick.QQuickImageProvider):
+    TMP_DIR = Utils.fv_path("tmp")
+
+    def __init__(self):
+        QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
+        self.supported_formats = [ "." + format.data().decode("utf-8") for format in QtGui.QImageReader.supportedImageFormats() ]
+
+    def requestImage(self, file, requestedSize):
+        width = requestedSize.width()
+        height = requestedSize.height()
+
+        filepath = unquote(file)
+        _, ext = os.path.splitext(filepath)
+
+        if ext in self.supported_formats:
+            image = QtGui.QImage(filepath)
+            image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
+            #image = image.scaled(200, 280, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        else:
+            image = QtGui.QImage(200, 280, QtGui.QImage.Format_RGB32)
+            image.fill(QtCore.Qt.red)
+
+        #image.load(file)
+        return image, requestedSize
+
+    def requestPixmap(self, file, requestedSize):
+        width = requestedSize.width()
+        height = requestedSize.height()
+
+        filepath = unquote(file)
+        _, ext = os.path.splitext(filepath)
+
+        if ext in self.supported_formats:
+            image = QtGui.QPixmap(filepath)
+            #image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
+            image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        else:
+            image = QtGui.QPixmap(200, 280)
+            image.fill(QtCore.Qt.red)
+
+        #image.load(file)
+        return image, requestedSize
+
+
 
 class Program(QtWidgets.QApplication):
+    GITHUB = "https://github.com/rpicking/FukurouViewer"
     BASE_PATH = Utils.base_path()
     QML_DIR = os.path.join(BASE_PATH, "qml")
     THUMB_DIR = Utils.fv_path("thumbs")
@@ -432,12 +511,21 @@ class Program(QtWidgets.QApplication):
     def __init__(self, args):
         self.addLibraryPath(os.path.dirname(__file__))  #not sure
         super().__init__(args)
+        self.setOrganizationName("FV")
         self.setApplicationName("FukurouViewer")
+        self.setOrganizationDomain(self.GITHUB)
         self.version = "0.2.0"
     
         self.setQuitOnLastWindowClosed(False)
-        self.setFont(QtGui.QFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf")))
-        self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
+
+        #id = QtGui.QFontDatabase.addApplicationFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf"))
+        #family = QtGui.QFontDatabase.applicationFontFamilies(id)[0]
+        #font = QtGui.QFont(family)
+        font = QtGui.QFont("Verdana")
+        self.setFont(font)
+        
+        self.setWindowIcon(QtGui.QIcon(QtGui.QPixmap(os.path.join(self.BASE_PATH, "icon.png"))))
+        #self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
 
 
     def setup(self, args):
@@ -475,17 +563,41 @@ class Program(QtWidgets.QApplication):
         try:
             self.engine
         except AttributeError:  # qml engine not started
+
             self.engine = QtQml.QQmlApplicationEngine()
             self.engine.addImportPath(self.QML_DIR)
+
             self.image_provider = ImageProvider()
             self.engine.addImageProvider("fukurou", self.image_provider)
+            #image provider test
+            self.grid_image_provider = ThumbnailProvider()
+            self.engine.addImageProvider("test", self.grid_image_provider)
+
 
             self.downloadsModel = DownloadsModel()
             self.downloadUIManager = DownloadUIManager()
 
+            
+            with user_database.get_session(self, acquire=True) as session:
+                results = Utils.convert_result(session.execute(
+                    select([user_database.Folders]).where(user_database.Folders.id == 1)))[0]
+
+            test_folder = results.get("path")            
+
+            # gallery test grid
+            test = []
+            for dirpath, subdirs, filenames in os.walk(test_folder):
+                for file in sorted(filenames, key=lambda file: 
+                                   os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
+                    test.append({"name": file, "filepath": os.path.join(dirpath, file)})
+
+            self.gridModel = GridModel(test[0:50])
+            
             self.context = self.engine.rootContext()
+
             self.context.setContextProperty("downloadsModel", self.downloadsModel)
             self.context.setContextProperty("downloadManager", self.downloadUIManager)
+            self.context.setContextProperty("gridModel", self.gridModel)
 
             self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
             self.app_window = self.engine.rootObjects()[0]
@@ -500,18 +612,21 @@ class Program(QtWidgets.QApplication):
             self.app_window.openItem.connect(self.open_item)
             self.app_window.remove_download_ui_item.connect(self.remove_download_ui_item)
 
+            self.open("APP")
 
-            #self.downloadsModel.addItem("AAAAA", "test3.pdf", "C:/blah", 1000, "test folder", "green", time.time())
-            #self.downloadsModel.updateItem("AAAAA", 1000, 100, "4 MB/s")
-
-
-            self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
+            #self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
             #with user_database.get_session(self, acquire=True) as session:
              #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
               #  test = results.gallery
                # print("BREAK")
 
+    def sorted_dir(self, folder):
+        def getmtime(name):
+            path = os.path.join(folder, name)
+            return os.path.getmtime(path)
+        
+        return sorted(os.listdir(folder), key=getmtime)
 
     # sends limited number of history entries newest first to ui
     def send_history(self, index, limit=0):
@@ -628,9 +743,9 @@ class Program(QtWidgets.QApplication):
         self.downloadUIManager.remove_download(id, status)
 
     # open application window
-    def open(self):
+    def open(self, mode="TRAY"):
         #self.start_application()
-        self.app_window.openWindow(self.trayIcon.geometry().center())
+        self.app_window.openWindow(mode, self.trayIcon.geometry().center())
         #self.app_window.show()
         #self.app_window.requestActivate()
 
@@ -659,6 +774,7 @@ class Program(QtWidgets.QApplication):
         elif event == QtWidgets.QSystemTrayIcon.DoubleClick:
             self.last = "DoubleClick"
             self.close()
+            self.open("APP")
             print("OPENING MAIN APPLICATION")
 
 

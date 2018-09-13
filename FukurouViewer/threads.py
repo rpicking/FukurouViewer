@@ -661,10 +661,7 @@ class DownloadThread(BaseThread):
         self.curl.setopt(pycurl.HEADERFUNCTION, self.header)
         self.curl.setopt(pycurl.HTTPHEADER, [k+': '+v for k,v in self.download_item.send_headers.items()])
 
-        
-        # TODO MOVE TO LOADING FROM DB PART NOT HERE
         if self.download_item.resume:
-            #self.downloaded = os.path.getsize(self.download_item.filepath) TODO MOVE TO LOADING FROM DB PART NOT HERE
             self.curl.setopt(pycurl.RESUME_FROM, self.download_item.downloaded)
 
         mode = "wb"

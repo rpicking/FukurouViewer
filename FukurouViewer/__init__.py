@@ -23,10 +23,6 @@ requests_log.propagate = False
 
 from . import program, threads
 
-# workaround to use material style
-sys_argv = sys.argv
-#sys_argv += ['-style', 'material']
-
-app = program.Program(sys_argv)
+app = program.Program(sys.argv)
 app.setup(sys.argv)
 threads.setup()

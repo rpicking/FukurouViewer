@@ -22,7 +22,7 @@ Window {
     }
 
     onActiveChanged: {
-        if(!active && (folderPopup.visible === false)) {
+        if(!active && !folderPopup.visible) {
             closeWindow();
         }
     }
@@ -34,7 +34,6 @@ Window {
         requestActivate();
         requestHistory(0);
         mainWindow.requestFolders();
-        //console.log(active);
     }
 
     function closeWindow() {
@@ -80,11 +79,11 @@ Window {
 
     function getDateFormat(date) {
         const monthNames = [
-            "January", "February", "March",
-            "April", "May", "June", "July",
-            "August", "September", "October",
-            "November", "December"
-        ];
+                    "January", "February", "March",
+                    "April", "May", "June", "July",
+                    "August", "September", "October",
+                    "November", "December"
+                ];
 
         var month = monthNames[date.getMonth()];
         var day = date.getDate();
@@ -114,40 +113,48 @@ Window {
         id: topBar
         height: 40
         color: theme.background
-        anchors.top: parent.top
-        anchors.topMargin: 0
-        anchors.left: parent.left
-        anchors.leftMargin: 0
-        anchors.right: parent.right
-        anchors.rightMargin: 0
 
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+        }
 
-        RowLayout {
-            anchors.rightMargin: 5
-            anchors.leftMargin: 5
-            spacing: 2
-            anchors.fill: parent
+        Text {
+            id: titleText
+            height: 28
+            color: theme.foreground
+            text: "Fukurou"
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: "Verdana"
+            font.pointSize: 17
+            verticalAlignment: Text.AlignVCenter
+            anchors {
+                left: parent.left
+                margins: 5
+            }
+        }
 
-            Text {
-                id: titleText
-                height: 28
-                color: theme.foreground
-                text: qsTr("Fukurou Downloader")
-                font.family: "Verdana"
-                font.pointSize: 17
-                verticalAlignment: Text.AlignVCenter
+        Row {
+            id: row
+            spacing: 5
+            anchors.verticalCenter: parent.verticalCenter
+            layoutDirection: Qt.RightToLeft
+            anchors {
+                right: parent.right
+                margins: 5
             }
 
             TextIconButton {
-                id: createFavFolder
+                id: openSettingsButton
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Add new folder")
-                text: "\uf067"
-                verticalOffset: 1
+                ToolTip.text: qsTr("Open settings page")
+                text: "\uf013"
                 onClicked: {
-                    forceActiveFocus();
-                    folderPopup.visible = true;
+                    mainWindow.show();
+                    //forceActiveFocus();
+                    console.log("opening settings");
                 }
             }
 
@@ -164,14 +171,15 @@ Window {
             }
 
             TextIconButton {
-                id: openSettingsButton
+                id: createFavFolder
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Open settings page")
-                text: "\uf013"
+                ToolTip.text: qsTr("Add new folder")
+                text: "\uf067"
+                verticalOffset: 1
                 onClicked: {
                     forceActiveFocus();
-                    console.log("opening settings");
+                    folderPopup.visible = true;
                 }
             }
         }

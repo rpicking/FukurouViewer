@@ -31,12 +31,13 @@ Component {
             propagateComposedEvents: true
 
             onClicked: {
-                if (root.activeFocus) {
+                root.forceActiveFocus();
+                /*if (root.activeFocus) {
                     thumbnail.forceActiveFocus();
                 }
                 else {
                     root.forceActiveFocus();
-                }
+                }*/
             }
         }
 
@@ -88,7 +89,7 @@ Component {
 
             MouseArea {
                 id: filenameMouseArea
-                visible: false //!model.dead
+                visible: !model.dead
                 width: parent.contentWidth
                 anchors {
                     left: parent.left
