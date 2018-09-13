@@ -40,10 +40,11 @@ class History(Base):
     type = sqlalchemy.Column(sqlalchemy.Integer, default=1)
     full_path = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
-    folder = sqlalchemy.Column(sqlalchemy.Text)
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("folders.id"))
     gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
 
+    folder = relationship("Folders", foreign_keys=[folder_id])
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
 
@@ -78,10 +79,29 @@ class Folders(Base):
     type = sqlalchemy.Column(sqlalchemy.Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
 
 
+class Downloads(Base):
+    __tablename__ = "downloads"
+
+    id = sqlalchemy.Column(sqlalchemy.Text, primary_key=True)   # ui download item id
+    filepath = sqlalchemy.Column(sqlalchemy.Text)
+    filename = sqlalchemy.Column(sqlalchemy.Text)
+    base_name = sqlalchemy.Column(sqlalchemy.Text)
+    ext = sqlalchemy.Column(sqlalchemy.Text)
+    total_size = sqlalchemy.Column(sqlalchemy.Integer)
+    srcUrl = sqlalchemy.Column(sqlalchemy.Text)
+    pageUrl = sqlalchemy.Column(sqlalchemy.Text)
+    domain = sqlalchemy.Column(sqlalchemy.Text)
+    favicon_url = sqlalchemy.Column(sqlalchemy.Text)
+    timestamp = sqlalchemy.Column(sqlalchemy.Integer)
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
+
+    folder = relationship("Folders", foreign_keys=[folder_id])
+
+
 def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):
-        base.metadata.create_all(engine)
+        Base.metadata.create_all(engine)
         api.version_control(DATABASE_URI, MIGRATE_REPO, version=api.version(MIGRATE_REPO))
     else:
         try:

@@ -2,9 +2,14 @@ import QtQuick 2.7
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.1
-//import QtQuick.Controls.Material 2.1
+
+import QtQuick.Controls 1.4
+import QtQuick.Controls.Styles 1.4
+
 import QtQuick.Layouts 1.1
 import Qt.labs.settings 1.0
+
+import "."
 
 
 ApplicationWindow {
@@ -13,26 +18,16 @@ ApplicationWindow {
     height: 640
     title: "Fukurou Viewer"
 
-    //theme colors
-    QtObject {
-        id: theme
-        property string primary: "#393D3F"
-        property string accent: "#9B1D20"
-        property string foreground: "#FFFFFF"
-        property string background: "#272727"
-        property string highlighted: "#AD4648"
-    }
-
     Settings {
+        id: settings
         property alias x: mainWindow.x
         property alias y: mainWindow.y
         property alias width: mainWindow.width
         property alias height: mainWindow.height
     }
 
-    property string mode: "NONE"
 
-    signal requestHistory(int limit)
+    signal requestHistory(int index, int limit)
     signal receiveHistory(var items)
     signal requestFolders
     signal receiveFolders(var items)
@@ -40,49 +35,236 @@ ApplicationWindow {
     signal onWindowClose
     signal requestValidFolder(string path)
     signal receiveValidFolder(bool valid)
-    signal deleteHistoryItem(int id)
+    signal deleteHistoryItem(int id, int count)
     signal updateFolders(var items)
     signal openItem(string path, string type)
     signal openUrl(string url)
     signal updateProgress(var progress, int speed)
     signal addDownloadItem(string uid, var info)
+    signal downloader_task(string id, string task)
+    signal resume_download(string id)
+    signal remove_download_ui_item(string id, string status)
+
 
     function closeWindows() {
         hide();
         onWindowClose();
     }
 
-    function openWindow(geometry) {
+    function openWindow(mode, geometry) {
         switch(mode) {
-            case "MINI":
-                mode = "MINI";
-                history_window.openWindow(geometry.x, geometry.y);
+            case "TRAY":
+                trayWindow.openWindow(geometry.x, geometry.y);
                 //requestHistory();
                 break;
             case "APP":
-                mode = "APP";
                 show();
                 break;
             default:
                 console.log("NOT SUPPOSED TO BE HERE");
-                popup.open();
+                console.log(mode);
+                //popup.open();
         }
     }
 
-    function setMode(_mode) {
-        mode = _mode;
+    TrayWindow { id: trayWindow }
+
+    // *********************************************
+    // **** Main Window ****************************
+    // *********************************************
+
+    Component {
+        id: gridDelegate
+        Item {
+            width: grid.cellWidth
+            height: grid.cellHeight
+            Image {
+                width: 200
+                height: 280
+                fillMode: Image.PreserveAspectFit
+                source: "file:///" + filepath
+                anchors.centerIn: parent
+            }
+        }
     }
 
-    FontLoader {
-        id: fontAwesome
-        source: "fonts/fontawesome-webfont.ttf"
+    Rectangle {
+        id: topBar
+        height: 64
+        color: Styles.background
+        anchors {
+            left: parent.left
+            top: parent.top
+            right: parent.right
+        }
+
+        Text {
+            id: title
+            text: "Fukurou"
+            font.pointSize: 18
+            color: Styles.foreground
+            anchors {
+                left: parent.left
+                leftMargin: 20
+                verticalCenter: parent.verticalCenter
+            }
+        }
+        Rectangle {
+            id: searchRect
+            x: 16
+            y: 16
+            height: 36
+            color: "#ffffff"
+            radius: 5
+            border.width: 0
+            anchors {
+                left: title.right
+                leftMargin: 20
+                right: topBarButtons.left
+                rightMargin: 6
+                verticalCenter: parent.verticalCenter
+            }
+
+            Label {
+                id: searchIcon
+                color: Styles.primary
+                font.family: Fonts.solidIcons
+                font.pixelSize: 20
+                text: "\uf002"
+                anchors.verticalCenterOffset: 0
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 8
+                anchors.left: parent.left
+
+            }
+            TextField {
+                id: searchText
+                placeholderText: "Search"
+                font.pointSize: 14
+                style: TextFieldStyle { background: Rectangle {} }
+                anchors {
+                    left: searchIcon.right
+                    top: parent.top
+                    topMargin: 1
+                    right: clearSearch.left
+                    bottom: parent.bottom
+                    bottomMargin: 1
+                }
+            }
+            TextIconButton {
+                id: clearSearch
+                text: "\uf00d"
+                textColor: Styles.primary
+                visible: searchText.text !== ""
+                anchors {
+                    verticalCenter: parent.verticalCenter
+                    right: parent.right
+                    rightMargin: 6
+                }
+
+                onClicked: {
+                    searchText.text = "";
+                }
+            }
+        }
+
+        Row {
+            id: topBarButtons
+            spacing: 5
+            anchors.verticalCenter: parent.verticalCenter
+            layoutDirection: Qt.RightToLeft
+            anchors {
+                right: parent.right
+                margins: 5
+            }
+        }
     }
 
-    MiniWindow {
-        id: history_window
+
+
+    ScrollView {
+        id: scrollView
+        anchors {
+            left: parent.left
+            top: topBar.bottom
+            right: parent.right
+            bottom: parent.bottom
+        }
+
+        //anchors.fill: parent
+        //anchors.centerIn: parent
+        //width: parent.width
+        //height: parent.height
+
+
+        function encodeURIComponents(uri) {
+            return uri.split('/').map(encodeURIComponent).join('/')
+        }
+
+        GridView {
+            id: grid
+            //width: parent.viewport.width
+            //width: Math.floor(parent.width / cellWidth) * cellWidth
+            //height: parent.viewport.height
+            property int viewportWidth: parent.width //mainWindow.width - 20 // avoid binding loop with scrollview viewport
+            property int columns: viewportWidth / 220
+            cellWidth: Math.floor(viewportWidth / columns)//Math.floor(width / Math.floor(parent.width / 220))
+            cellHeight: 300
+            model: gridModel
+            interactive: true
+            boundsBehavior: Flickable.StopAtBounds
+            cacheBuffer: (350 + 16) * 25
+
+            anchors {
+                left: parent.left
+                top: parent.top
+                bottom: parent.bottom
+            }
+            delegate: Component {
+                Loader {
+                    sourceComponent: Component {
+                        Item {
+                            width: grid.cellWidth
+                            height: grid.cellHeight
+
+                            BusyIndicator {
+                                anchors.centerIn: parent
+                                running: picture.status != Image.Ready
+                            }
+
+                            Image {
+                                id: picture
+                                width: 200
+                                height: 280
+                                sourceSize.width: width
+                                sourceSize.height: height
+                                //cache: true
+                                asynchronous: true
+                                //mipmap: true
+                                fillMode: Image.PreserveAspectFit
+                                source: "image://test/" + encodeURIComponent(filepath) //"file:///" + filepath //scrollView.encodeURIComponents(filepath)
+                                anchors.centerIn: parent
+                                smooth: false
+                                onStateChanged: {
+                                    if (status == Image.Ready) {
+                                        smooth = true;
+                                    }
+                                }
+
+                                states: [
+                                    State { name: 'loaded'; when: picture.status == Image.Ready }
+                                ]
+                            }
+                        }
+                    }
+                    asynchronous: index >= 60
+                }
+            }
+        }
     }
 
-    Popup {
+
+    /*Popup {
         id: popup
         x: 100
         y: 100
@@ -100,25 +282,7 @@ ApplicationWindow {
         }
     }
 
-
-
-    MouseArea {
-        anchors.fill: parent
-        onClicked: {
-            console.log(qsTr('Clicked on background. Text: "' + textEdit.text + '"'))
-        }
-    }
-
-    Column {
-        anchors.centerIn: parent
-
-        RadioButton { text: qsTr("Small") }
-        RadioButton { text: qsTr("Medium");  checked: true }
-        RadioButton { text: qsTr("Large") }
-    }
-
-
-    /*FileDialog {
+    FileDialog {
         id: fileDialog
         title: "Please choose a file"
         folder: shortcuts.home

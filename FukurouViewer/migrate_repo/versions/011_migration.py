@@ -5,26 +5,25 @@ from migrate import *
 from migrate.changeset import schema
 meta = MetaData()
 
-gallery = Table(
-    'gallery', meta,
-    Column('id', Integer, primary_key=True),
-    Column('title', Text),
-)
 
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
-
     history = Table('history', meta, autoload=True)
-    gallery_id_c = Column('gallery_id', Integer, ForeignKey('gallery.id'))
-    gallery_id_c.create(history)
 
-    gallery.create()
+    history.c.folder.drop()
+
+    folders = Table('folders', meta, autoload=True)
+    folder_id_c = Column('folder_id', Integer, ForeignKey('folders.id'))
+    folder_id_c.create(history)
+
+
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
-
     history = Table('history', meta, autoload=True)
-    history.c.gallery_id.drop()
 
-    gallery.drop()
+    folder_old_c = Column('folder', Text)
+    folder_old_c.create(history)
+
+    history.c.folder_id.drop()
