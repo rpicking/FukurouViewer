@@ -10,7 +10,7 @@ Item {
     Rectangle {
         id: statusBar
         color: Styles.background
-        height: 150
+        height: 125
         anchors {
             left: parent.left
             right: parent.right
@@ -145,7 +145,7 @@ Item {
                 right: parent.right
                 rightMargin: 10
                 bottom: parent.bottom
-                bottomMargin: 20
+                bottomMargin: 15
             }
         }
     }

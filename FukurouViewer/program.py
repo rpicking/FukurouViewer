@@ -5,6 +5,7 @@ import argparse
 from enum import Enum
 from threading import RLock
 from sqlalchemy import delete, insert, select, update
+from collections import namedtuple
 
 from . import user_database
 from .utils import Utils
@@ -450,6 +451,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
 
     def __init__(self):
         QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
+        
         self.supported_formats = [ "." + format.data().decode("utf-8") for format in QtGui.QImageReader.supportedImageFormats() ]
 
     def requestImage(self, file, requestedSize):
@@ -480,7 +482,8 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
         if ext in self.supported_formats:
             image = QtGui.QPixmap(filepath)
             #image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
-            image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            if width != -1 and height != -1:
+                image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         else:
             image = QtGui.QPixmap(200, 280)
             image.fill(QtCore.Qt.red)
@@ -488,6 +491,52 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
         #image.load(file)
         return image, requestedSize
 
+
+Coordinate = namedtuple("Coordinate", "x y")
+
+class BlowUpItem(QtCore.QObject):
+
+    def __init__(self):
+        super().__init__()
+        self._x = 0
+        self._y = 0
+        self.startPoint = Coordinate(0,0)
+        self.anchorPosition = Coordinate(0,0)    # top left point for thumbnail
+        
+        self.width = 0
+        self.height = 0
+
+    def initItem(self, _start_point, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
+        self.startPoint = Coordinate(_start_point.x(), _start_point.y())
+
+        self._x = self.startPoint.x - (item_width * xPercent);
+        self._y =  self.startPoint.y - (item_height * yPercent);
+        self.anchorPosition = Coordinate(self._x, self._y)
+
+        self.width = item_width
+        self.height = item_height
+        self.x_ratio = int(item_width / thumb_width)
+        self.y_ratio = int(item_height / thumb_height)
+
+        self.on_postion_change.emit()
+
+    def movePosition(self, mouseX, mouseY):
+        deltaX = self.startPoint.x - mouseX
+        deltaY = self.startPoint.y - mouseY
+
+        self._x = self.anchorPosition.x + (deltaX * self.x_ratio)
+        self._y = self.anchorPosition.y + (deltaY * self.y_ratio)
+        self.on_postion_change.emit()
+
+    def get_x(self):
+        return self._x
+
+    def get_y(self):
+        return self._y
+
+    on_postion_change = QtCore.pyqtSignal()
+    x = QtCore.pyqtProperty(int, get_x, notify=on_postion_change)
+    y = QtCore.pyqtProperty(int, get_y, notify=on_postion_change)
 
 
 class Program(QtWidgets.QApplication):
@@ -592,15 +641,20 @@ class Program(QtWidgets.QApplication):
                     test.append({"name": file, "filepath": os.path.join(dirpath, file)})
 
             self.gridModel = GridModel(test[0:50])
+
+            # blow up preview 
+            self.blow_up_item = BlowUpItem()
             
             self.context = self.engine.rootContext()
 
             self.context.setContextProperty("downloadsModel", self.downloadsModel)
             self.context.setContextProperty("downloadManager", self.downloadUIManager)
             self.context.setContextProperty("gridModel", self.gridModel)
-
+            self.context.setContextProperty("blowUp", self.blow_up_item)
+            
             self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
             self.app_window = self.engine.rootObjects()[0]
+
 
             # SIGNALS
             self.app_window.requestHistory.connect(self.send_history)
@@ -611,6 +665,7 @@ class Program(QtWidgets.QApplication):
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
             self.app_window.remove_download_ui_item.connect(self.remove_download_ui_item)
+            self.app_window.setEventFilter.connect(self.setEventFilter)
 
             self.open("APP")
 
@@ -620,6 +675,26 @@ class Program(QtWidgets.QApplication):
              #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
               #  test = results.gallery
                # print("BREAK")
+
+    def setEventFilter(self, coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
+        self.installEventFilter(self)
+        self.blow_up_item.initItem(coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent)
+        
+
+    def closeBlowUpItem(self):
+        self.app_window.closeBlowUpItem.emit()
+        self.removeEventFilter(self)
+
+
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.MouseMove:
+            self.blow_up_item.movePosition(event.globalX(), event.globalY())
+            return True
+        elif event.type() == QtCore.QEvent.MouseButtonRelease:
+            if event.button() == QtCore.Qt.LeftButton:
+                self.closeBlowUpItem()
+            return True
+        return super().eventFilter(obj, event)
 
     def sorted_dir(self, folder):
         def getmtime(name):
@@ -764,7 +839,6 @@ class Program(QtWidgets.QApplication):
     def quit(self):
         self.trayIcon.hide()
         super().quit()
-
 
     def onTrayIconActivated(self, event):
         if event == QtWidgets.QSystemTrayIcon.Trigger:

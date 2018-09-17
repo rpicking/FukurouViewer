@@ -17,6 +17,11 @@ ApplicationWindow {
     width: 400
     height: 640
     title: "Fukurou Viewer"
+    style: ApplicationWindowStyle {
+            background: Rectangle {
+                color: Styles.listBackground
+            }
+        }
 
     Settings {
         id: settings
@@ -44,7 +49,13 @@ ApplicationWindow {
     signal downloader_task(string id, string task)
     signal resume_download(string id)
     signal remove_download_ui_item(string id, string status)
+    signal setEventFilter(point coord, int thumb_width, int thumb_height, int item_width, int item_height, real xPercent, real yPercent)
+    signal closeBlowUpItem
 
+
+    Component.onCompleted: {
+        closeBlowUpItem.connect(closeBlowUpWindow)
+    }
 
     function closeWindows() {
         hide();
@@ -67,10 +78,14 @@ ApplicationWindow {
         }
     }
 
+    function closeBlowUpWindow() {
+        testPopup.hide();
+    }
+
     TrayWindow { id: trayWindow }
 
     // *********************************************
-    // **** Main Window ****************************
+    // ****** Top Bar ******************************
     // *********************************************
 
     Component {
@@ -180,6 +195,9 @@ ApplicationWindow {
         }
     }
 
+    // *********************************************
+    // ****** GridView *****************************
+    // *********************************************
 
 
     ScrollView {
@@ -190,7 +208,6 @@ ApplicationWindow {
             right: parent.right
             bottom: parent.bottom
         }
-
         //anchors.fill: parent
         //anchors.centerIn: parent
         //width: parent.width
@@ -232,6 +249,10 @@ ApplicationWindow {
                                 running: picture.status != Image.Ready
                             }
 
+                            Rectangle {
+                                anchors.fill: picture
+                                color: "white"
+                            }
                             Image {
                                 id: picture
                                 width: 200
@@ -254,6 +275,22 @@ ApplicationWindow {
                                 states: [
                                     State { name: 'loaded'; when: picture.status == Image.Ready }
                                 ]
+
+                                MouseArea {
+                                    onPressed: {
+                                        var xPercent = mouse.x / parent.width
+                                        var yPercent = mouse.y / parent.height
+                                        testImage.source = "image://test/" + encodeURIComponent(filepath);
+
+                                        var globalCoords = mapToGlobal(mouse.x, mouse.y);
+                                        testPopup.openOnPoint(globalCoords, parent.width, parent.height, xPercent, yPercent);
+
+                                        testPopup.show();
+                                        testPopup.requestActivate();
+                                    }
+
+                                    anchors.fill: parent
+                                }
                             }
                         }
                     }
@@ -262,6 +299,27 @@ ApplicationWindow {
             }
         }
     }
+
+    // *********************************************
+    // ****** Mouse Hold Blow Up *******************
+    // *********************************************
+
+    Window {
+        id: testPopup
+        width: testImage.width
+        height: testImage.height
+        flags: Qt.FramelessWindowHint
+        x: blowUp.x
+        y: blowUp.y
+
+        function openOnPoint(globalCoords, thumb_width, thumb_height, xPercent, yPercent) {
+            setEventFilter(globalCoords, thumb_width, thumb_height, width, height, xPercent, yPercent);
+        }
+
+        Image { id: testImage}
+    }
+
+
 
 
     /*Popup {
