@@ -640,7 +640,7 @@ class Program(QtWidgets.QApplication):
                                    os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
                     test.append({"name": file, "filepath": os.path.join(dirpath, file)})
 
-            self.gridModel = GridModel(test[0:50])
+            self.gridModel = GridModel(test[0:150])
 
             # blow up preview 
             self.blow_up_item = BlowUpItem()

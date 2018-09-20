@@ -2,11 +2,8 @@ import QtQuick 2.7
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.1
-
-import QtQuick.Controls 1.4
-import QtQuick.Controls.Styles 1.4
-
 import QtQuick.Layouts 1.1
+
 import Qt.labs.settings 1.0
 
 import "."
@@ -17,11 +14,9 @@ ApplicationWindow {
     width: 400
     height: 640
     title: "Fukurou Viewer"
-    style: ApplicationWindowStyle {
-            background: Rectangle {
-                color: Styles.listBackground
-            }
-        }
+    background: Rectangle {
+        color: Styles.listBackground
+    }
 
     Settings {
         id: settings
@@ -84,46 +79,67 @@ ApplicationWindow {
 
     TrayWindow { id: trayWindow }
 
-    // *********************************************
-    // ****** Top Bar ******************************
-    // *********************************************
-
-    Component {
-        id: gridDelegate
-        Item {
-            width: grid.cellWidth
-            height: grid.cellHeight
-            Image {
-                width: 200
-                height: 280
-                fillMode: Image.PreserveAspectFit
-                source: "file:///" + filepath
-                anchors.centerIn: parent
-            }
-        }
-    }
-
-    Rectangle {
+    header: Rectangle {
         id: topBar
         height: 64
         color: Styles.background
-        anchors {
-            left: parent.left
-            top: parent.top
-            right: parent.right
+
+        states: [
+            State {
+                name: "settings"
+                PropertyChanges {
+                    target: title
+                    text: "Settings"
+                }
+            }
+        ]
+
+        Row {
+            id: navigationButtons
+            spacing: 5
+            anchors {
+                verticalCenter: parent.verticalCenter
+                left: parent.left
+                margins: 20
+            }
+
+
+            TextIconButton {
+                id: backButton
+                text: "\uf060"
+                textColor: Styles.foreground
+                height: 30
+                visible: stack.depth > 1
+                anchors.verticalCenter: parent.verticalCenter
+                onClicked: stack.pop();
+            }
+
+            Image {
+                id: logo
+                source: "../icon.png"
+                height: 50
+                width: height
+
+                anchors {
+                    //verticalCenter: parent.verticalCenter
+                }
+            }
+
+            Text {
+                id: title
+                text: "Fukurou"
+                font.pointSize: 18
+                color: Styles.foreground
+                anchors {
+                    //verticalCenter: parent.verticalCenter
+                }
+            }
+
+
         }
 
-        Text {
-            id: title
-            text: "Fukurou"
-            font.pointSize: 18
-            color: Styles.foreground
-            anchors {
-                left: parent.left
-                leftMargin: 20
-                verticalCenter: parent.verticalCenter
-            }
-        }
+
+
         Rectangle {
             id: searchRect
             x: 16
@@ -133,10 +149,10 @@ ApplicationWindow {
             radius: 5
             border.width: 0
             anchors {
-                left: title.right
+                left: navigationButtons.right
                 leftMargin: 20
                 right: topBarButtons.left
-                rightMargin: 6
+                rightMargin: 5
                 verticalCenter: parent.verticalCenter
             }
 
@@ -156,7 +172,7 @@ ApplicationWindow {
                 id: searchText
                 placeholderText: "Search"
                 font.pointSize: 14
-                style: TextFieldStyle { background: Rectangle {} }
+                background: Rectangle {}
                 anchors {
                     left: searchIcon.right
                     top: parent.top
@@ -185,120 +201,134 @@ ApplicationWindow {
 
         Row {
             id: topBarButtons
-            spacing: 5
+            spacing: 15
             anchors.verticalCenter: parent.verticalCenter
-            layoutDirection: Qt.RightToLeft
+            padding: 15
             anchors {
                 right: parent.right
                 margins: 5
             }
-        }
-    }
 
-    // *********************************************
-    // ****** GridView *****************************
-    // *********************************************
+            TextIconButton {
+                id: sortButton
+                text: "\uf0dc"
+                textColor: Styles.foreground
+                onClicked: sortPopup.open()
 
+                Popup {
+                    id: sortPopup
+                    x: parent.x - width
+                    y: sortButton.height
+                    width: 200
+                    //height: 300
+                    modal: true
+                    focus: true
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
 
-    ScrollView {
-        id: scrollView
-        anchors {
-            left: parent.left
-            top: topBar.bottom
-            right: parent.right
-            bottom: parent.bottom
-        }
-        //anchors.fill: parent
-        //anchors.centerIn: parent
-        //width: parent.width
-        //height: parent.height
+                    ColumnLayout {
+                        anchors.fill: parent
 
+                        ButtonGroup { id: sortType }
+                        RadioButton { text: qsTr("Name"); ButtonGroup.group: sortType }
+                        RadioButton { text: qsTr("Date Modified"); checked: true; ButtonGroup.group: sortType }
+                        RadioButton { text: qsTr("Date Added"); ButtonGroup.group: sortType }
+                        RadioButton { text: qsTr("Last Read"); ButtonGroup.group: sortType }
+                        RadioButton { text: qsTr("Read Count"); ButtonGroup.group: sortType }
+                        RadioButton { text: qsTr("Rating"); ButtonGroup.group: sortType }
 
-        function encodeURIComponents(uri) {
-            return uri.split('/').map(encodeURIComponent).join('/')
-        }
+                        MenuSeparator {}
 
-        GridView {
-            id: grid
-            //width: parent.viewport.width
-            //width: Math.floor(parent.width / cellWidth) * cellWidth
-            //height: parent.viewport.height
-            property int viewportWidth: parent.width //mainWindow.width - 20 // avoid binding loop with scrollview viewport
-            property int columns: viewportWidth / 220
-            cellWidth: Math.floor(viewportWidth / columns)//Math.floor(width / Math.floor(parent.width / 220))
-            cellHeight: 300
-            model: gridModel
-            interactive: true
-            boundsBehavior: Flickable.StopAtBounds
-            cacheBuffer: (350 + 16) * 25
+                        // GROUP BY
+                        ButtonGroup { id: sortGroup }
+                        RadioButton { text: qsTr("None"); checked: true; ButtonGroup.group: sortGroup }
+                        RadioButton { text: qsTr("Artist"); ButtonGroup.group: sortGroup }
+                        RadioButton { text: qsTr("Group"); ButtonGroup.group: sortGroup }
 
-            anchors {
-                left: parent.left
-                top: parent.top
-                bottom: parent.bottom
-            }
-            delegate: Component {
-                Loader {
-                    sourceComponent: Component {
-                        Item {
-                            width: grid.cellWidth
-                            height: grid.cellHeight
+                        MenuSeparator {}
 
-                            BusyIndicator {
-                                anchors.centerIn: parent
-                                running: picture.status != Image.Ready
-                            }
+                        ButtonGroup { id: sortDirection }
+                        RadioButton { text: qsTr("Ascending"); ButtonGroup.group: sortDirection }
+                        RadioButton { text: qsTr("Descending"); checked: true; ButtonGroup.group: sortDirection }
 
-                            Rectangle {
-                                anchors.fill: picture
-                                color: "white"
-                            }
-                            Image {
-                                id: picture
-                                width: 200
-                                height: 280
-                                sourceSize.width: width
-                                sourceSize.height: height
-                                //cache: true
-                                asynchronous: true
-                                //mipmap: true
-                                fillMode: Image.PreserveAspectFit
-                                source: "image://test/" + encodeURIComponent(filepath) //"file:///" + filepath //scrollView.encodeURIComponents(filepath)
-                                anchors.centerIn: parent
-                                smooth: false
-                                onStateChanged: {
-                                    if (status == Image.Ready) {
-                                        smooth = true;
-                                    }
-                                }
-
-                                states: [
-                                    State { name: 'loaded'; when: picture.status == Image.Ready }
-                                ]
-
-                                MouseArea {
-                                    onPressed: {
-                                        var xPercent = mouse.x / parent.width
-                                        var yPercent = mouse.y / parent.height
-                                        testImage.source = "image://test/" + encodeURIComponent(filepath);
-
-                                        var globalCoords = mapToGlobal(mouse.x, mouse.y);
-                                        testPopup.openOnPoint(globalCoords, parent.width, parent.height, xPercent, yPercent);
-
-                                        testPopup.show();
-                                        testPopup.requestActivate();
-                                    }
-
-                                    anchors.fill: parent
-                                }
-                            }
-                        }
                     }
-                    asynchronous: index >= 60
+                }
+            }
+
+            TextIconButton {
+                id: menuButton
+                text: "\uf0c9"
+                textColor: Styles.foreground
+                onClicked: menu.open()
+
+                Menu {
+                    id: menu
+                    y: menuButton.height
+                    background: Rectangle {
+                        implicitWidth: 200
+                        implicitHeight: 200
+                        color: "#ffffff"
+                    }
+
+                    MenuItem {
+                        text: "Download Manager"
+
+                        onTriggered: stack.push(Qt.resolvedUrl("DownloadManagerPage.qml"))
+                    }
+                    MenuItem {
+                        text: "History"
+                        onTriggered: stack.push(Qt.resolvedUrl("DownloadManagerPage.qml"), { tab: "history" })
+                    }
+
+                    MenuItem {
+                        text: "Folders"
+                        onTriggered: stack.push(Qt.resolvedUrl("SettingsPage.qml"), { tab: "folders" } )
+                    }
+
+
+                    MenuItem {
+                        text: "Fetch Metadata"
+                        onTriggered: console.log("metadata")
+                    }
+
+                    MenuItem {
+                        text: "Check Duplicates"
+                        onTriggered: stack.push(Qt.resolvedUrl("DuplicatesPage.qml"))
+                    }
+
+                    MenuItem {
+                        text: "Settings"
+                        onTriggered: stack.push(Qt.resolvedUrl("SettingsPage.qml"))
+                    }
                 }
             }
         }
     }
+
+    //footer: ToolBar { height: 20 }
+
+    StackView {
+        id: stack
+        anchors.fill: parent
+        initialItem: mainPage
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            onClicked: {
+                if ((mouse.button === Qt.BackButton) && (stack.depth > 1)) {
+                    stack.pop();
+                }
+            }
+        }
+    }
+
+    /*SettingsPage {
+        id: settingsPage
+    }*/
+
+    MainPage {
+        id: mainPage
+    }
+
 
     // *********************************************
     // ****** Mouse Hold Blow Up *******************
@@ -315,8 +345,12 @@ ApplicationWindow {
         function openOnPoint(globalCoords, thumb_width, thumb_height, xPercent, yPercent) {
             setEventFilter(globalCoords, thumb_width, thumb_height, width, height, xPercent, yPercent);
         }
+        //Image { id: testImage }
 
-        Image { id: testImage}
+        AnimatedImage {
+            id: testImage
+            onStatusChanged: playing = (status === AnimatedImage.Ready)
+        }
     }
 
 

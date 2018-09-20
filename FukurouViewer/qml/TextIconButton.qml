@@ -64,5 +64,4 @@ Item {
 
         onDoubleClicked: root.doubleClicked(mouse)
     }
-
 }
