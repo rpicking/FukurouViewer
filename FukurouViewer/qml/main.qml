@@ -45,17 +45,8 @@ ApplicationWindow {
     signal resume_download(string id)
     signal remove_download_ui_item(string id, string status)
     signal setEventFilter(point coord, int thumb_width, int thumb_height, int item_width, int item_height, real xPercent, real yPercent)
-    signal closeBlowUpItem
+    signal closeApplication
 
-
-    Component.onCompleted: {
-        closeBlowUpItem.connect(closeBlowUpWindow)
-    }
-
-    function closeWindows() {
-        hide();
-        onWindowClose();
-    }
 
     function openWindow(mode, geometry) {
         switch(mode) {
@@ -73,8 +64,23 @@ ApplicationWindow {
         }
     }
 
+    function closeWindows() {
+        hide();
+        onWindowClose();
+        closeBlowUpWindow();
+    }
+
+    function minimizeWindows() {
+        showMinimized();
+    }
+
     function closeBlowUpWindow() {
         testPopup.hide();
+    }
+
+    onClosing: {
+        close.accepted = false;
+        closeApplication();
     }
 
     TrayWindow { id: trayWindow }
@@ -119,10 +125,6 @@ ApplicationWindow {
                 source: "../icon.png"
                 height: 50
                 width: height
-
-                anchors {
-                    //verticalCenter: parent.verticalCenter
-                }
             }
 
             Text {
@@ -130,15 +132,10 @@ ApplicationWindow {
                 text: "Fukurou"
                 font.pointSize: 18
                 color: Styles.foreground
-                anchors {
-                    //verticalCenter: parent.verticalCenter
-                }
             }
 
 
         }
-
-
 
         Rectangle {
             id: searchRect

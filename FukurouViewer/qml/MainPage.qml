@@ -52,7 +52,7 @@ Old.ScrollView {
                             asynchronous: true
                             //mipmap: true
                             fillMode: Image.PreserveAspectFit
-                            source: "image://test/" + encodeURIComponent(filepath)
+                            source: "image://thumbs/" + encodeURIComponent(filepath)
                             anchors.centerIn: parent
                             smooth: false
                             onStateChanged: {

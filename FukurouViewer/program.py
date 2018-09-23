@@ -10,6 +10,7 @@ from collections import namedtuple
 from . import user_database
 from .utils import Utils
 from .config import Config
+from .logger import Logger
 from .foundation import Foundation
 
 from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
@@ -447,7 +448,7 @@ class GridModel(QtCore.QAbstractListModel):
 
 
 class ThumbnailProvider(QtQuick.QQuickImageProvider):
-    TMP_DIR = Utils.fv_path("tmp")
+    THUMB_DIR = Utils.fv_path("thumbs")
 
     def __init__(self):
         QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
@@ -464,12 +465,10 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
         if ext in self.supported_formats:
             image = QtGui.QImage(filepath)
             image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
-            #image = image.scaled(200, 280, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         else:
             image = QtGui.QImage(200, 280, QtGui.QImage.Format_RGB32)
             image.fill(QtCore.Qt.red)
 
-        #image.load(file)
         return image, requestedSize
 
     def requestPixmap(self, file, requestedSize):
@@ -481,14 +480,12 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
 
         if ext in self.supported_formats:
             image = QtGui.QPixmap(filepath)
-            #image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
             if width != -1 and height != -1:
                 image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         else:
             image = QtGui.QPixmap(200, 280)
             image.fill(QtCore.Qt.red)
 
-        #image.load(file)
         return image, requestedSize
 
 
@@ -539,7 +536,7 @@ class BlowUpItem(QtCore.QObject):
     y = QtCore.pyqtProperty(int, get_y, notify=on_postion_change)
 
 
-class Program(QtWidgets.QApplication):
+class Program(QtWidgets.QApplication, Logger):
     GITHUB = "https://github.com/rpicking/FukurouViewer"
     BASE_PATH = Utils.base_path()
     QML_DIR = os.path.join(BASE_PATH, "qml")
@@ -619,8 +616,8 @@ class Program(QtWidgets.QApplication):
             self.image_provider = ImageProvider()
             self.engine.addImageProvider("fukurou", self.image_provider)
             #image provider test
-            self.grid_image_provider = ThumbnailProvider()
-            self.engine.addImageProvider("test", self.grid_image_provider)
+            self.thumb_image_provider = ThumbnailProvider()
+            self.engine.addImageProvider("thumbs", self.thumb_image_provider)
 
 
             self.downloadsModel = DownloadsModel()
@@ -666,6 +663,7 @@ class Program(QtWidgets.QApplication):
             self.app_window.openItem.connect(self.open_item)
             self.app_window.remove_download_ui_item.connect(self.remove_download_ui_item)
             self.app_window.setEventFilter.connect(self.setEventFilter)
+            self.app_window.closeApplication.connect(self.close)
 
             self.open("APP")
 
@@ -682,7 +680,7 @@ class Program(QtWidgets.QApplication):
         
 
     def closeBlowUpItem(self):
-        self.app_window.closeBlowUpItem.emit()
+        self.app_window.closeBlowUpWindow()
         self.removeEventFilter(self)
 
 
@@ -695,6 +693,7 @@ class Program(QtWidgets.QApplication):
                 self.closeBlowUpItem()
             return True
         return super().eventFilter(obj, event)
+
 
     def sorted_dir(self, folder):
         def getmtime(name):
@@ -819,20 +818,29 @@ class Program(QtWidgets.QApplication):
 
     # open application window
     def open(self, mode="TRAY"):
-        #self.start_application()
         self.app_window.openWindow(mode, self.trayIcon.geometry().center())
-        #self.app_window.show()
-        #self.app_window.requestActivate()
 
 
-    # close application window (don't quit app)
+    # close application window to tray or entirely
     def close(self):
         try:
             self.engine
         except AttributeError:  # qml engine not started
             return
-        self.engine.clearComponentCache()
-        self.app_window.closeWindows()
+
+        type = Config.close
+        if type == "tray":
+            self.engine.clearComponentCache()
+            self.app_window.closeWindows()
+        elif type == "minimize":
+            self.app_window.minimizeWindows()
+        elif type == "quit":
+            self.app_window.closeWindows()
+            self.quit()
+        else:  
+            self.logger.error("received invalid close parameter")
+            self.quit()
+
 
 
     # quit application

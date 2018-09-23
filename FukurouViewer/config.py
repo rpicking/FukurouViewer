@@ -14,8 +14,7 @@ class Config(SafeConfigParser):
 
     SETTINGS = {
         "General": [
-            "folders",
-            "folder_options",
+            "close",
             "doujin_downloader",
         ],
         "Online": [
@@ -35,8 +34,13 @@ class Config(SafeConfigParser):
         try:
             self.load()
         except FileNotFoundError:
+            self.build()
             self.save()
-        self.build()
+
+        if not self.close:
+            self.close = "tray"
+            self.save()
+        
 
     def build(self):
         need_save = False
@@ -58,6 +62,14 @@ class Config(SafeConfigParser):
     def load(self):
         with open(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
             self.read_file(f)
+
+    @property
+    def close(self):
+        return self.get("General", "close")
+
+    @close.setter
+    def close(self, type):
+        self.set("General", "close", type)
 
     @property
     def folders(self):
