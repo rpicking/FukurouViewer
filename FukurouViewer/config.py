@@ -14,7 +14,7 @@ class Config(SafeConfigParser):
 
     SETTINGS = {
         "General": [
-            "close",
+            {"close": "tray"},
             "doujin_downloader",
         ],
         "Online": [
@@ -34,26 +34,26 @@ class Config(SafeConfigParser):
         try:
             self.load()
         except FileNotFoundError:
-            self.build()
             self.save()
-
-        if not self.close:
-            self.close = "tray"
-            self.save()
+        self.build()
+        self.set_defaults()
+        self.save()
         
 
     def build(self):
-        need_save = False
         for section in self.SETTINGS:
             if not self.has_section(section):
                 self.add_section(section)
-                need_save = True
-            for option in self.SETTINGS.get(section):
-                if not self.has_option(section, option):
-                    self.set(section, option, "")
-                    need_save = True
-        if need_save:
-            self.save()
+            for option in self.SETTINGS.get(section):                
+                if type(option) is dict:
+                    option_key = next(iter(option))
+                else:
+                    option_key = option
+                if not self.has_option(section, option_key):
+                    self.set(section, option_key, option.get(option_key, ""))
+
+    def set_defaults(self):
+        self.close = "tray"
 
     def save(self):
         with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
