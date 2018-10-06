@@ -1,4 +1,4 @@
-import QtQuick 2.7
+import QtQuick 2.11
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.1
@@ -52,7 +52,6 @@ ApplicationWindow {
         switch(mode) {
             case "TRAY":
                 trayWindow.openWindow(geometry.x, geometry.y);
-                //requestHistory();
                 break;
             case "APP":
                 show();
@@ -78,10 +77,17 @@ ApplicationWindow {
         testPopup.hide();
     }
 
+    onActiveChanged: {
+        if (mainWindow.active && trayWindow.visible) {
+            trayWindow.hide();
+        }
+    }
+
     onClosing: {
         close.accepted = false;
         closeApplication();
     }
+
 
     TrayWindow { id: trayWindow }
 
@@ -109,7 +115,6 @@ ApplicationWindow {
                 margins: 20
             }
 
-
             TextIconButton {
                 id: backButton
                 text: "\uf060"
@@ -132,11 +137,10 @@ ApplicationWindow {
                 text: "Fukurou"
                 font.pointSize: 18
                 color: Styles.foreground
+                anchors.verticalCenter: parent.verticalCenter
             }
-
-
         }
-
+		
         Rectangle {
             id: searchRect
             x: 16
@@ -152,7 +156,7 @@ ApplicationWindow {
                 rightMargin: 5
                 verticalCenter: parent.verticalCenter
             }
-
+			
             Label {
                 id: searchIcon
                 color: Styles.primary
@@ -205,13 +209,13 @@ ApplicationWindow {
                 right: parent.right
                 margins: 5
             }
-
+			
             TextIconButton {
                 id: sortButton
                 text: "\uf0dc"
                 textColor: Styles.foreground
                 onClicked: sortPopup.open()
-
+				
                 Popup {
                     id: sortPopup
                     x: parent.x - width
@@ -250,13 +254,13 @@ ApplicationWindow {
                     }
                 }
             }
-
+			
             TextIconButton {
                 id: menuButton
                 text: "\uf0c9"
                 textColor: Styles.foreground
                 onClicked: menu.open()
-
+				
                 Menu {
                     id: menu
                     y: menuButton.height

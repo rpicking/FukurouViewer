@@ -1,4 +1,4 @@
-import QtQuick 2.0
+import QtQuick 2.11
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.2
 import QtQuick.Layouts 1.1
@@ -11,7 +11,7 @@ import "."
 Window {
     id: trayWindow
     //visible: false
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Popup
     width: 400
     height: 640
 
@@ -40,6 +40,7 @@ Window {
         topBar.forceActiveFocus();
         hide();
     }
+
 
     function requestHistory(index) {
         var count = 50;
@@ -105,7 +106,7 @@ Window {
         anchors.fill: parent
         propagateComposedEvents: true
         onClicked: {
-            topBar.forceActiveFocus();
+            //topBar.forceActiveFocus();
         }
     }
 

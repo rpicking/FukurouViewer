@@ -7,7 +7,7 @@ import "."
 
 Window {
     id: newFolderWindow
-    flags: Qt.FramelessWindowHint //| Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint | Qt.Popup //| Qt.WindowStaysOnTopHint
     width: 450
     height: 250
     modality: Qt.WindowModal
