@@ -588,6 +588,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
         self.trayIcon.show()
         self.trayIcon.exitAction.triggered.connect(self.quit)
+        self.setDoubleClickInterval(300)
         # timer for differentiating double click from single click
         self.clickTimer = QtCore.QTimer(self)
         self.clickTimer.setSingleShot(True)
@@ -615,7 +616,7 @@ class Program(QtWidgets.QApplication, Logger):
 
             self.image_provider = ImageProvider()
             self.engine.addImageProvider("fukurou", self.image_provider)
-            #image provider test
+
             self.thumb_image_provider = ThumbnailProvider()
             self.engine.addImageProvider("thumbs", self.thumb_image_provider)
 
@@ -665,7 +666,7 @@ class Program(QtWidgets.QApplication, Logger):
             self.app_window.setEventFilter.connect(self.setEventFilter)
             self.app_window.closeApplication.connect(self.close)
 
-            self.open("APP")
+            #self.open("APP")
 
             #self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
 
@@ -688,9 +689,13 @@ class Program(QtWidgets.QApplication, Logger):
         if event.type() == QtCore.QEvent.MouseMove:
             self.blow_up_item.movePosition(event.globalX(), event.globalY())
             return True
-        elif event.type() == QtCore.QEvent.MouseButtonRelease:
+        if event.type() == QtCore.QEvent.MouseButtonRelease:
             if event.button() == QtCore.Qt.LeftButton:
                 self.closeBlowUpItem()
+            return True
+        if event.type() == QtCore.QEvent.Wheel: # zoom blowup on scroll wheel
+            scrollAmount = event.angleDelta().y() / 120
+            self.app_window.scrollBlowUp.emit(scrollAmount)
             return True
         return super().eventFilter(obj, event)
 
@@ -851,7 +856,6 @@ class Program(QtWidgets.QApplication, Logger):
     def onTrayIconActivated(self, event):
         if event == QtWidgets.QSystemTrayIcon.Trigger:
             self.last = "Click"
-            self.open()
             self.clickTimer.start(self.doubleClickInterval())
         elif event == QtWidgets.QSystemTrayIcon.DoubleClick:
             self.last = "DoubleClick"
@@ -862,7 +866,7 @@ class Program(QtWidgets.QApplication, Logger):
 
     # single click on tray icon
     def singleClickActivated(self):
-        if self.last == "Clicks":
+        if self.last == "Click":
             self.open()
 
 

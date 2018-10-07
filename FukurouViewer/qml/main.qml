@@ -46,6 +46,7 @@ ApplicationWindow {
     signal remove_download_ui_item(string id, string status)
     signal setEventFilter(point coord, int thumb_width, int thumb_height, int item_width, int item_height, real xPercent, real yPercent)
     signal closeApplication
+    signal scrollBlowUp(real scrollAmount)
 
 
     function openWindow(mode, geometry) {
@@ -74,7 +75,7 @@ ApplicationWindow {
     }
 
     function closeBlowUpWindow() {
-        testPopup.hide();
+        testPopup.closeAndReset();
     }
 
     onActiveChanged: {
@@ -346,12 +347,50 @@ ApplicationWindow {
         function openOnPoint(globalCoords, thumb_width, thumb_height, xPercent, yPercent) {
             setEventFilter(globalCoords, thumb_width, thumb_height, width, height, xPercent, yPercent);
         }
+
+        function closeAndReset() {
+            testImage.height = undefined;
+            testImage.width = undefined;
+            hide();
+        }
+
         //Image { id: testImage }
 
         AnimatedImage {
             id: testImage
-            onStatusChanged: playing = (status === AnimatedImage.Ready)
+            property real scaleFactor: 1.0
+            property int imageHeight: 0
+            property int imageWidth: 0
+
+            Component.onCompleted: {
+                mainWindow.scrollBlowUp.connect(scaleImage);
+            }
+
+            function scaleImage(wheelScroll) {
+                scaleFactor += 0.1 * wheelScroll;
+                if (scaleFactor < 0) scaleFactor = 0;
+
+                height = imageHeight * scaleFactor;
+                width = imageWidth * scaleFactor;
+            }
+
+            onStatusChanged: {
+                playing = (status === AnimatedImage.Ready);
+                if (status === AnimatedImage.Ready) {
+                    imageHeight = height;
+                    imageWidth = width;
+                }
+            }
         }
+/*
+		MouseArea {
+			anchors.fill: parent
+
+            onWheel: {
+                testImage.scaleImage(wheel.angleDelta.y / 120);
+
+            }
+        }*/
     }
 
 

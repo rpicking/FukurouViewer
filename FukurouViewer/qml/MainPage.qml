@@ -48,9 +48,7 @@ Old.ScrollView {
                             height: 280
                             sourceSize.width: width
                             sourceSize.height: height
-                            //cache: true
                             asynchronous: true
-                            //mipmap: true
                             fillMode: Image.PreserveAspectFit
                             source: "image://thumbs/" + encodeURIComponent(filepath)
                             anchors.centerIn: parent
