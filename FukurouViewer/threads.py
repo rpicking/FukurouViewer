@@ -314,6 +314,7 @@ class DownloadItem():
 
         self.dir = msg.get("dir", self.folder.get("path"))
         self.filepath = msg.get("filepath", None)
+        self.tmp_filepath = ""
         self.filename =  msg.get("filename", None)    # basename and extension filename.txt
         self.base_name = msg.get("base_name", None)   # filename before .ext
         self.ext =  msg.get("ext", None)
@@ -389,7 +390,8 @@ class DownloadItem():
             self.filename = ''.join((self.base_name, ' (', str(count), ')', self.ext))
             self.filepath = os.path.join(self.dir, self.filename)
             count += 1
-        open(self.filepath + ".part", 'a').close()  # create .part temp file
+        self.tmp_filepath = self.filepath + ".part"
+        open(self.tmp_filepath, 'a').close()  # create .part temp file
 
     def set_id(self):
         self.id = FukurouViewer.app.downloadsModel.createID()
@@ -453,7 +455,7 @@ class DownloadItem():
         return cookies_str
 
     def finish(self, finish_time):
-        os.rename(self.filepath + ".part", self.filepath)
+        os.rename(self.tmp_filepath, self.filepath)
         self.fix_image_extension()
 
         with user_database.get_session(self, acquire=True) as session:
@@ -533,12 +535,15 @@ class DownloadManager(Logger):
             else:
                 item["downloaded"] = 0
 
+            if not os.path.exists(filepath):
+                with user_database.get_session(self, acquire=True) as session:
+                    session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
+                open(filepath, 'a').close()
+
             download_item = DownloadItem(item)
             self.signals.create.emit(download_item)
 
-            if not os.path.exists(item.get("filepath") + ".part"):
-                with user_database.get_session(self, acquire=True) as session:
-                    session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
+
 
             percent = int((download_item.downloaded / download_item.total_size) * 100)
             kwargs = {"id": download_item.id, 
@@ -578,6 +583,7 @@ class DownloadThread(BaseThread):
         self._last_time = None
         self.paused = False
         self.stopped = False
+        self.toBeDeleted = False
         self.max_speed = 1024 * 1024 * 1024
         self.f = None   #file object
         self.headers = {}
@@ -612,11 +618,17 @@ class DownloadThread(BaseThread):
         if task == "pause":
             self.togglePause()
         elif task == "stop":
-            self.stopDownload()
+            self.stopDownload(False)
+        elif task == "delete":
+            self.stopDownload(True)
 
-    def stopDownload(self):
+    def stopDownload(self, deleteAfterStopping):
         print("stop download and remove from queue")
         self.stopped = True
+        self.toBeDeleted = deleteAfterStopping
+        if deleteAfterStopping:
+            with user_database.get_session(self, acquire=True) as session:
+                    session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == self.download_item.id))
 
     def togglePause(self):
         print("toggle pause")
@@ -639,6 +651,7 @@ class DownloadThread(BaseThread):
     def start_download(self):
         self.paused = False
         self.stopped = False
+        self.toBeDeleted = False
         self._last_time = time()
         self.headers = {}
         self.curl = pycurl.Curl()
@@ -667,14 +680,21 @@ class DownloadThread(BaseThread):
         mode = "wb"
         if self.download_item.resume:
             mode = "ab"
-        self.f = open(self.download_item.filepath + ".part", mode)
+        self.f = open(self.download_item.tmp_filepath, mode)
 
         self.signals.start.emit(self.download_item.id)
 
         try:
             self.curl.perform()
         except pycurl.error as error:
-            #stop requested
+            self.f.close()
+           
+            if self.toBeDeleted:
+                if os.path.exists(self.download_item.tmp_filepath):
+                    os.remove(self.download_item.tmp_filepath)
+
+            if not self.stopped:
+                self.logger.error("Failed downloading " + self.download_item.filename + " with error: " + error)
             return
         except Exception as error:
             self.logger.error(error)

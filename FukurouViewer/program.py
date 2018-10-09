@@ -662,9 +662,9 @@ class Program(QtWidgets.QApplication, Logger):
             self.app_window.deleteHistoryItem.connect(self.delete_history_item)
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
-            self.app_window.remove_download_ui_item.connect(self.remove_download_ui_item)
             self.app_window.setEventFilter.connect(self.setEventFilter)
             self.app_window.closeApplication.connect(self.close)
+            self.app_window.downloader_task.connect(self.downloader_task)
 
             #self.open("APP")
 
@@ -816,10 +816,11 @@ class Program(QtWidgets.QApplication, Logger):
     def finish_download_ui_item(self, id, timestamp, total_size):
         self.downloadsModel.finish_item(id, timestamp)
         self.downloadUIManager.finish_download(id, total_size)
-
-    def remove_download_ui_item(self, id, status):
-        self.downloadsModel.remove_item(id)
-        self.downloadUIManager.remove_download(id, status)
+        
+    def downloader_task(self, id, status):
+        if status == "delete" or status == "done":
+            self.downloadsModel.remove_item(id)
+            self.downloadUIManager.remove_download(id, status)
 
     # open application window
     def open(self, mode="TRAY"):

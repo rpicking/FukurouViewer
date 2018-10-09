@@ -47,6 +47,10 @@ Component {
             mainWindow.resume_download(model.id);
         }
 
+        function remove(task) {
+            mainWindow.downloader_task(model.id, task);
+        }
+
         function testDate(timestamp) {
             var time = new Date(timestamp * 1000);
             var mm = time.getMonth() + 1;
@@ -109,7 +113,7 @@ Component {
                     status = "delete"
                 }
 
-                remove_download_ui_item(model.id, status)
+                remove(status);
             }
         }
 
