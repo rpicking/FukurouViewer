@@ -16,7 +16,6 @@ Window {
     height: 640
 
     Component.onCompleted: {
-        mainWindow.receiveHistory.connect(setHistory);
         mainWindow.receiveFolders.connect(setFolders);
         mainWindow.onWindowClose.connect(closeWindow);
     }
@@ -32,19 +31,12 @@ Window {
         y = _y - height;
         show();
         requestActivate();
-        requestHistory(0);
         mainWindow.requestFolders();
     }
 
     function closeWindow() {
         topBar.forceActiveFocus();
         hide();
-    }
-
-
-    function requestHistory(index) {
-        var count = 50;
-        mainWindow.requestHistory(index, count);   //0 = get all history
     }
 
     function setHistory(items) {
@@ -70,12 +62,6 @@ Window {
             items[i]["date"] = date;
             historyModel.append(items[i]);
         }
-    }
-
-    function deleteHistoryItem(id, index) {
-        historyModel.remove(index);
-        topBar.forceActiveFocus();
-        mainWindow.deleteHistoryItem(id, historyModel.count);
     }
 
     function getDateFormat(date) {
@@ -229,7 +215,7 @@ Window {
                 ListView {
                     id: historyView
                     anchors.fill: parent
-                    model: historyModel
+                    model: history.model
                     interactive: true
                     //enabled: false
                     delegate: HistoryItem{}
@@ -243,7 +229,7 @@ Window {
 
                     onAtYEndChanged: {
                         if (atYEnd) {
-                            requestHistory(historyModel.count);
+                            history.load_more();
                         }
                     }
                 }
@@ -283,9 +269,6 @@ Window {
         }
     }
 
-    ListModel {
-        id: historyModel
-    }
     ListModel {
         id: foldersModel
     }

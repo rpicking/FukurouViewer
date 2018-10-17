@@ -48,7 +48,7 @@ Old.ScrollView {
                             height: 280
                             sourceSize.width: width
                             sourceSize.height: height
-                            asynchronous: true
+                            //asynchronous: true
                             fillMode: Image.PreserveAspectFit
                             source: "image://thumbs/" + encodeURIComponent(filepath)
                             anchors.centerIn: parent
@@ -64,7 +64,8 @@ Old.ScrollView {
                             ]
 
                             MouseArea {
-                                onPressed: {
+                                pressAndHoldInterval: 250
+                                onPressAndHold: {
                                     var xPercent = mouse.x / parent.width
                                     var yPercent = mouse.y / parent.height
                                     testImage.source = "file://" + encodeURIComponent(filepath) //"image://test/" + encodeURIComponent(filepath);

@@ -27,15 +27,12 @@ ApplicationWindow {
     }
 
 
-    signal requestHistory(int index, int limit)
-    signal receiveHistory(var items)
     signal requestFolders
     signal receiveFolders(var items)
     signal createFavFolder(string name, string path, string color, int type)
     signal onWindowClose
     signal requestValidFolder(string path)
     signal receiveValidFolder(bool valid)
-    signal deleteHistoryItem(int id, int count)
     signal updateFolders(var items)
     signal openItem(string path, string type)
     signal openUrl(string url)
@@ -43,7 +40,6 @@ ApplicationWindow {
     signal addDownloadItem(string uid, var info)
     signal downloader_task(string id, string task)
     signal resume_download(string id)
-    signal remove_download_ui_item(string id, string status)
     signal setEventFilter(point coord, int thumb_width, int thumb_height, int item_width, int item_height, real xPercent, real yPercent)
     signal closeApplication
     signal scrollBlowUp(real scrollAmount)

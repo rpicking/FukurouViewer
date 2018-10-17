@@ -166,7 +166,7 @@ Component {
             //verticalOffset: -1
 
             onClicked: {
-                trayWindow.deleteHistoryItem(model.id, model.index);
+                history.delete_item(model.index);
             }
         }
 

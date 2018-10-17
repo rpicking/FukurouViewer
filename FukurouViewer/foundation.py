@@ -4,6 +4,9 @@ from datetime import timedelta
 from humanize import naturalsize
 from sqlalchemy import insert, select
 from sqlalchemy.sql.expression import func
+
+from PyQt5 import QtCore
+
 from . import user_database
 from .utils import Utils
 from .logger import Logger
@@ -11,7 +14,7 @@ from .logger import Logger
 
 class Foundation(Logger):
     """Non "foundational" core functions for FukurouViewer application
-    Functions that are used in multiple locations
+        Functions that are used in multiple locations
         but are not building blocks for functionality
     """
 
@@ -77,3 +80,70 @@ class Foundation(Logger):
                                 str(minutes) + "m:" if hours > 0 or minutes > 0 else "",
                                 str(seconds) + "s")
         return eta_s
+
+
+class BaseModel(QtCore.QAbstractListModel, Logger):
+    """ Base model implementation of abstract list model
+        - insert_list
+        - insert_item
+        - remove_item
+        - do_list_update
+        - do_item_update        
+    """
+
+    _roles = {}    
+
+    def __init__(self, items=None, parent=None):
+        super().__init__(parent)
+        self._items = [] if items is None else items
+
+    def rowCount(self, parent=QtCore.QModelIndex()):
+        return len(self._items)
+
+    def roleNames(self):
+        return {x: self._roles[x].encode() for x in self._roles}
+
+    def insert_list(self, list):
+        """ insert list of items at end of _items"""
+        start_index = self.rowCount()
+        end_index = start_index + len(list) - 1
+        self.beginInsertRows(QtCore.QModelIndex(), start_index, end_index)
+
+        for item in list:
+            self._items.append(item)
+
+        self.endInsertRows()
+        self.do_list_update(start_index)
+
+    def insert_item(self, item, index=0):
+        """ insert item into list at index """
+        self.beginInsertRows(QtCore.QModelIndex(), index, index)
+        self._items.insert(index, item)
+        self.endInsertRows()
+        self.do_list_update(index)
+
+    def remove_item(self, index):
+        self.beginRemoveRows(QtCore.QModelIndex(), index, index)
+        del self._items[index]
+        self.endRemoveRows()
+        
+
+    def do_list_update(self, index):
+        """notifies the view that the list starting at index has updated"""
+        start_index = self.createIndex(index, 0)
+        end_index = self.createIndex(len(self._items), 0)
+        self.dataChanged.emit(start_index, end_index, [])
+
+    def do_item_update(self, index):
+        """notifies the view that item in the list at index has updated"""
+        start_index = self.createIndex(index, 0)
+        self.dataChanged.emit(start_index, start_index, [])
+        
+    def data(self, index, role):
+        """returns data at given index with for property role"""
+        try:
+            item = self._items[index.row()]
+        except IndexError:
+            return QtCore.QVariant()
+
+        return item.get(self._roles.get(role), QtCore.QVariant())

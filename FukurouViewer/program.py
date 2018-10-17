@@ -11,7 +11,8 @@ from . import user_database
 from .utils import Utils
 from .config import Config
 from .logger import Logger
-from .foundation import Foundation
+from .foundation import Foundation, BaseModel
+from .history import History
 
 from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
@@ -415,36 +416,12 @@ class DownloadUIManager(QtCore.QObject):
     eta = QtCore.pyqtProperty(str, get_eta, notify=on_eta)
 
 
-class GridModel(QtCore.QAbstractListModel):
+class GridModel(BaseModel):
     IDRole = QtCore.Qt.UserRole + 1
     NameRole = QtCore.Qt.UserRole + 2
     FilepathRole = QtCore.Qt.UserRole + 3
 
     _roles = { IDRole: "id", NameRole: "name", FilepathRole: "filepath" }
-
-    def __init__(self, items, parent=None):
-        super(GridModel, self).__init__(parent)
-        self._items = items
-        #self.setRoleNames(dict(enumerate(GridModel.COLUMNS)))
-
-    def rowCount(self, parent=QtCore.QModelIndex()):
-        return len(self._items)
-
-    def roleNames(self):
-        return {x: self._roles[x].encode() for x in self._roles}
-
-    def data(self, index, role):
-        if index.isValid():
-            return self._items[index.row()]
-        return None
-
-    def data(self, index, role):
-        try:
-            item = self._items[index.row()]
-        except IndexError:
-            return QtCore.QVariant()
-
-        return item.get(GridModel._roles.get(role), QtCore.QVariant())
 
 
 class ThumbnailProvider(QtQuick.QQuickImageProvider):
@@ -478,8 +455,12 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
         filepath = unquote(file)
         _, ext = os.path.splitext(filepath)
 
-        if ext in self.supported_formats:
-            image = QtGui.QPixmap(filepath)
+        imageReader = QtGui.QImageReader(filepath)
+        imageReader.setDecideFormatFromContent(True);
+
+        if imageReader.canRead():
+            imageReader.setScaledSize(requestedSize)
+            image = QtGui.QPixmap.fromImage(imageReader.read())
             if width != -1 and height != -1:
                 image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         else:
@@ -638,10 +619,13 @@ class Program(QtWidgets.QApplication, Logger):
                                    os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
                     test.append({"name": file, "filepath": os.path.join(dirpath, file)})
 
-            self.gridModel = GridModel(test[0:150])
+            self.gridModel = GridModel(test[67:68])
 
             # blow up preview 
             self.blow_up_item = BlowUpItem()
+
+            # history manager
+            self.history = History()
             
             self.context = self.engine.rootContext()
 
@@ -649,17 +633,15 @@ class Program(QtWidgets.QApplication, Logger):
             self.context.setContextProperty("downloadManager", self.downloadUIManager)
             self.context.setContextProperty("gridModel", self.gridModel)
             self.context.setContextProperty("blowUp", self.blow_up_item)
-            
+            self.context.setContextProperty("history", self.history)
+
             self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
             self.app_window = self.engine.rootObjects()[0]
 
-
             # SIGNALS
-            self.app_window.requestHistory.connect(self.send_history)
             self.app_window.requestFolders.connect(self.send_folders)
             self.app_window.createFavFolder.connect(self.add_folder)
             self.app_window.requestValidFolder.connect(self.set_folder_access)
-            self.app_window.deleteHistoryItem.connect(self.delete_history_item)
             self.app_window.updateFolders.connect(self.update_folders)
             self.app_window.openItem.connect(self.open_item)
             self.app_window.setEventFilter.connect(self.setEventFilter)
@@ -674,6 +656,8 @@ class Program(QtWidgets.QApplication, Logger):
              #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
               #  test = results.gallery
                # print("BREAK")
+
+
 
     def setEventFilter(self, coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.installEventFilter(self)
@@ -706,17 +690,6 @@ class Program(QtWidgets.QApplication, Logger):
             return os.path.getmtime(path)
         
         return sorted(os.listdir(folder), key=getmtime)
-
-    # sends limited number of history entries newest first to ui
-    def send_history(self, index, limit=0):
-        self.history_health_check()
-
-        with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                select([user_database.History]).order_by(user_database.History.time_added.desc())))
-
-            results = results[index: index + limit]
-            self.app_window.receiveHistory.emit(results)
 
 
     # checks health of files in history table changing to dead if no longer exists
