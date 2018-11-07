@@ -454,9 +454,13 @@ class DownloadItem():
             cookies_str += " %s=%s;" % (key, value)
         return cookies_str
 
-    def finish(self, finish_time):
+
+    def finish(self):
+        finish_time = time()
         os.rename(self.tmp_filepath, self.filepath)
-        self.fix_image_extension()
+        self.fix_image_extension()        
+
+        self.signals.finish.emit(self.id, finish_time, self.total_size)
 
         with user_database.get_session(self, acquire=True) as session:
             session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == self.id))
@@ -469,12 +473,12 @@ class DownloadItem():
                     "page_url": self.page_url,
                     "domain": self.domain,
                     "time_added": finish_time,
-                    "full_path": self.filepath,
+                    "filepath": self.filepath,
                     "favicon_url": self.favicon_url,
                     "folder_id": self.folder.get("id")
                 }))
             db_id = int(result.inserted_primary_key[0])
-
+            
         kwargs = { "url": self.page_url,
                 "domain": self.domain,
                 "history_item": db_id,
@@ -701,11 +705,9 @@ class DownloadThread(BaseThread):
             self.log_exception()
             return
 
-        finish_time = time()
-        self.signals.finish.emit(self.download_item.id, finish_time, self.download_item.total_size)
         self.curl.close()
         self.f.close()
-        self.download_item.finish(finish_time)
+        self.download_item.finish()
 
         self.logger.info(self.download_item.filepath + " finished downloading.")
 

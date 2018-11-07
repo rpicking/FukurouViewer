@@ -260,7 +260,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
             results = Utils.convert_result(session.execute(
                 select([user_database.History]).where( user_database.History.id == id)))
 
-        path = results[0].get("full_path")
+        path = results[0].get("filepath")
         if not os.path.exists(path):
             _, ext = os.path.splitext(path)
             tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
@@ -281,7 +281,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
             results = Utils.convert_result(session.execute(
                 select([user_database.History]).where( user_database.History.id == id)))[0]
 
-        path = results.get("full_path")
+        path = results.get("filepath")
         if not os.path.exists(path):
             _, ext = os.path.splitext(path)
             tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
@@ -692,26 +692,6 @@ class Program(QtWidgets.QApplication, Logger):
         return sorted(os.listdir(folder), key=getmtime)
 
 
-    # checks health of files in history table changing to dead if no longer exists
-    def history_health_check(self):
-        with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                select([user_database.History]).order_by(user_database.History.time_added.desc())))
-
-            for item in results:
-                if not os.path.exists(item.get("full_path")):
-                    session.execute(update(user_database.History).where(
-                        user_database.History.id == item.get("id")).values(
-                        { "dead": True }))
-
-
-    # delete history item
-    def delete_history_item(self, id, count):
-        with user_database.get_session(self, acquire=True) as session:
-            session.execute(delete(user_database.History).where(user_database.History.id == id))
-        self.send_history(0, count - 1)
-
-
     # open history item file in default application or open file explorer to directory
     def open_item(self, path, type):
         if type == "file":
@@ -726,6 +706,7 @@ class Program(QtWidgets.QApplication, Logger):
     # open url in default browser
     def open_url(self, url):
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+
 
     # sends folders list to ui
     def send_folders(self):
@@ -789,6 +770,7 @@ class Program(QtWidgets.QApplication, Logger):
     def finish_download_ui_item(self, id, timestamp, total_size):
         self.downloadsModel.finish_item(id, timestamp)
         self.downloadUIManager.finish_download(id, total_size)
+        self.history.add_new()
         
     def downloader_task(self, id, status):
         if status == "delete" or status == "done":

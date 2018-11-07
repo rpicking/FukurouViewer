@@ -229,7 +229,7 @@ Window {
 
                     onAtYEndChanged: {
                         if (atYEnd) {
-                            history.load_more();
+                            history.load_existing();
                         }
                     }
                 }

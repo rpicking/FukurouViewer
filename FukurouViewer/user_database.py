@@ -38,7 +38,7 @@ class History(Base):
     domain = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
     time_added = sqlalchemy.Column(sqlalchemy.Integer)
     type = sqlalchemy.Column(sqlalchemy.Integer, default=1)
-    full_path = sqlalchemy.Column(sqlalchemy.Text)
+    filepath = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("folders.id"))

@@ -103,9 +103,9 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
     def roleNames(self):
         return {x: self._roles[x].encode() for x in self._roles}
 
-    def insert_list(self, list):
+    def insert_list(self, list, index = -1):
         """ insert list of items at end of _items"""
-        start_index = self.rowCount()
+        start_index = self.rowCount() if index == -1 else index
         end_index = start_index + len(list) - 1
         self.beginInsertRows(QtCore.QModelIndex(), start_index, end_index)
 
@@ -115,7 +115,7 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         self.endInsertRows()
         self.do_list_update(start_index)
 
-    def insert_item(self, item, index=0):
+    def insert_item(self, item, index = 0):
         """ insert item into list at index """
         self.beginInsertRows(QtCore.QModelIndex(), index, index)
         self._items.insert(index, item)

@@ -99,7 +99,7 @@ Component {
 
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    mainWindow.openItem(model.full_path, "file");
+                    mainWindow.openItem(model.filepath, "file");
                 }
             }
         }
@@ -147,7 +147,7 @@ Component {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                     mainWindow.openItem(model.full_path, "folder");
+                     mainWindow.openItem(model.filepath, "folder");
                 }
             }
         }
@@ -166,7 +166,7 @@ Component {
             //verticalOffset: -1
 
             onClicked: {
-                history.delete_item(model.index);
+                history.delete_item(model.index, model.id);
             }
         }
 
