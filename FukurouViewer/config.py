@@ -35,10 +35,11 @@ class Config(ConfigParser):
             self.load()
         except FileNotFoundError:
             self.save()
+            # set defaults
+            self.close = "tray"
+
         self.build()
-        self.set_defaults()
         self.save()
-        
 
     def build(self):
         for section in self.SETTINGS:
@@ -55,9 +56,6 @@ class Config(ConfigParser):
                         value = option.get(option_key, "")
                     self.set(section, option_key, value)
 
-    def set_defaults(self):
-        self.close = "tray"
-
     def save(self):
         with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
             self.write(f)
@@ -71,8 +69,8 @@ class Config(ConfigParser):
         return self.get("General", "close")
 
     @close.setter
-    def close(self, type):
-        self.set("General", "close", type)
+    def close(self, close_type):
+        self.set("General", "close", close_type)
 
     @property
     def folders(self):

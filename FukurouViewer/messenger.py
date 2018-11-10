@@ -9,10 +9,11 @@ import logging
 import linecache
 import subprocess
 
-from utils import Utils
-from logger import Logger
+from .utils import Utils
+from .logger import Logger
 
-class extensionMessage(Logger):
+
+class ExtensionMessage(Logger):
     """ Exchanges messages with extension over stdio
         Messages are json converted into a byte string 
 
@@ -21,9 +22,10 @@ class extensionMessage(Logger):
     """
 
     # send message to extension
-    def send_message(self, MSG):
+    @staticmethod
+    def send_message(msg):
         # Encode json string with UTF-8.
-        msg_json_utf8 = MSG.encode("utf-8")
+        msg_json_utf8 = msg.encode("utf-8")
         # Writes the message size. (Writing to buffer because writing bytes object.)
         sys.stdout.buffer.write(struct.pack("i", len(msg_json_utf8)))
         # Writes the message itself. (Writing to buffer because writing bytes object.)
@@ -31,7 +33,8 @@ class extensionMessage(Logger):
         sys.stdout.flush()
         
     # read message sent from extension returning stringified json
-    def read_message(self):
+    @staticmethod
+    def read_message():
         # Reads the first 4 bytes of the message (which designates message length).
         text_length_bytes = sys.stdin.buffer.read(4)
         # Unpacks the first 4 bytes that are the message length. [0] required because unpack returns tuple with required data at index 0.
@@ -40,7 +43,7 @@ class extensionMessage(Logger):
         return sys.stdin.buffer.read(text_length).decode("utf-8")
 
 
-class hostMessage():
+class HostMessage:
     """ Exchanges messages with main application over named pipe
         Different implementation of os is windows.
         Functions on assumption that all communcation with host 
@@ -60,7 +63,6 @@ class hostMessage():
 
         with open(self.pipe, "w") as pipe:
             pipe.write(byte_message)
-
 
     # returns dict message from host
     def read_message(self):
@@ -82,7 +84,7 @@ class Messenger(Logger):
 
     HOST_STARTING_UP = False
 
-    def __init__(self, _windows = True):
+    def __init__(self, _windows=True):
         super().__init__()
         self.windows = _windows
 
@@ -90,42 +92,42 @@ class Messenger(Logger):
             self.launch_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.WIN_APP_PATH)
         else:
             self.launch_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.APP_PATH)
-        self.host = hostMessage()
-        self.extension = extensionMessage()
+        self.host = HostMessage()
+        self.extension = ExtensionMessage()
 
-        self.connectPipe()
+        self.connect_pipe()
         return
-        if self.windows:    # wait till pipe has been created by host then create file
-            self.launch_path = os.path.join(self.launch_path, self.WIN_APP_PATH)
-            while True:
-                try:
-                    self.pipe = win32file.CreateFile(self.WIN_PIPE_PATH,
-                                        win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-                                        0, None,win32file.OPEN_EXISTING,0, None)
-                    win32pipe.SetNamedPipeHandleState(self.pipe, 
-                                        win32pipe.PIPE_READMODE_MESSAGE, None, None)
-                    break
-                except win32api.error:  # host is not running, launch
-                    subprocess.Popen(self.launch_path)
-                    # wait for host to launch
-                    time.sleep(1)
-            self.host.pipe = self.pipe
+        # if self.windows:    # wait till pipe has been created by host then create file
+        #     self.launch_path = os.path.join(self.launch_path, self.WIN_APP_PATH)
+        #     while True:
+        #         try:
+        #             self.pipe = win32file.CreateFile(self.WIN_PIPE_PATH,
+        #                                 win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+        #                                 0, None,win32file.OPEN_EXISTING,0, None)
+        #             win32pipe.SetNamedPipeHandleState(self.pipe,
+        #                                 win32pipe.PIPE_READMODE_MESSAGE, None, None)
+        #             break
+        #         except win32api.error:  # host is not running, launch
+        #             subprocess.Popen(self.launch_path)
+        #             # wait for host to launch
+        #             time.sleep(1)
+        #     self.host.pipe = self.pipe
+        #
+        # else:   # non-windows
+        #     self.launch_path = os.path.join(self.launch_path, self.APP_PATH)
+        #     self.host.pipe = self.PIPE_PATH
+        #     if not os.path.exists(self.PATH):   # need better way of checking if host is running
+        #         self.launch_path = os.path.join(self.launch_path, self.APP_PATH)
+        #         subprocess.Popen(self.launch_path)
+        #         time.sleep(1)
 
-        else:   # non-windows
-            self.launch_path = os.path.join(self.launch_path, self.APP_PATH)
-            self.host.pipe = self.PIPE_PATH
-            if not os.path.exists(self.PATH):   # need better way of checking if host is running
-                self.launch_path = os.path.join(self.launch_path, self.APP_PATH)
-                subprocess.Popen(self.launch_path)
-                time.sleep(1)
-
-    def connectPipe(self):
+    def connect_pipe(self):
         if self.windows:
             while True:
                 try:
                     self.pipe = win32file.CreateFile(self.WIN_PIPE_PATH,
-                                        win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-                                        0, None,win32file.OPEN_EXISTING,0, None)
+                                                     win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                                                     0, None,win32file.OPEN_EXISTING, 0, None)
                     win32pipe.SetNamedPipeHandleState(self.pipe, 
                                         win32pipe.PIPE_READMODE_MESSAGE, None, None)
                     self.host.pipe = self.pipe
@@ -139,7 +141,7 @@ class Messenger(Logger):
                         time.sleep(1)
         else:   # non-windows
             self.host.pipe = self.PIPE_PATH
-            if not os.path.exists(self.PATH):   # need better way of checking if host is running
+            if not os.path.exists(self.PIPE_PATH):   # need better way of checking if host is running
                 self.launch_path = os.path.join(self.launch_path, self.APP_PATH)
                 subprocess.Popen(self.launch_path)
                 time.sleep(1)
@@ -152,21 +154,22 @@ class Messenger(Logger):
                 response = self.host.read_message()
                 self.extension.send_message(response)
 
-            except win32pipe.error as e:    # host not running. windows
+            except win32pipe.error:    # host not running. windows
                 self.logger.warning("resending message")
                 win32api.CloseHandle(self.pipe)
-                self.connectPipe()
+                self.connect_pipe()
                 msg["type"] = msg.get("task")
                 msg["task"] = "resend"
                 self.extension.send_message(msg)
                 continue
-            except Exception as e:
+            except Exception:
                 return
 
     def close(self):
         if self.windows:
             win32api.CloseHandle(self.pipe)
             return
+
 
 if __name__ == '__main__':
     # setup logging

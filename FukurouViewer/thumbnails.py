@@ -1,6 +1,8 @@
 
 from PyQt5 import QtQuick, QtGui
 
+from .utils import Utils
+
 
 class ThumbnailProvider(QtQuick.QQuickImageProvider):
     THUMB_DIR = Utils.fv_path("thumbs")
@@ -22,17 +24,17 @@ class ThumbnailCache:
           - thumbnail hash
           - file path
     """
-    def requestThumbnail(filepath, size):
+    def requestThumbnail(self, filepath, size):
         """Given filepath return thumbnail loaded from disk or generate, save and return new thumbnail"""
 
-    def generateImageThumbnail(thumbnail_path, image_path, size):
+    def generateImageThumbnail(self, thumbnail_path, image_path, size):
         """generates thumbnail of image at requested size."""
 
-    def generateVideoThumbnail(thumbnail_path, image_path, size):
+    def generateVideoThumbnail(self, thumbnail_path, image_path, size):
         """generates thumbnail of video at requested size."""
 
-    def generatePdfThumbnail(thumbnail_path, image_path, size):
+    def generatePdfThumbnail(self, thumbnail_path, image_path, size):
         """generates thumbnail of pdf at requested size."""
 
-    def generateFileThumbnail(thumbnail_path, image_path, size):
+    def generateFileThumbnail(self, thumbnail_path, image_path, size):
         """generates thumbnail of non video image or pdf file at requested size."""

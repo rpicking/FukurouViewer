@@ -13,7 +13,7 @@ from FukurouViewer.logger import Logger
 DB_NAME = "db.sqlite"
 DATABASE_FILE = Utils.fv_path(DB_NAME)
 DATABASE_URI = "sqlite:///" + DATABASE_FILE
-MIGRATE_REPO =  Utils.convert_from_relative_path("migrate_repo/")
+MIGRATE_REPO = Utils.convert_from_relative_path("migrate_repo/")
 lock = Lock()
 
 
@@ -21,9 +21,11 @@ Base = declarative_base()
 engine = sqlalchemy.create_engine(DATABASE_URI)
 session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
+
 class UserDatabase(Logger):
-    "Dummy class for logging"
+    """Dummy class for logging"""
     pass
+
 
 Database = UserDatabase()
 
@@ -64,7 +66,7 @@ class Gallery(Base):
     url = sqlalchemy.Column(sqlalchemy.Text)                # url of import site
     virtual = sqlalchemy.Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
 
-    #history_items = relationship("History", backref="gallery")
+    # history_items = relationship("History", backref="gallery")
 
 
 class Folders(Base):
@@ -121,7 +123,7 @@ def get_session(requester, acquire=False):
         session = scoped_session(session_maker)
         yield session
         session.commit()
-    except:
+    except Exception:
         session.rollback()
         raise
     finally:

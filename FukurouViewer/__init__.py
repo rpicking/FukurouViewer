@@ -4,6 +4,7 @@ import logging
 
 from .utils import Utils
 from .logger import Logger
+from . import program, threads
 
 # setup logging
 if not os.path.exists(Utils.fv_path()):
@@ -20,8 +21,6 @@ logging.basicConfig(handlers=[logging.FileHandler(filename, 'a', 'utf-8')],
 requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.WARNING)
 requests_log.propagate = False
-
-from . import program, threads
 
 app = program.Program(sys.argv)
 app.setup(sys.argv)

@@ -2,8 +2,7 @@ import random
 import string
 from datetime import timedelta
 from humanize import naturalsize
-from sqlalchemy import insert, select
-from sqlalchemy.sql.expression import func
+from sqlalchemy import select
 
 from PyQt5 import QtCore
 
@@ -36,15 +35,13 @@ class Foundation(Logger):
         used_ids = [item['uid'] for item in used_ids]
         return cls.uniqueID(used_ids)
 
-
     @staticmethod
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
         """generates a id string"""
         return ''.join(random.choice(chars) for i in range(size))
 
-
     @classmethod
-    def lastOrder(cls):
+    def last_order(cls):
         """returns the highest order value + 1 of folders table"""
         with user_database.get_session(cls, acquire=True) as session:
             values = Utils.convert_result(session.execute(

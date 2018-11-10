@@ -5,9 +5,6 @@ import json
 import queue
 import imghdr
 import pycurl
-import random
-import string
-import struct
 import certifi
 import requests
 import linecache
@@ -15,7 +12,7 @@ import threading
 import subprocess
 
 from PyQt5 import QtCore
-from time import clock, time
+from time import time
 from urllib.parse import unquote
 from collections import namedtuple
 from mimetypes import guess_extension
@@ -106,7 +103,7 @@ class MessengerThread(BaseThread):
                                 win32pipe.PIPE_ACCESS_DUPLEX,
                                 win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
                                 win32pipe.PIPE_UNLIMITED_INSTANCES,65536,65536,300,None)
-            #win32pipe.ConnectNamedPipe(self.pipe, None)
+            # win32pipe.ConnectNamedPipe(self.pipe, None)
             return
 
         # non windows platform
@@ -125,6 +122,7 @@ class MessengerThread(BaseThread):
                 msg = self.read_message()
                 # process message and perform task
                 task = msg.get("task")
+                payload = {"task": "none"}
                 if task == "sync":
                     payload = self.sync_task(msg)
                 elif task == "edit":
@@ -138,30 +136,28 @@ class MessengerThread(BaseThread):
                 elif task == "saveManga":
                     item = DownloadItem(msg)
                     download_manager.queue.put(item)
-                else:   # unknown message
-                    payload = { "task": "none" }
 
                 self.send_message(payload)
 
-                #response = self.process_message(msg)
+                # response = self.process_message(msg)
                 # send response back to messenger
-                #self.send_message(response)
+                # self.send_message(response)
 
             except win32pipe.error as e:    # messenger has closed
-                #self.logger.error("Messenger closed")
-                #self.logger.error(e)
+                # self.logger.error("Messenger closed")
+                # self.logger.error(e)
                 self.pipe.Close()
                 self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
-                                win32pipe.PIPE_ACCESS_DUPLEX,
-                                win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
-                                1,65536,65536,300,None)
+                                                      win32pipe.PIPE_ACCESS_DUPLEX,
+                                                      win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
+                                                      1, 65536, 65536, 300, None)
                 win32pipe.ConnectNamedPipe(self.pipe, None)
 
     def close(self):
         if self.windows:
             self.pipe.Close()
             self.logger.info("Pipe closed")
-            #winsound.PlaySound("*", winsound.SND_ASYNC)
+            # winsound.PlaySound("*", winsound.SND_ASYNC)
             return
 
         os.remove(self.pipe)
@@ -232,16 +228,17 @@ class MessengerThread(BaseThread):
     def delete_task(self, msg):
         try:
             folders = json.loads(msg.get('folders'))
-
             for folder in folders:
-                #uid = folder.get('uid')
+                uid = folder.get("uid", "")
+                name = folder.get("name", "")
+
                 self.logger.debug("deleting folder with uid: " + uid)
 
                 with user_database.get_session(self) as session:
                     session.execute(delete(user_database.Folders).where(user_database.Folders.uid == folder.get('uid')))
                 return {'type': 'success', 'task': 'delete', 'name': name, 'uid': uid}
 
-        except Exception as e:
+        except Exception:
             self.log_exception()
             return {'task': 'delete', 'type': 'crash'}
 
@@ -266,8 +263,7 @@ else:
     messenger_thread = MessengerThread(False)
 
 
-
-class DownloadItem():
+class DownloadItem:
     FAVICON_PATH = Utils.fv_path("favicons")
     ETA_LIMIT = 2592000
 
@@ -289,12 +285,12 @@ class DownloadItem():
         self.page_url = msg.get('pageUrl')
         self.domain = msg.get('domain')
 
-        self.send_headers = {}
+        self.send_headers = dict
         self.send_headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
         for key, value in msg.get("headers", {}).items():
             self.send_headers[key] = value
 
-        self.cookies = {}
+        self.cookies = dict
         for cookie in msg.get('cookies', []):
             self.cookies[cookie[0]] = cookie[1]
         
@@ -315,9 +311,9 @@ class DownloadItem():
         self.dir = msg.get("dir", self.folder.get("path"))
         self.filepath = msg.get("filepath", None)
         self.tmp_filepath = ""
-        self.filename =  msg.get("filename", None)    # basename and extension filename.txt
+        self.filename = msg.get("filename", None)    # basename and extension filename.txt
         self.base_name = msg.get("base_name", None)   # filename before .ext
-        self.ext =  msg.get("ext", None)
+        self.ext = msg.get("ext", None)
         self.total_size = msg.get("total_size", None)
         if self.total_size:
             self.total_size_str = Foundation.format_size(self.total_size)
@@ -349,7 +345,6 @@ class DownloadItem():
                         "timestamp": self.start_time,
                         "folder_id": self.folder.get("id")
                     })) 
-
 
     def get_information(self):
         """Downloads item information before downloading gets
@@ -414,7 +409,8 @@ class DownloadItem():
         full_filename = unquote(full_filename)
         self.filename = full_filename
 
-    def ext_convention(self, ext):
+    @staticmethod
+    def ext_convention(ext):
         """Formats extension using desired convention '.JPG' -> '.jpg' """
         if ext.lower() in ['.jpeg', '.jpe']:
             return '.jpg'
@@ -445,15 +441,12 @@ class DownloadItem():
         self.filepath = newpath
         self.signals.update.emit({"id": self.id, "filename": self.filename, "filepath": self.filepath})
 
-
-
     def get_cookie_str(self):
         """returns string of cookies for pycurl"""
         cookies_str = ""
         for key, value in self.cookies.items():
             cookies_str += " %s=%s;" % (key, value)
         return cookies_str
-
 
     def finish(self):
         finish_time = time()
@@ -479,14 +472,13 @@ class DownloadItem():
                 }))
             db_id = int(result.inserted_primary_key[0])
             
-        kwargs = { "url": self.page_url,
-                "domain": self.domain,
-                "history_item": db_id,
-                "galleryUrl": self.gallery_url } 
+        kwargs = {"url": self.page_url,
+                  "domain": self.domain,
+                  "history_item": db_id,
+                  "galleryUrl": self.gallery_url}
 
         gal = GenericGallery(**kwargs)
         search_thread.queue.put(gal)
-
 
 
 class Download_UI_Signals(QtCore.QObject):
@@ -547,8 +539,6 @@ class DownloadManager(Logger):
             download_item = DownloadItem(item)
             self.signals.create.emit(download_item)
 
-
-
             percent = int((download_item.downloaded / download_item.total_size) * 100)
             kwargs = {"id": download_item.id, 
                       "cur_size": download_item.downloaded, 
@@ -556,7 +546,6 @@ class DownloadManager(Logger):
             self.signals.update.emit(kwargs)
 
             self.queue.put(download_item)
-
 
     def resume_download(self, id):
         with user_database.get_session(self, acquire=True) as session:
@@ -589,19 +578,17 @@ class DownloadThread(BaseThread):
         self.stopped = False
         self.toBeDeleted = False
         self.max_speed = 1024 * 1024 * 1024
-        self.f = None   #file object
+        self.f = None   # file object
         self.headers = {}
         self.status_code = None
         self.status_msg = ""
 
         self._curl = None 
 
-
     def setup(self):
         super().setup()
         self.signals = Download_UI_Signals()
         FukurouViewer.app.app_window.downloader_task.connect(self.receive_ui_task)
-
 
     def _run(self):
         try:
@@ -611,10 +598,9 @@ class DownloadThread(BaseThread):
                     self.start_download()
                 elif self.download_item.task == "saveManga":
                     self.saveManga_task()
-        except Exception as e:
+        except Exception:
             self.log_exception()
-            #self.delete_file(self.filepath)
-
+            # self.delete_file(self.filepath)
 
     def receive_ui_task(self, id, task):
         if self.download_item is None or id != self.download_item.id:
@@ -641,16 +627,13 @@ class DownloadThread(BaseThread):
         else:
             self.pause()
 
-
     def pause(self):
         self.curl.pause(pycurl.PAUSE_ALL)
         self.paused = True
 
-
     def unpause(self):
         self.curl.pause(pycurl.PAUSE_CONT)
         self.paused = False
-
 
     def start_download(self):
         self.paused = False
@@ -714,12 +697,10 @@ class DownloadThread(BaseThread):
         mixer.music.load(os.path.join(Utils.base_path("audio"), "success-chime.mp3"))
         mixer.music.play()
 
-
     def writer(self, data):
         if self.stopped:
             return -1
         self.f.write(data)
-
 
     def header(self, header):
         header = header.decode("utf-8")
@@ -736,7 +717,6 @@ class DownloadThread(BaseThread):
 
         self.headers[key] = value
 
-
     def progress(self, download_t, download_d, upload_t, upload_d):
         if download_t == 0:
             return
@@ -749,8 +729,7 @@ class DownloadThread(BaseThread):
         # speed
         duration = current_time - self.download_item.start_time + 1
         avg_speed = download_d / duration
-        
-        
+
         # update UI entry
         interval = current_time - self._last_time
         if interval < 0.2:
@@ -773,13 +752,11 @@ class DownloadThread(BaseThread):
                   "eta": eta }
         self.signals.update.emit(kwargs)
 
-
     def get_status_code(self, status_string):
         status = self.headers.get("http_code")  #'HTTP/1.1 200 OK'
         status_parts = status_string.split(" ")
         self.status_code = int(status_parts[1])
         self.status_msg = status_parts[2]
-
 
     def saveManga_task(self):
         self.logger.debug("--- Downloading Manga ---")
@@ -790,12 +767,10 @@ class DownloadThread(BaseThread):
         doujin_downloader.append("nogui")
         subprocess.Popen(doujin_downloader)
 
-
     # delete file
     def delete_file(self, filepath):
         if os.path.isfile(filepath):
             os.remove(filepath)
-
 
     # logs raised general exception
     def log_exception(self):
@@ -808,13 +783,11 @@ class DownloadThread(BaseThread):
         self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
-
 class SearchThread(BaseThread):
     API_URL = "https://exhentai.org/api.php"
     GAL_PAYLOAD = {"method": "gdata", "gidlist": [], "namespace": 1}
     IND_PAYLOAD = {"method": "gtoken", "pagelist": []}
     API_MAX_ENTRIES = 25
-
 
     def _run(self):
         while True:
@@ -823,7 +796,9 @@ class SearchThread(BaseThread):
             if not done:
                 self.queue.put(gal)
 
+
 search_thread = SearchThread()
+
 
 class GalleryThread(BaseThread):
     running = False
@@ -841,59 +816,60 @@ class GalleryThread(BaseThread):
             with FukurouViewer.app.gallery_lock:
                 print("HUH")
 
-#gallery_thread = GalleryThread()
+# gallery_thread = GalleryThread()
 
 
-class WatcherThread(BaseThread):
-    observer = None
+# class WatcherThread(BaseThread):
+#     observer = None
+#
+#     class Handler(FileSystemEventHandler):
+#         def on_any_event(self, event):
+#             event_thread.queue.put([event])
+#
+#     def setup(self):
+#         super().setup()
+#         self.observer = Observer()
+#         self.observer.start()
+#         self.schedule_folders()
+#
+#     def schedule_folders(self):
+#         self.observer.unschedule_all()
+#         for folder in Config.folders:
+#             self.observer.schedule(self.Handler(), folder, recursive=True)
 
-    class Handler(FileSystemEventHandler):
-        def on_any_event(self, event):
-            event_thread.queue.put([event])
-
-    def setup(self):
-        super().setup()
-        self.observer = Observer()
-        self.observer.start()
-        self.schedule_folders()
-
-    def schedule_folders(self):
-        self.observer.unschedule_all()
-        for folder in Config.folders:
-            self.observer.schedule(self.Handler(), folder, recursive=True)
-
-#watcher_thread = WatcherThread()
+# watcher_thread = WatcherThread()
 
 
-class EventThread(BaseThread):
+# class EventThread(BaseThread):
+#
+#     def _run(self):
+#         while True:
+#             self.process_events(self.queue.get())
+#
+#     def process_events(self, events):
+#         for event in events:
+#             source = Utils.norm_path(event.src_path)
+#             if event.event_type == "moved":
+#                 self.logger.info("moved")
+#             elif event.event_type == "deleted":
+#                 self.logger.info("deleted")
+#             elif event.event_type == "created":
+#                 self.logger.info("created")
+#             elif event.event_type == "modified":
+#                 self.logger.info("modified")
 
-    def _run(self):
-        while True:
-            self.process_events(self.queue.get())
-
-    def process_events(self, events):
-        for event in events:
-            source = Utils.norm_path(event.src_path)
-            if event.event_type == "moved":
-                self.logger.info("moved")
-            elif event.event_type == "deleted":
-                self.logger.info("deleted")
-            elif event.event_type == "created":
-                self.logger.info("created")
-            elif event.event_type == "modified":
-                self.logger.info("modified")
-
-#event_thread = EventThread()
+# event_thread = EventThread()
 
 
 THREADS = [
     messenger_thread,
     download_manager,
     search_thread,
-    #download_thread,
-    #gallery_thread,
-    #watcher_thread,
+    # download_thread,
+    # gallery_thread,
+    # watcher_thread,
 ]
+
 
 def setup():
     for thread in THREADS:

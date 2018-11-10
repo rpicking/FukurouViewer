@@ -4,7 +4,7 @@ import hashlib
 from sqlalchemy.engine import ResultProxy
 from typing import List
 
-class Utils():
+class Utils:
     """Utility functions for FukurouViewer application
 
     """
@@ -49,7 +49,7 @@ class Utils():
     #    return [int(split[0]), pieces[2], int(split[1])]
 
     @staticmethod
-    def split_ex_url(url: str) -> list:
+    def split_ex_url(url: str) -> dict:
         pieces = url.rstrip('/').rsplit("/", 3)
         if pieces[1] == "g":
             return {"type": "g", "gid": int(pieces[2]), "token": pieces[3]}

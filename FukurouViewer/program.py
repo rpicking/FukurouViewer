@@ -1,10 +1,8 @@
 import os
-import sys
-import time
 import argparse
 from enum import Enum
 from threading import RLock
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import insert, select, update
 from collections import namedtuple
 
 from . import user_database
@@ -190,7 +188,8 @@ class DownloadsModel(QtCore.QAbstractListModel):
         else:   # id doesn't exist
             return None
 
-    # TODO: THIS MIGHT NEED TO BE SWITCHED TO SETDATA  https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
+    # TODO: THIS MIGHT NEED TO BE SWITCHED TO SETDATA
+    # https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
     # updates filename and color of current download item with id
     def updateItem(self, kwargs):
         """Updates active download values"""                
@@ -200,52 +199,46 @@ class DownloadsModel(QtCore.QAbstractListModel):
         self._items[index].update(kwargs)
         self.do_item_update(index)
 
-
     def do_full_update(self):
         """Forces all items in UI to update to new data from model"""
         start_index = self.createIndex(0,0)
         end_index = self.createIndex(len(self._items) - 1, 0)
         self.dataChanged.emit(start_index, end_index, [])
 
-    
     def do_item_update(self, index):
         """Forces specific item at index to update in UI"""
         model_index = self.index(index, 0)
         self.dataChanged.emit(model_index, model_index, self.roleNames())
-        
 
     def start_item(self, id):
         """Sets start values for item that has begun downloading"""
         index = self.get_item_index(id)
-        if index == None:
+        if index is None:
             return
 
         self._items[index].start()
         self.do_item_update(index)
 
-
     def finish_item(self, id, timestamp):
         """Sets values for item that has finished downloading"""
         index = self.get_item_index(id)
-        if index == None:
+        if index is None:
             return
 
         self._items[index].finish(timestamp)
         self.do_item_update(index)
         return self._items[index].total_size
 
-
     def remove_item(self, id):
         """Remove an item at id from the download list and updates UI"""
         index = self.get_item_index(id)
-        if index == None:
+        if index is None:
             return
 
         self.beginRemoveRows(QtCore.QModelIndex(), index, index)
         self._items.pop(index)
         self.endRemoveRows()
 
-        
 
 class ImageProvider(QtQuick.QQuickImageProvider):
     TMP_DIR = Utils.fv_path("tmp")
@@ -266,11 +259,11 @@ class ImageProvider(QtQuick.QQuickImageProvider):
             tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
             path = tmpfile
 
-        #wat = QtCore.QFileInfo(path)
+        # wat = QtCore.QFileInfo(path)
         icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
         pixmap = icon.pixmap(icon.availableSizes()[-1]) # make pixmap out of largest icon size
 
-        #if tmpfile:
+        # if tmpfile:
         grayimage = pixmap.toImage().convertToFormat(QtGui.QImage.Format_Mono)
         return grayimage, requestedSize
 
@@ -292,7 +285,6 @@ class ImageProvider(QtQuick.QQuickImageProvider):
         pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
         pixmap = pixmap.scaled(width, height, transformMode=QtCore.Qt.SmoothTransformation)
         return pixmap, requestedSize
-
 
 
 class DownloadUIManager(QtCore.QObject):
@@ -393,7 +385,6 @@ class DownloadUIManager(QtCore.QObject):
         self.on_percent.emit()
         self.on_eta.emit()
 
-
     on_total_downloads = QtCore.pyqtSignal()
     total_downloads = QtCore.pyqtProperty(int, get_total_downloads, notify=on_total_downloads)
 
@@ -472,14 +463,15 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
 
 Coordinate = namedtuple("Coordinate", "x y")
 
+
 class BlowUpItem(QtCore.QObject):
 
     def __init__(self):
         super().__init__()
         self._x = 0
         self._y = 0
-        self.startPoint = Coordinate(0,0)
-        self.anchorPosition = Coordinate(0,0)    # top left point for thumbnail
+        self.startPoint = Coordinate(0, 0)
+        self.anchorPosition = Coordinate(0, 0)    # top left point for thumbnail
         
         self.width = 0
         self.height = 0
@@ -488,7 +480,7 @@ class BlowUpItem(QtCore.QObject):
         self.startPoint = Coordinate(_start_point.x(), _start_point.y())
 
         self._x = self.startPoint.x - (item_width * xPercent);
-        self._y =  self.startPoint.y - (item_height * yPercent);
+        self._y = self.startPoint.y - (item_height * yPercent);
         self.anchorPosition = Coordinate(self._x, self._y)
 
         self.width = item_width
@@ -545,15 +537,14 @@ class Program(QtWidgets.QApplication, Logger):
     
         self.setQuitOnLastWindowClosed(False)
 
-        #id = QtGui.QFontDatabase.addApplicationFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf"))
-        #family = QtGui.QFontDatabase.applicationFontFamilies(id)[0]
-        #font = QtGui.QFont(family)
+        # id = QtGui.QFontDatabase.addApplicationFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf"))
+        # family = QtGui.QFontDatabase.applicationFontFamilies(id)[0]
+        # font = QtGui.QFont(family)
         font = QtGui.QFont("Verdana")
         self.setFont(font)
         
         self.setWindowIcon(QtGui.QIcon(QtGui.QPixmap(os.path.join(self.BASE_PATH, "icon.png"))))
-        #self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
-
+        # self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
 
     def setup(self, args):
         if not os.path.exists(self.THUMB_DIR):
@@ -586,7 +577,6 @@ class Program(QtWidgets.QApplication, Logger):
         else:
             self.start_application()
 
-    
     def start_application(self, mode="TRAY"):
         try:
             self.engine
@@ -652,26 +642,23 @@ class Program(QtWidgets.QApplication, Logger):
             self.app_window.closeApplication.connect(self.close)
             self.app_window.downloader_task.connect(self.downloader_task)
 
-            #self.open("APP")
+            # self.open("APP")
 
-            #self.app_window.setMode(mode) # default mode? move to qml then have way of changing if not starting in default
+            #  default mode? move to qml then have way of changing if not starting in default
+            # self.app_window.setMode(mode)
 
-            #with user_database.get_session(self, acquire=True) as session:
-             #   results = session.query(user_database.History).filter(user_database.History.id == 183).first()
-              #  test = results.gallery
-               # print("BREAK")
-
-
+            # with user_database.get_session(self, acquire=True) as session:
+            #     results = session.query(user_database.History).filter(user_database.History.id == 183).first()
+            #     test = results.gallery
+            #     print("BREAK")
 
     def setEventFilter(self, coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.installEventFilter(self)
         self.blow_up_item.initItem(coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent)
-        
 
     def closeBlowUpItem(self):
         self.app_window.closeBlowUpWindow()
         self.removeEventFilter(self)
-
 
     def eventFilter(self, obj, event):
         if event.type() == QtCore.QEvent.MouseMove:
@@ -687,14 +674,12 @@ class Program(QtWidgets.QApplication, Logger):
             return True
         return super().eventFilter(obj, event)
 
-
     def sorted_dir(self, folder):
         def getmtime(name):
             path = os.path.join(folder, name)
             return os.path.getmtime(path)
         
         return sorted(os.listdir(folder), key=getmtime)
-
 
     # open history item file in default application or open file explorer to directory
     def open_item(self, path, type):
@@ -704,13 +689,13 @@ class Program(QtWidgets.QApplication, Logger):
             qurl = QtCore.QUrl.fromLocalFile(os.path.dirname(os.path.abspath(path)))
         elif type == "url":
             qurl = QtCore.QUrl(path)
+        else:
+            return
         QtGui.QDesktopServices.openUrl(qurl)
-
 
     # open url in default browser
     def open_url(self, url):
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
-
 
     # sends folders list to ui
     def send_folders(self):
@@ -719,11 +704,10 @@ class Program(QtWidgets.QApplication, Logger):
                 select([user_database.Folders]).order_by(user_database.Folders.order)))
             self.app_window.receiveFolders.emit(results)
 
-
     # add new folder entry into database
     def add_folder(self, name, path, color, type):
         uid = Foundation.uniqueFolderID()
-        order = Foundation.lastOrder()
+        order = Foundation.last_order()
 
         with user_database.get_session(self) as session:
             session.execute(insert(user_database.Folders).values(
@@ -736,7 +720,6 @@ class Program(QtWidgets.QApplication, Logger):
                     "type": type
                 })) 
 
-
     # updates ui indicator if folder path is accessable
     def set_folder_access(self, path: str):
         if os.path.exists(path):
@@ -744,7 +727,6 @@ class Program(QtWidgets.QApplication, Logger):
             self.app_window.receiveValidFolder.emit(valid)
         else:
             self.app_window.receiveValidFolder.emit(False)
-
 
     # update order of folders
     def update_folders(self, folders):
@@ -785,7 +767,6 @@ class Program(QtWidgets.QApplication, Logger):
     def open(self, mode="TRAY"):
         self.app_window.openWindow(mode, self.trayIcon.geometry().center())
 
-
     # close application window to tray or entirely
     def close(self):
         try:
@@ -806,8 +787,6 @@ class Program(QtWidgets.QApplication, Logger):
             self.logger.error("received invalid close parameter")
             self.quit()
 
-
-
     # quit application
     def quit(self):
         self.trayIcon.hide()
@@ -823,12 +802,10 @@ class Program(QtWidgets.QApplication, Logger):
             self.open("APP")
             print("OPENING MAIN APPLICATION")
 
-
     # single click on tray icon
     def singleClickActivated(self):
         if self.last == "Click":
             self.open()
-
 
     def exec_(self):
         return super().exec_()

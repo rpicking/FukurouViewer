@@ -22,6 +22,7 @@ class RequestManager(Logger):
     lock = threading.Lock()
     count = 0
 
+    @classmethod
     def salt_time(cls, sleep_time):
         return sleep_time * (random.randint(cls.SALT_BASE, cls.SALT_BASE * cls.SALT_MULTI) / cls.SALT_BASE)
 
@@ -46,7 +47,10 @@ class RequestManager(Logger):
             if self.count > self.API_MAX_SEQ_REQ:
                 time.sleep(self.salt_time(self.API_WAIT_TIME))
         
-            response = getattr(requests, method)(url, data=payload, headers=self.HEADERS, cookies=self.cookies, **kwargs)
+            response = getattr(requests, method)(url, data=payload,
+                                                 headers=self.HEADERS,
+                                                 cookies=self.cookies,
+                                                 **kwargs)
             if self.valid_response(response):
                 break
             else:
@@ -72,9 +76,9 @@ class RequestManager(Logger):
             self.logger.warning("Error code: %s")
             return False
         if "image/gif" in content_type:
-            raise(exceptions.BadCredentialsError)
+            raise exceptions.BadCredentials
         if "text/html" in content_type and "Your IP address" in response.text:
-            raise(exceptions.UserBannedError)
+            raise exceptions.UserBanned
         try:
             if response.json().get("error") is not None:
                 self.logger.warning("Got error message %s" %
@@ -87,14 +91,15 @@ class RequestManager(Logger):
     @property
     def cookies(self):
         return {}
-        
+
+
 request_manager = RequestManager()
+
 
 class ExRequestManager(RequestManager):
     MEMBER_ID_KEY = "ipb_member_id"
     PASS_HASH_KEY = "ipb_pass_hash"
     COOKIES = {"uconfig": ""}
-    
 
     @property
     def cookies(self):
@@ -102,5 +107,6 @@ class ExRequestManager(RequestManager):
         cookies[self.MEMBER_ID_KEY] = Config.ex_member_id
         cookies[self.PASS_HASH_KEY] = Config.ex_pass_hash
         return cookies
+
 
 ex_request_manager = ExRequestManager()
