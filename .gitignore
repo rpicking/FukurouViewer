@@ -54,3 +54,5 @@ FukurouViewer/host/log/
 *.pyproj
 scripts/log/
 log/
+.idea/
+venv/

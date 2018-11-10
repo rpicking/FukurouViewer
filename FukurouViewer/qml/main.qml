@@ -11,12 +11,13 @@ import "."
 
 ApplicationWindow {
     id: mainWindow
-    width: 400
-    height: 640
+    width: 1200
+    height: 900
     title: "Fukurou Viewer"
     background: Rectangle {
         color: Styles.listBackground
     }
+
 
     Settings {
         id: settings

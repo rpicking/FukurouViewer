@@ -608,18 +608,22 @@ class Program(QtWidgets.QApplication, Logger):
             
             with user_database.get_session(self, acquire=True) as session:
                 results = Utils.convert_result(session.execute(
-                    select([user_database.Folders]).where(user_database.Folders.id == 1)))[0]
-
-            test_folder = results.get("path")            
+                    select([user_database.Folders]).where(user_database.Folders.id == 1)))
+                if results:
+                    results = results[0]
 
             # gallery test grid
             test = []
-            for dirpath, subdirs, filenames in os.walk(test_folder):
-                for file in sorted(filenames, key=lambda file: 
-                                   os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
-                    test.append({"name": file, "filepath": os.path.join(dirpath, file)})
+            if results:
+                test_folder = results.get("path")
 
-            self.gridModel = GridModel(test[67:68])
+
+                for dirpath, subdirs, filenames in os.walk(test_folder):
+                    for file in sorted(filenames, key=lambda file:
+                                       os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
+                        test.append({"name": file, "filepath": os.path.join(dirpath, file)})
+
+            self.gridModel = GridModel(test)
 
             # blow up preview 
             self.blow_up_item = BlowUpItem()

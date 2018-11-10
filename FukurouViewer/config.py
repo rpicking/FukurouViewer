@@ -1,11 +1,11 @@
 import os
 import json
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 
 from .utils import Utils
 
 
-class Config(SafeConfigParser):
+class Config(ConfigParser):
     """Configs for FukurouViewer application
 
     """
@@ -50,7 +50,10 @@ class Config(SafeConfigParser):
                 else:
                     option_key = option
                 if not self.has_option(section, option_key):
-                    self.set(section, option_key, option.get(option_key, ""))
+                    value = ""
+                    if isinstance(option, dict):
+                        value = option.get(option_key, "")
+                    self.set(section, option_key, value)
 
     def set_defaults(self):
         self.close = "tray"
