@@ -56,3 +56,4 @@ scripts/log/
 log/
 .idea/
 venv/
+*.log

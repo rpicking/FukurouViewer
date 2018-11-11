@@ -100,9 +100,9 @@ class MessengerThread(BaseThread):
 
         if self.windows:
             self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
-                                win32pipe.PIPE_ACCESS_DUPLEX,
-                                win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
-                                win32pipe.PIPE_UNLIMITED_INSTANCES,65536,65536,300,None)
+                                                  win32pipe.PIPE_ACCESS_DUPLEX,
+                                                  win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
+                                                  win32pipe.PIPE_UNLIMITED_INSTANCES, 65536, 65536, 300, None)
             # win32pipe.ConnectNamedPipe(self.pipe, None)
             return
 
@@ -132,7 +132,7 @@ class MessengerThread(BaseThread):
                 elif task == "save":
                     item = self.create_download_item(msg)
                     download_manager.queue.put(item)
-                    payload = { "task": "none" } 
+                    payload = {"task": "none"}
                 elif task == "saveManga":
                     item = DownloadItem(msg)
                     download_manager.queue.put(item)
@@ -152,6 +152,8 @@ class MessengerThread(BaseThread):
                                                       win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
                                                       1, 65536, 65536, 300, None)
                 win32pipe.ConnectNamedPipe(self.pipe, None)
+            except Exception as e:
+                self.logger.error(e)
 
     def close(self):
         if self.windows:
@@ -197,8 +199,8 @@ class MessengerThread(BaseThread):
         with user_database.get_session(self, acquire=True) as session:
             payload['folders'] = Utils.convert_result(session.execute(
                 select([user_database.Folders.name, user_database.Folders.uid]).order_by(user_database.Folders.order)))
-            #payload['folders'] = Utils.convert_result(session.execute(
-                #   select([user_database.Folders]).order_by(user_database.Folders.order)))
+            # payload['folders'] = Utils.convert_result(session.execute(
+            #     select([user_database.Folders]).order_by(user_database.Folders.order)))
         return payload
 
     # edit folder info in database
@@ -285,12 +287,12 @@ class DownloadItem:
         self.page_url = msg.get('pageUrl')
         self.domain = msg.get('domain')
 
-        self.send_headers = dict
+        self.send_headers = dict()
         self.send_headers["User-Agent"] = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
         for key, value in msg.get("headers", {}).items():
             self.send_headers[key] = value
 
-        self.cookies = dict
+        self.cookies = dict()
         for cookie in msg.get('cookies', []):
             self.cookies[cookie[0]] = cookie[1]
         

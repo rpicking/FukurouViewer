@@ -4,6 +4,7 @@ import hashlib
 from sqlalchemy.engine import ResultProxy
 from typing import List
 
+
 class Utils:
     """Utility functions for FukurouViewer application
 
@@ -23,9 +24,9 @@ class Utils:
         folder = os.path.dirname(os.path.abspath(__file__))
         return cls.norm_path(os.path.join(folder, path))
     
-    @classmethod
-    def fv_path(cls, path: str = "") -> str:
-        return cls.norm_path(os.path.join("~/.fv", path))
+    @staticmethod
+    def fv_path(path: str = "") -> str:
+        return Utils.norm_path(os.path.join("~/.fv", path))
 
     @staticmethod
     def norm_path(path: str) -> str:
@@ -40,7 +41,7 @@ class Utils:
     def random_color() -> str:
         return "#%06x" % random.randint(0, 0xFFFFFF)
 
-    #@staticmethod
+    # @staticmethod
     # def split_ex_url(url: str) -> list:
     #    pieces = url.rstrip('/').rsplit("/", 3)
     #    if pieces[1] == "g":

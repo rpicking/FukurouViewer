@@ -6,16 +6,17 @@ import json
 import time
 import struct
 import logging
-import linecache
 import subprocess
 
-from .utils import Utils
-from .logger import Logger
+if os.name == 'nt':
+    import win32api
+    import win32pipe
+    import win32file
 
 
-class ExtensionMessage(Logger):
+class ExtensionMessage:
     """ Exchanges messages with extension over stdio
-        Messages are json converted into a byte string 
+        Messages are json converted into a byte string
 
         sending/receiving taken from this reddit post
         https://www.reddit.com/r/learnpython/comments/4yo4fn/i_cant_write_a_python_35_script_that_works_with/
@@ -50,7 +51,7 @@ class HostMessage:
             runs in an alternating pattern starting with the 
             messenger talking first then response from host """
 
-    def __init__(self, _windows = True):
+    def __init__(self, _windows=True):
         self.windows = _windows
         self.pipe = None
 
@@ -75,7 +76,7 @@ class HostMessage:
             return data.decode()
 
 
-class Messenger(Logger):
+class Messenger:
     PIPE_PATH = "/tmp/fukurou.fifo"
     WIN_PIPE_PATH = "\\\\.\\pipe\\fukurou_pipe"
 
@@ -150,19 +151,23 @@ class Messenger(Logger):
         while True:
             try:
                 msg = self.extension.read_message()
+                logging.info("Message from ext: " + msg)
                 self.host.send_message(msg)
                 response = self.host.read_message()
                 self.extension.send_message(response)
 
-            except win32pipe.error:    # host not running. windows
-                self.logger.warning("resending message")
+            except win32pipe.error:    # app not running. windows
+                logging.warning("resending message")
                 win32api.CloseHandle(self.pipe)
                 self.connect_pipe()
-                msg["type"] = msg.get("task")
-                msg["task"] = "resend"
-                self.extension.send_message(msg)
+                data = json.loads(msg)
+                data["type"] = data.get("task")
+                data["task"] = "resend"
+                self.extension.send_message(json.dumps(data))
                 continue
-            except Exception:
+            except Exception as e:
+                logging.error("crash during run")
+                logging.error(e)
                 return
 
     def close(self):
@@ -173,17 +178,10 @@ class Messenger(Logger):
 
 if __name__ == '__main__':
     # setup logging
-    if not os.path.exists(Utils.fv_path()):
-        os.mkdir(Utils.fv_path())
-
-    log_dir = Utils.fv_path("logs")
-    if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
-
-    filename = os.path.join(log_dir, "log.log")
+    filename = "log.log"
     logging.basicConfig(handlers=[logging.FileHandler(filename, 'a', 'utf-8')],
                         format="%(asctime)s - %(levelname)s - %(name)s: %(message)s",
-                        level=logging.ERROR)
+                        level=logging.INFO)
 
     if os.name == 'nt':
         import win32api
@@ -193,5 +191,7 @@ if __name__ == '__main__':
     else:
         messenger = Messenger(False)
 
+    logging.info("starting messenger")
     messenger.run()
     messenger.close()
+    logging.info("closing messenger")

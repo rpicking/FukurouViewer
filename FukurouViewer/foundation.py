@@ -17,14 +17,13 @@ class Foundation(Logger):
         but are not building blocks for functionality
     """
 
-    @classmethod
-    def uniqueID(cls, items):
+    @staticmethod
+    def uniqueID(items):
         """returns a unique id of length 6 for folder"""
         while True:
-            id = cls.id_generator()
+            id = Foundation.id_generator()
             if id not in items:
                 return id
-
 
     @classmethod
     def uniqueFolderID(cls):
@@ -49,7 +48,6 @@ class Foundation(Logger):
             if not values:
                 return 1
             return max([x['order'] for x in values]) + 1
-
 
     @staticmethod
     def remove_invalid_chars(filename):
