@@ -1,6 +1,7 @@
 import os
 import argparse
 from enum import Enum
+from pathlib import Path
 from threading import RLock
 from sqlalchemy import insert, select, update
 from collections import namedtuple
@@ -411,7 +412,14 @@ class GridModel(BaseModel):
     NameRole = QtCore.Qt.UserRole + 1
     FilepathRole = QtCore.Qt.UserRole + 2
 
-    _roles = { NameRole: "name", FilepathRole: "filepath"}
+    _roles = {NameRole: "name", FilepathRole: "filepath"}
+
+    def __init__(self, _folder_path, items=None):
+        super().__init__(items)
+        self.folder_path = Path(_folder_path)
+
+    def isCurrentFolder(self, other):
+        return self.folder_path.samefile(other)
 
 
 class ThumbnailProvider(QtQuick.QQuickImageProvider):
@@ -613,7 +621,7 @@ class Program(QtWidgets.QApplication, Logger):
                         modified_time = os.path.getmtime(filepath)
                         test.append(FileItem(filepath, modified_time))
 
-            self.gridModel = GridModel(test[0:49])
+            self.gridModel = GridModel(test_folder, test[0:49])
 
             # blow up preview 
             self.blow_up_item = BlowUpItem()
@@ -764,13 +772,19 @@ class Program(QtWidgets.QApplication, Logger):
             self.downloadUIManager.remove_download(id, status)
 
     def file_created_in_folder(self, filepath):
+        if not self.gridModel.isCurrentFolder(os.path.dirname(filepath)):
+            return
         date_modified = os.path.getmtime(filepath)
         self.gridModel.insert_new_item(FileItem(filepath, date_modified))
 
     def file_deleted_in_folder(self, filepath):
+        if not self.gridModel.isCurrentFolder(os.path.dirname(filepath)):
+            return
         self.gridModel.remove_item(FileItem(filepath, -1))
 
     def file_modified_in_folder(self, filepath):
+        if not self.gridModel.isCurrentFolder(os.path.dirname(filepath)):
+            return
         self.gridModel.remove_item(FileItem(filepath, -1))
         new_date_modified = os.path.getmtime(filepath)
         self.gridModel.insert_new_item(FileItem(filepath, new_date_modified))

@@ -102,9 +102,7 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
 
     def getIndex(self, item):
         """Returns index of item in list returns None if not found"""
-        print(item)
         for index, val in enumerate(self._items):
-            print(val)
             if val == item:
                 return index
         return None
