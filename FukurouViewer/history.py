@@ -42,6 +42,8 @@ class History(QtCore.QObject, Logger):
 
     @QtCore.pyqtSlot(name="load_existing")
     def load_existing(self):
+        today = datetime.today()
+        items = []
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(
                 session.execute(select([user_database.History])
@@ -49,26 +51,27 @@ class History(QtCore.QObject, Logger):
                                 .limit(self.LOAD_COUNT)
                                 .offset(self._model.rowCount())))
             for item in results:
-                item["date"] = datetime.fromtimestamp(item.get("time_added")).strftime("%B %d, %Y")
+                history_item = HistoryItem(item)
+
+                cur_date = datetime.fromtimestamp(item.get("time_added"))
+                day_diff = (today - cur_date).days
+                if day_diff == 0:
+                    date_str = "Today"
+                elif day_diff == 1:
+                    date_str = "Yesterday"
+                else:
+                    date_str = cur_date.strftime("%B %d, %Y")
+                history_item.date = date_str
 
                 # check if file exists 
                 if not os.path.exists(item.get("filepath")):
                     session.execute(update(user_database.History).where(
                         user_database.History.id == item.get("id")).values({"dead": True}))
-                    item["dead"] = True
+                    history_item.dead = True
 
-        today = datetime.today()
-        for item in results:
-            
-            cur_date = datetime.fromtimestamp(item.get("time_added"))
-            day_diff = (today - cur_date).days
-            if day_diff == 0:
-                item["date"] = "Today"
-            elif day_diff == 1:
-                item["date"] = "Yesterday"
-            else:
-                break
-        self._model.insert_list(results)
+                items.append(history_item)
+
+        self._model.insert_list(items)
 
     def add_new(self):
         with user_database.get_session(self, acquire=True) as session:
@@ -91,7 +94,41 @@ class History(QtCore.QObject, Logger):
 
     @QtCore.pyqtSlot(int, int, name="delete_item")
     def delete_item(self, index, db_id):
-        self._model.remove_item(index)
+        self._model.remove_item_by_index(index)
         
         with user_database.get_session(self, acquire=True) as session:
             session.execute(delete(user_database.History).where(user_database.History.id == db_id))
+
+
+class HistoryItem(object):
+    def __init__(self, item):
+        self.id = item.get("id")
+        self.date = item.get("date")
+        self.filename = item.get("filename")
+        self.filepath = item.get("filepath")
+        self.src_url = item.get("src_url")
+        self.dead = item.get("dead")
+
+    def __lt__(self, other):
+        return self.id > other.id
+
+    def get(self, key, default):
+        if key == "id":
+            return self.id
+        if key == "date":
+            return self.date
+        if key == "filename":
+            return self.filename
+        if key == "filepath":
+            return self.filepath
+        if key == "src_url":
+            return self.src_url
+        if key == "dead":
+            return self.dead
+        return default
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __str__(self):
+        return ','.join((self.id, self.filename, self.filepath))

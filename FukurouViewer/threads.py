@@ -361,7 +361,7 @@ class DownloadItem:
         # filename
         contdisp = re.findall("filename=(.+)", headers.get("Content-Disposition", ""))
         if contdisp:
-            self.filename = contdisp[0].strip('\'"')
+            self.filename = contdisp[0].split(";")[0].strip('\'"')
 
         # extension
         if "Content-Type" in headers:
@@ -821,55 +821,82 @@ class GalleryThread(BaseThread):
 # gallery_thread = GalleryThread()
 
 
-# class WatcherThread(BaseThread):
-#     observer = None
-#
-#     class Handler(FileSystemEventHandler):
-#         def on_any_event(self, event):
-#             event_thread.queue.put([event])
-#
-#     def setup(self):
-#         super().setup()
-#         self.observer = Observer()
-#         self.observer.start()
-#         self.schedule_folders()
-#
-#     def schedule_folders(self):
-#         self.observer.unschedule_all()
-#         for folder in Config.folders:
-#             self.observer.schedule(self.Handler(), folder, recursive=True)
+class FolderWatcherThread(BaseThread):
+    observer = None
 
-# watcher_thread = WatcherThread()
+    class Handler(FileSystemEventHandler):
+        def on_any_event(self, event):
+            event_thread.queue.put([event])
+
+    def setup(self):
+        super().setup()
+        self.observer = Observer()
+        self.observer.start()
+        self.set_folders()
+
+    def _run(self):
+        while True:
+            self.queue.get()
+            self.set_folders()
+
+    def set_folders(self):
+        self.observer.unschedule_all()
+        with user_database.get_session(self, acquire=True) as session:
+            folders = Utils.convert_result(session.execute(
+                select([user_database.Folders.path]).order_by(user_database.Folders.order)))
+        for folder in folders:
+            self.observer.schedule(self.Handler(), folder.get('path'), recursive=True)
 
 
-# class EventThread(BaseThread):
-#
-#     def _run(self):
-#         while True:
-#             self.process_events(self.queue.get())
-#
-#     def process_events(self, events):
-#         for event in events:
-#             source = Utils.norm_path(event.src_path)
-#             if event.event_type == "moved":
-#                 self.logger.info("moved")
-#             elif event.event_type == "deleted":
-#                 self.logger.info("deleted")
-#             elif event.event_type == "created":
-#                 self.logger.info("created")
-#             elif event.event_type == "modified":
-#                 self.logger.info("modified")
+folder_watcher_thread = FolderWatcherThread()
 
-# event_thread = EventThread()
+
+class EventThread(BaseThread):
+
+    def setup(self):
+        super().setup()
+        self.signals = self.Signals()
+        self.signals.created.connect(FukurouViewer.app.file_created_in_folder)
+        self.signals.deleted.connect(FukurouViewer.app.file_deleted_in_folder)
+        self.signals.modified.connect(FukurouViewer.app.file_modified_in_folder)
+
+    class Signals(QtCore.QObject):
+        created = QtCore.pyqtSignal(str)
+        deleted = QtCore.pyqtSignal(str)
+        modified = QtCore.pyqtSignal(str)
+
+    def _run(self):
+        while True:
+            self.process_events(self.queue.get())
+
+    def process_events(self, events):
+        for event in events:
+            source = Utils.norm_path(event.src_path)
+            if event.is_directory:
+                break
+            if event.event_type == "moved":
+                print("moved")
+            elif event.event_type == "deleted":
+                self.signals.deleted.emit(source)
+                print("deleted")
+            elif event.event_type == "created":
+                self.signals.created.emit(source)
+                print("created")
+            elif event.event_type == "modified":
+                self.signals.modified.emit(source)
+                print("modified")
+
+
+event_thread = EventThread()
 
 
 THREADS = [
     messenger_thread,
     download_manager,
     search_thread,
-    # download_thread,
+    folder_watcher_thread,
+    event_thread
     # gallery_thread,
-    # watcher_thread,
 ]
 
 

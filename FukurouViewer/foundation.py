@@ -1,5 +1,7 @@
 import random
 import string
+import bisect
+from pathlib import Path
 from datetime import timedelta
 from humanize import naturalsize
 from sqlalchemy import select
@@ -98,8 +100,19 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
     def roleNames(self):
         return {x: self._roles[x].encode() for x in self._roles}
 
-    def insert_list(self, list, index = -1):
-        """ insert list of items at end of _items"""
+    def getIndex(self, item):
+        """Returns index of item in list returns None if not found"""
+        print(item)
+        for index, val in enumerate(self._items):
+            print(val)
+            if val == item:
+                return index
+        return None
+
+    def insert_list(self, list, index=-1):
+        """ insert list of items at index
+            if index not specified insert at end
+        """
         start_index = self.rowCount() if index == -1 else index
         end_index = start_index + len(list) - 1
         self.beginInsertRows(QtCore.QModelIndex(), start_index, end_index)
@@ -110,18 +123,30 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         self.endInsertRows()
         self.do_list_update(start_index)
 
-    def insert_item(self, item, index = 0):
+    def insert_item(self, item, index=0):
         """ insert item into list at index """
         self.beginInsertRows(QtCore.QModelIndex(), index, index)
         self._items.insert(index, item)
         self.endInsertRows()
         self.do_list_update(index)
 
-    def remove_item(self, index):
+    def insert_new_item(self, item):
+        index = bisect.bisect(self._items, item)
+        print("Insert at index: " + str(index))
+        self.insert_item(item, index)
+
+    def remove_item(self, item, index=None):
+        if index is None:
+            index = self.getIndex(item)
+            print(str(index))
+        if index is not None:
+            self.remove_item_by_index(index)
+
+    def remove_item_by_index(self, index):
         self.beginRemoveRows(QtCore.QModelIndex(), index, index)
         del self._items[index]
         self.endRemoveRows()
-        
+        self.do_list_update(index)
 
     def do_list_update(self, index):
         """notifies the view that the list starting at index has updated"""
@@ -142,3 +167,28 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
             return QtCore.QVariant()
 
         return item.get(self._roles.get(role), QtCore.QVariant())
+
+
+class FileItem(object):
+
+    def __init__(self, _filepath, _modified_date):
+        self.filepath = _filepath
+        self.path = Path(_filepath).resolve()
+        self.modified_date = _modified_date
+
+    def __lt__(self, other):
+        return self.modified_date > other.modified_date
+
+    def get(self, key, default):
+        if key == "filepath":
+            test = str(self.path)
+            return test
+        if key == "modified_date":
+            return self.modified_date
+        return default
+
+    def __eq__(self, other):
+        return self.path == other.path
+
+    def __str__(self):
+        return ','.join((self.path.name, str(self.modified_date)))

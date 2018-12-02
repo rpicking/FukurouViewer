@@ -9,7 +9,7 @@ from . import user_database
 from .utils import Utils
 from .config import Config
 from .logger import Logger
-from .foundation import Foundation, BaseModel
+from .foundation import Foundation, BaseModel, FileItem
 from .history import History
 
 from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
@@ -408,11 +408,10 @@ class DownloadUIManager(QtCore.QObject):
 
 
 class GridModel(BaseModel):
-    IDRole = QtCore.Qt.UserRole + 1
-    NameRole = QtCore.Qt.UserRole + 2
-    FilepathRole = QtCore.Qt.UserRole + 3
+    NameRole = QtCore.Qt.UserRole + 1
+    FilepathRole = QtCore.Qt.UserRole + 2
 
-    _roles = { IDRole: "id", NameRole: "name", FilepathRole: "filepath" }
+    _roles = { NameRole: "name", FilepathRole: "filepath"}
 
 
 class ThumbnailProvider(QtQuick.QQuickImageProvider):
@@ -607,13 +606,14 @@ class Program(QtWidgets.QApplication, Logger):
             if results:
                 test_folder = results.get("path")
 
-
                 for dirpath, subdirs, filenames in os.walk(test_folder):
                     for file in sorted(filenames, key=lambda file:
                                        os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
-                        test.append({"name": file, "filepath": os.path.join(dirpath, file)})
+                        filepath = os.path.join(dirpath, file)
+                        modified_time = os.path.getmtime(filepath)
+                        test.append(FileItem(filepath, modified_time))
 
-            self.gridModel = GridModel(test)
+            self.gridModel = GridModel(test[0:49])
 
             # blow up preview 
             self.blow_up_item = BlowUpItem()
@@ -762,6 +762,18 @@ class Program(QtWidgets.QApplication, Logger):
         if status == "delete" or status == "done":
             self.downloadsModel.remove_item(id)
             self.downloadUIManager.remove_download(id, status)
+
+    def file_created_in_folder(self, filepath):
+        date_modified = os.path.getmtime(filepath)
+        self.gridModel.insert_new_item(FileItem(filepath, date_modified))
+
+    def file_deleted_in_folder(self, filepath):
+        self.gridModel.remove_item(FileItem(filepath, -1))
+
+    def file_modified_in_folder(self, filepath):
+        self.gridModel.remove_item(FileItem(filepath, -1))
+        new_date_modified = os.path.getmtime(filepath)
+        self.gridModel.insert_new_item(FileItem(filepath, new_date_modified))
 
     # open application window
     def open(self, mode="TRAY"):

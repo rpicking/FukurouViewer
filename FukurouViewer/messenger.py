@@ -151,7 +151,7 @@ class Messenger:
         while True:
             try:
                 msg = self.extension.read_message()
-                logging.info("Message from ext: " + msg)
+                #logging.info("Message from ext: " + msg)
                 self.host.send_message(msg)
                 response = self.host.read_message()
                 self.extension.send_message(response)
