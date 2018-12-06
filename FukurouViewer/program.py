@@ -416,10 +416,13 @@ class GridModel(BaseModel):
 
     def __init__(self, _folder_path, items=None):
         super().__init__(items)
-        self.folder_path = Path(_folder_path)
+        self.folder_path = Path(_folder_path).resolve()
 
     def isCurrentFolder(self, other):
-        return self.folder_path.samefile(other)
+        path = Path(other).resolve()
+        if path.is_dir():
+            return self.folder_path.samefile(path)
+        return self.folder_path.samefile(path.parent)
 
 
 class ThumbnailProvider(QtQuick.QQuickImageProvider):
@@ -771,23 +774,33 @@ class Program(QtWidgets.QApplication, Logger):
             self.downloadsModel.remove_item(id)
             self.downloadUIManager.remove_download(id, status)
 
-    def file_created_in_folder(self, filepath):
-        if not self.gridModel.isCurrentFolder(os.path.dirname(filepath)):
-            return
-        date_modified = os.path.getmtime(filepath)
-        self.gridModel.insert_new_item(FileItem(filepath, date_modified))
+    def file_moved_event(self, src_path, dst_path):
+        if self.gridModel.isCurrentFolder(src_path):
+            self.gridModel.remove_item(FileItem(src_path))
+        if self.gridModel.isCurrentFolder(dst_path):
+            self.gridModel.insert_new_item(FileItem(dst_path))
 
-    def file_deleted_in_folder(self, filepath):
-        if not self.gridModel.isCurrentFolder(os.path.dirname(filepath)):
+    def file_deleted_event(self, filepath):
+        if not self.gridModel.isCurrentFolder(filepath):
             return
-        self.gridModel.remove_item(FileItem(filepath, -1))
+        self.gridModel.remove_item(FileItem(filepath))
 
-    def file_modified_in_folder(self, filepath):
-        if not self.gridModel.isCurrentFolder(os.path.dirname(filepath)):
+    def file_created_event(self, filepath):
+        if not self.gridModel.isCurrentFolder(filepath):
             return
-        self.gridModel.remove_item(FileItem(filepath, -1))
-        new_date_modified = os.path.getmtime(filepath)
-        self.gridModel.insert_new_item(FileItem(filepath, new_date_modified))
+        self.gridModel.insert_new_item(FileItem(filepath))
+
+    def file_modified_event(self, filepath):
+        if not self.gridModel.isCurrentFolder(filepath):
+            return
+
+        item = FileItem(filepath)
+        self.gridModel.remove_item(item)
+
+        if not item.exists():
+            return
+        self.gridModel.insert_new_item(item)
+
 
     # open application window
     def open(self, mode="TRAY"):

@@ -1,3 +1,4 @@
+import os
 import random
 import string
 import bisect
@@ -115,8 +116,7 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         end_index = start_index + len(list) - 1
         self.beginInsertRows(QtCore.QModelIndex(), start_index, end_index)
 
-        for item in list:
-            self._items.append(item)
+        self._items[start_index:start_index] = list
 
         self.endInsertRows()
         self.do_list_update(start_index)
@@ -130,13 +130,11 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
 
     def insert_new_item(self, item):
         index = bisect.bisect(self._items, item)
-        print("Insert at index: " + str(index))
         self.insert_item(item, index)
 
     def remove_item(self, item, index=None):
         if index is None:
             index = self.getIndex(item)
-            print(str(index))
         if index is not None:
             self.remove_item_by_index(index)
 
@@ -169,21 +167,33 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
 
 class FileItem(object):
 
-    def __init__(self, _filepath, _modified_date):
+    def __init__(self, _filepath, _modified_date=None):
         self.filepath = _filepath
         self.path = Path(_filepath).resolve()
-        self.modified_date = _modified_date
+        if _modified_date is not None:
+            self.modified_date = _modified_date
+        else:
+            self.updateModifiedDate()
 
     def __lt__(self, other):
         return self.modified_date > other.modified_date
 
-    def get(self, key, default):
+    def get(self, key, default=None):
         if key == "filepath":
             test = str(self.path)
             return test
         if key == "modified_date":
             return self.modified_date
         return default
+
+    def exists(self):
+        return self.path.exists()
+
+    def setModifiedDate(self, date):
+        self.modified_date = date
+
+    def updateModifiedDate(self):
+        self.modified_date = os.path.getmtime(self.filepath) if os.path.exists(self.filepath) else -1
 
     def __eq__(self, other):
         return self.path == other.path

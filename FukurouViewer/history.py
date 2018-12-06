@@ -74,23 +74,28 @@ class History(QtCore.QObject, Logger):
         self._model.insert_list(items)
 
     def add_new(self):
+        today = datetime.today()
+        items = []
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(
                 session.execute(select([user_database.History])
                                 .where(user_database.History.time_added > self.newest_timestamp())
                                 .order_by(user_database.History.time_added.desc())))
 
-        today = datetime.today()
         for item in results:
+            history_item = HistoryItem(item)
             cur_date = datetime.fromtimestamp(item.get("time_added"))
             day_diff = (today - cur_date).days
             if day_diff == 0:
-                item["date"] = "Today"
+                date_str = "Today"
             elif day_diff == 1:
-                item["date"] = "Yesterday"
+                date_str = "Yesterday"
             else:
-                break
-        self._model.insert_list(results, 0)
+                date_str = cur_date.strftime("%B %d, %Y")
+            history_item.date = date_str
+            items.append(history_item)
+
+        self._model.insert_list(items, 0)
 
     @QtCore.pyqtSlot(int, int, name="delete_item")
     def delete_item(self, index, db_id):
@@ -104,6 +109,7 @@ class HistoryItem(object):
     def __init__(self, item):
         self.id = item.get("id")
         self.date = item.get("date")
+        self.timeadded = item.get("time_added")
         self.filename = item.get("filename")
         self.filepath = item.get("filepath")
         self.src_url = item.get("src_url")
@@ -112,11 +118,13 @@ class HistoryItem(object):
     def __lt__(self, other):
         return self.id > other.id
 
-    def get(self, key, default):
+    def get(self, key, default=None):
         if key == "id":
             return self.id
         if key == "date":
             return self.date
+        if key == "time_added":
+            return self.timeadded
         if key == "filename":
             return self.filename
         if key == "filepath":

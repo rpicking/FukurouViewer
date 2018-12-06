@@ -255,7 +255,6 @@ class MessengerThread(BaseThread):
         self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
-
 if os.name == 'nt':
     import win32api
     import win32pipe
@@ -312,7 +311,7 @@ class DownloadItem:
 
         self.dir = msg.get("dir", self.folder.get("path"))
         self.filepath = msg.get("filepath", None)
-        self.tmp_filepath = ""
+        self.tmp_filepath = msg.get("tmp_filepath", None)
         self.filename = msg.get("filename", None)    # basename and extension filename.txt
         self.base_name = msg.get("base_name", None)   # filename before .ext
         self.ext = msg.get("ext", None)
@@ -414,7 +413,7 @@ class DownloadItem:
     @staticmethod
     def ext_convention(ext):
         """Formats extension using desired convention '.JPG' -> '.jpg' """
-        if ext.lower() in ['.jpeg', '.jpe']:
+        if ext.lower() in ['.jpeg', '.jpe', '.jpglarge']:
             return '.jpg'
         return ext.lower()
 
@@ -527,17 +526,19 @@ class DownloadManager(Logger):
 
         for item in downloads:
             item["task"] = "load"
-            filepath = item.get("filepath") + ".part"
-            if os.path.exists(filepath):
-                item["downloaded"] = os.path.getsize(filepath)
+            tmp_filepath = item.get("filepath") + ".part"
+            if os.path.exists(tmp_filepath):
+                item["downloaded"] = os.path.getsize(tmp_filepath)
             else:
                 item["downloaded"] = 0
+                open(tmp_filepath, 'a').close()
 
-            if not os.path.exists(filepath):
-                with user_database.get_session(self, acquire=True) as session:
-                    session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
-                open(filepath, 'a').close()
+            # if not os.path.exists(filepath):
+            #     with user_database.get_session(self, acquire=True) as session:
+            #         session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
+            #     open(filepath, 'a').close()
 
+            item["tmp_filepath"] = tmp_filepath
             download_item = DownloadItem(item)
             self.signals.create.emit(download_item)
 
@@ -600,7 +601,8 @@ class DownloadThread(BaseThread):
                     self.start_download()
                 elif self.download_item.task == "saveManga":
                     self.saveManga_task()
-        except Exception:
+        except Exception as e:
+            print(e)
             self.log_exception()
             # self.delete_file(self.filepath)
 
@@ -659,7 +661,7 @@ class DownloadThread(BaseThread):
         self.curl.setopt(pycurl.WRITEFUNCTION, self.writer)
         self.curl.setopt(pycurl.NOPROGRESS, 0)
         self.curl.setopt(pycurl.XFERINFOFUNCTION, self.progress)
-        
+
         self.curl.setopt(pycurl.HEADERFUNCTION, self.header)
         self.curl.setopt(pycurl.HTTPHEADER, [k+': '+v for k,v in self.download_item.send_headers.items()])
 
@@ -676,8 +678,9 @@ class DownloadThread(BaseThread):
         try:
             self.curl.perform()
         except pycurl.error as error:
+            print(error)
             self.f.close()
-           
+
             if self.toBeDeleted:
                 if os.path.exists(self.download_item.tmp_filepath):
                     os.remove(self.download_item.tmp_filepath)
@@ -686,6 +689,7 @@ class DownloadThread(BaseThread):
                 self.logger.error("Failed downloading " + self.download_item.filename + " with error: " + error)
             return
         except Exception as error:
+            print(error)
             self.logger.error(error)
             self.log_exception()
             return
@@ -856,11 +860,13 @@ class EventThread(BaseThread):
     def setup(self):
         super().setup()
         self.signals = self.Signals()
-        self.signals.created.connect(FukurouViewer.app.file_created_in_folder)
-        self.signals.deleted.connect(FukurouViewer.app.file_deleted_in_folder)
-        self.signals.modified.connect(FukurouViewer.app.file_modified_in_folder)
+        self.signals.moved.connect(FukurouViewer.app.file_moved_event)
+        self.signals.created.connect(FukurouViewer.app.file_created_event)
+        self.signals.deleted.connect(FukurouViewer.app.file_deleted_event)
+        self.signals.modified.connect(FukurouViewer.app.file_modified_event)
 
     class Signals(QtCore.QObject):
+        moved = QtCore.pyqtSignal(str, str)
         created = QtCore.pyqtSignal(str)
         deleted = QtCore.pyqtSignal(str)
         modified = QtCore.pyqtSignal(str)
@@ -871,19 +877,19 @@ class EventThread(BaseThread):
 
     def process_events(self, events):
         for event in events:
-            source = Utils.norm_path(event.src_path)
             if event.is_directory:
-                break
+                continue
             if event.event_type == "moved":
+                self.signals.moved.emit(event.src_path, event.dest_path)
                 print("moved")
             elif event.event_type == "deleted":
-                self.signals.deleted.emit(source)
+                self.signals.deleted.emit(event.src_path)
                 print("deleted")
             elif event.event_type == "created":
-                self.signals.created.emit(source)
+                self.signals.created.emit(event.src_path)
                 print("created")
             elif event.event_type == "modified":
-                self.signals.modified.emit(source)
+                self.signals.modified.emit(event.src_path)
                 print("modified")
 
 
