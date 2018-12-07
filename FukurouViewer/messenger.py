@@ -45,6 +45,7 @@ class ExtensionMessage:
 
 
 class HostMessage:
+    BUFFER_SIZE = 4096
     """ Exchanges messages with main application over named pipe
         Different implementation of os is windows.
         Functions on assumption that all communcation with host 
@@ -68,8 +69,13 @@ class HostMessage:
     # returns dict message from host
     def read_message(self):
         if self.windows:
-            data = win32file.ReadFile(self.pipe, 4096)[1]
-            return data.decode()
+            result, data = win32file.ReadFile(self.pipe, HostMessage.BUFFER_SIZE, None)
+            buffer = data
+            while len(data) == HostMessage.BUFFER_SIZE:
+                result, data = win32file.ReadFile(self.pipe, HostMessage.BUFFER_SIZE, None)
+                buffer += data
+
+            return buffer.decode()
 
         with open(self.pipe, "r") as pipe:
             data = pipe.readline()

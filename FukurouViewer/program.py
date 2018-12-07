@@ -775,32 +775,43 @@ class Program(QtWidgets.QApplication, Logger):
             self.downloadUIManager.remove_download(id, status)
 
     def file_moved_event(self, src_path, dst_path):
-        if self.gridModel.isCurrentFolder(src_path):
-            self.gridModel.remove_item(FileItem(src_path))
-        if self.gridModel.isCurrentFolder(dst_path):
-            self.gridModel.insert_new_item(FileItem(dst_path))
+        try:
+            if self.gridModel.isCurrentFolder(src_path):
+                self.gridModel.remove_item(FileItem(src_path))
+            if self.gridModel.isCurrentFolder(dst_path):
+                self.gridModel.insert_new_item(FileItem(dst_path))
+        except Exception as e:
+            self.logger.error("MovedEvent", e)
 
     def file_deleted_event(self, filepath):
-        if not self.gridModel.isCurrentFolder(filepath):
-            return
-        self.gridModel.remove_item(FileItem(filepath))
+        try:
+            if not self.gridModel.isCurrentFolder(filepath):
+                return
+            self.gridModel.remove_item(FileItem(filepath))
+        except Exception as e:
+            self.logger.error("DeletedEvent", e)
 
     def file_created_event(self, filepath):
-        if not self.gridModel.isCurrentFolder(filepath):
-            return
-        self.gridModel.insert_new_item(FileItem(filepath))
+        try:
+            if not self.gridModel.isCurrentFolder(filepath):
+                return
+            self.gridModel.insert_new_item(FileItem(filepath))
+        except Exception as e:
+            self.logger.error("CreatedEvent", e)
 
     def file_modified_event(self, filepath):
-        if not self.gridModel.isCurrentFolder(filepath):
-            return
+        try:
+            if not self.gridModel.isCurrentFolder(filepath):
+                return
 
-        item = FileItem(filepath)
-        self.gridModel.remove_item(item)
+            item = FileItem(filepath)
+            self.gridModel.remove_item(item)
 
-        if not item.exists():
-            return
-        self.gridModel.insert_new_item(item)
-
+            if not item.exists():
+                return
+            self.gridModel.insert_new_item(item)
+        except Exception as e:
+            self.logger.error("ModifiedEvent", e)
 
     # open application window
     def open(self, mode="TRAY"):

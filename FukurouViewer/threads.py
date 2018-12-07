@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import queue
+import base64
 import imghdr
 import pycurl
 import certifi
@@ -91,6 +92,7 @@ class BaseThread(threading.Thread, Logger):
 
 class MessengerThread(BaseThread):
     THREAD_COUNT = 1
+    BUFFER_SIZE = 4096
     PIPE_PATH = "/tmp/fukurou.fifo"
     WIN_PIPE_PATH = r'\\.\pipe\fukurou_pipe'
 
@@ -116,6 +118,7 @@ class MessengerThread(BaseThread):
 
     def _run(self):
         win32pipe.ConnectNamedPipe(self.pipe, None)
+        msg = None
         while True:
             try:
                 # read message from messenger
@@ -139,10 +142,6 @@ class MessengerThread(BaseThread):
 
                 self.send_message(payload)
 
-                # response = self.process_message(msg)
-                # send response back to messenger
-                # self.send_message(response)
-
             except win32pipe.error as e:    # messenger has closed
                 # self.logger.error("Messenger closed")
                 # self.logger.error(e)
@@ -154,6 +153,7 @@ class MessengerThread(BaseThread):
                 win32pipe.ConnectNamedPipe(self.pipe, None)
             except Exception as e:
                 self.logger.error(e)
+                self.logger.error(msg)
 
     def close(self):
         if self.windows:
@@ -167,9 +167,13 @@ class MessengerThread(BaseThread):
     # returns dict message from host
     def read_message(self):
         if self.windows:
-            data = win32file.ReadFile(self.pipe, 4096)[1]
-            msg = data.decode()
-            return json.loads(msg)
+            result, data = win32file.ReadFile(self.pipe, MessengerThread.BUFFER_SIZE, None)
+            buffer = data
+            while len(data) == MessengerThread.BUFFER_SIZE:
+                result, data = win32file.ReadFile(self.pipe, MessengerThread.BUFFER_SIZE, None)
+                buffer += data
+
+            return json.loads(buffer.decode())
 
         with open(self.pipe, "r") as pipe:
             msg = pipe.readline()
@@ -396,11 +400,51 @@ class DownloadItem:
         """Download favicon if not already downloaded"""
         if self.favicon_url:
             favicon_path = os.path.join(self.FAVICON_PATH, self.domain + ".ico")
-            if not os.path.exists(favicon_path):
+            encoding = None
+            if self.favicon_url.startswith("data:"):
+                extension, encoding = self.getDataType(self.favicon_url)
+                if extension is not None and encoding is not None:
+                    favicon_path = os.path.join(self.FAVICON_PATH, self.domain + extension)
+
+            # always 'update' favicon if it exists
+
+            if encoding is None:
                 icon = requests.get(self.favicon_url, headers=self.send_headers, cookies=self.cookies, timeout=10)
                 with open(favicon_path, "wb") as f:
                     for chunk in icon:
                         f.write(chunk)
+            else:
+                data = ""
+                byte_obj = self.favicon_url.split(',')[1]
+                if encoding == "base64":
+                    data = base64.b64decode(byte_obj)
+                elif encoding == "base32":
+                    data = base64.b32decode(byte_obj)
+                elif encoding == "base16":
+                    data = base64.b16decode(byte_obj)
+                elif encoding == "base85":
+                    data = base64.b85decode(byte_obj)
+                else:
+                    return
+
+                if not data:
+                    return
+
+                with open(favicon_path, "wb") as f:
+                    f.write(data)
+
+    # Given data string 'data:image/png;base64,BAKFKDSlasd...
+    # return tuple of format and encoding
+    def getDataType(self, data_str):
+        format_regex = re.findall('(?<=:)(.*?)(?=,)', data_str)
+        parts = []
+        if format_regex:
+            parts = format_regex[0].split(";")
+        if len(parts) == 0:
+            return None, None
+        mimetype = parts[0]
+        encoding = parts[1]
+        return guess_extension(mimetype), encoding
 
     def set_filename(self):
         """Sets self.filename from url"""
