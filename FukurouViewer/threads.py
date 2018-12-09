@@ -451,6 +451,7 @@ class DownloadItem:
         full_filename = self.url.split('/')[-1]   # get filename from srcUrl
         full_filename = full_filename.split('?')[0]   # strip query string parameters
         full_filename = full_filename.split('#')[0]   # strip anchor
+        full_filename = full_filename.split(':')[0]   # string delimiter
         full_filename = unquote(full_filename)
         self.filename = full_filename
 
