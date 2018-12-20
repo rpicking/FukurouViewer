@@ -242,6 +242,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
 
 
 class ImageProvider(QtQuick.QQuickImageProvider):
+    """image provider for default file icons i.e. icon of default program that runs file"""
     TMP_DIR = Utils.fv_path("tmp")
 
     def __init__(self):
@@ -260,7 +261,6 @@ class ImageProvider(QtQuick.QQuickImageProvider):
             tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
             path = tmpfile
 
-        # wat = QtCore.QFileInfo(path)
         icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
         pixmap = icon.pixmap(icon.availableSizes()[-1]) # make pixmap out of largest icon size
 
@@ -431,7 +431,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
     def __init__(self):
         QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
         
-        self.supported_formats = [ "." + format.data().decode("utf-8") for format in QtGui.QImageReader.supportedImageFormats() ]
+        self.supported_formats = ["." + format.data().decode("utf-8") for format in QtGui.QImageReader.supportedImageFormats() ]
 
     def requestImage(self, file, requestedSize):
         width = requestedSize.width()
@@ -457,16 +457,21 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
         _, ext = os.path.splitext(filepath)
 
         imageReader = QtGui.QImageReader(filepath)
-        imageReader.setDecideFormatFromContent(True);
+        imageReader.setDecideFormatFromContent(True)
 
         if imageReader.canRead():
-            imageReader.setScaledSize(requestedSize)
-            image = QtGui.QPixmap.fromImage(imageReader.read())
+            image = QtGui.QPixmap().fromImage(imageReader.read())
             if width != -1 and height != -1:
                 image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         else:
-            image = QtGui.QPixmap(200, 280)
-            image.fill(QtCore.Qt.red)
+            _, ext = os.path.splitext(filepath)
+            tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
+            if not os.path.exists(tmpfile):
+                open(tmpfile, 'a').close()
+
+            icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(tmpfile))
+            image = icon.pixmap(min(icon.availableSizes(), key=lambda x: x.height()))
+            image = image.scaled(width - 20, height - 20, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
 
         return image, requestedSize
 
@@ -624,7 +629,7 @@ class Program(QtWidgets.QApplication, Logger):
                         modified_time = os.path.getmtime(filepath)
                         test.append(FileItem(filepath, modified_time))
 
-            self.gridModel = GridModel(test_folder, test[0:49])
+            self.gridModel = GridModel(test_folder, test)
 
             # blow up preview 
             self.blow_up_item = BlowUpItem()

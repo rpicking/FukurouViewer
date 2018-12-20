@@ -44,10 +44,10 @@ Old.ScrollView {
                         }
                         Image {
                             id: picture
-                            width: 200
-                            height: 280
-                            sourceSize.width: width
-                            sourceSize.height: height
+                            //width: 200
+                            //height: 280
+                            sourceSize.width: 200
+                            sourceSize.height: 280
                             //asynchronous: true
                             fillMode: Image.PreserveAspectFit
                             source: "image://thumbs/" + encodeURIComponent(filepath)
