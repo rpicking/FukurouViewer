@@ -470,7 +470,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
                 open(tmpfile, 'a').close()
 
             icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(tmpfile))
-            image = icon.pixmap(min(icon.availableSizes(), key=lambda x: x.height()))
+            image = icon.pixmap(max(icon.availableSizes(), key=lambda x: x.height()))
             image = image.scaled(width - 20, height - 20, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
 
         return image, requestedSize
