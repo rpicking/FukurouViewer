@@ -619,6 +619,7 @@ class Program(QtWidgets.QApplication, Logger):
 
             # gallery test grid
             test = []
+            test_folder = ""
             if results:
                 test_folder = results.get("path")
 

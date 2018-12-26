@@ -3,13 +3,15 @@ import sys
 import logging
 
 from .utils import Utils
+
+# Create saved directory
+if not os.path.exists(Utils.fv_path()):
+    os.mkdir(Utils.fv_path())
+
 from .logger import Logger
 from . import program, threads
 
 # setup logging
-if not os.path.exists(Utils.fv_path()):
-    os.mkdir(Utils.fv_path())
-
 log_dir = Utils.fv_path("logs")
 if not os.path.exists(log_dir):
     os.mkdir(log_dir)

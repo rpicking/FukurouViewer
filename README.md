@@ -26,6 +26,25 @@ Current Features
 * Multiple Concurrent Downloading
 * Metadata gathering from supported sites
 
+Installation for Development
+---------------------
+Clone git repository
+
+##### Requirements
+* Python 3.6+
+
+##### Windows
+1. Install python 3.6+
+2. Install python requirements
+```pip install -r requirements.txt```
+
+##### Linux
+1. Install python 3.6+
+2. Install linux python dependencies
+```sudo apt install libcurl4-openssl-dev libssl-dev python3-dev```
+3. Install python requirements
+```pip install -r requirements_linux.txt```
+
 Requirements
 ---------------------
 I plan on being as cross-platform compatible as possible.  Currently no major features limit this plan.  Current

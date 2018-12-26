@@ -57,7 +57,7 @@ class Config(ConfigParser):
                     self.set(section, option_key, value)
 
     def save(self):
-        with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
+        with open(self.SETTINGS_FILE, "w+", encoding="utf-8") as f:
             self.write(f)
 
     def load(self):
