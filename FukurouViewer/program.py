@@ -19,8 +19,9 @@ from urllib.parse import unquote
 
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
-    def __init__(self, icon, parent=None):
+    def __init__(self, icon, _program, parent=None):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
+        self.program = _program
         self.menu = QtWidgets.QMenu(parent)
         self.createMenu()
 
@@ -36,11 +37,20 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
             item = FolderMenuItem(self, name, path, uid)
             self.menu.addAction(item)
 
+        self.menu.addSeparator()
+        openMenu = QtWidgets.QAction("Open", self)
+        openMenu.setStatusTip("Open Application")
+        openMenu.triggered.connect(self.openApp)
+        self.menu.addAction(openMenu)
+
         self.exitAction = QtWidgets.QAction('&Exit', self)
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
         self.setToolTip("Fukurou Viewer")
+
+    def openApp(self):
+        self.program.open("APP")
            
 
 class FolderMenuItem(QtWidgets.QAction):
@@ -572,7 +582,7 @@ class Program(QtWidgets.QApplication, Logger):
 
         # HANDLING OF TRAY ICON
         self.w = QtWidgets.QWidget()
-        self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self.w)
+        self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self, self.w)
         self.trayIcon.show()
         self.trayIcon.exitAction.triggered.connect(self.quit)
         self.setDoubleClickInterval(300)
