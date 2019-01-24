@@ -894,7 +894,8 @@ class FolderWatcherThread(BaseThread):
             folders = Utils.convert_result(session.execute(
                 select([user_database.Folders.path]).order_by(user_database.Folders.order)))
         for folder in folders:
-            self.observer.schedule(self.Handler(), folder.get('path'), recursive=True)
+            if os.path.exists(folder.get('path')):
+                self.observer.schedule(self.Handler(), folder.get('path'), recursive=True)
 
 
 folder_watcher_thread = FolderWatcherThread()
