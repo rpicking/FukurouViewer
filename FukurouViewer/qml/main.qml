@@ -335,8 +335,8 @@ ApplicationWindow {
 
     Window {
         id: testPopup
-        width: testImage.width
-        height: testImage.height
+        width: blowUpContent.loaderItem.width
+        height: blowUpContent.loaderItem.height
         flags: Qt.FramelessWindowHint
         x: blowUp.x
         y: blowUp.y
@@ -345,40 +345,83 @@ ApplicationWindow {
             setEventFilter(globalCoords, thumb_width, thumb_height, width, height, xPercent, yPercent);
         }
 
+        function setSource(file) {
+            blowUpContentLoader.sourceComponent = imageComponent
+            blowUpContent.loaderItem.source = file
+        
+        }
+
         function closeAndReset() {
-            testImage.height = undefined;
-            testImage.width = undefined;
+            blowUpContent.height = undefined;
+            blowUpContent.width = undefined;
             hide();
         }
 
         //Image { id: testImage }
 
-        AnimatedImage {
-            id: testImage
-            property real scaleFactor: 1.0
-            property int imageHeight: 0
-            property int imageWidth: 0
+        Item {
+            id: blowUpContent
+            property alias loaderItem: blowUpContentLoader.item
 
-            Component.onCompleted: {
-                mainWindow.scrollBlowUp.connect(scaleImage);
-            }
-
-            function scaleImage(wheelScroll) {
-                scaleFactor += 0.1 * wheelScroll;
-                if (scaleFactor < 0) scaleFactor = 0;
-
-                height = imageHeight * scaleFactor;
-                width = imageWidth * scaleFactor;
-            }
-
-            onStatusChanged: {
-                playing = (status === AnimatedImage.Ready);
-                if (status === AnimatedImage.Ready) {
-                    imageHeight = height;
-                    imageWidth = width;
-                }
+            Loader {
+                id: blowUpContentLoader
+                sourceComponent: imageComponent //(logo) ? "TeamLogoItem.qml" : "TeamItem.qml"
             }
         }
+
+        // Component {
+        //     id: videoComponent
+        //     Video {
+        //         id: video
+        //         width : 800
+        //         height : 600
+
+        //         MouseArea {
+        //             anchors.fill: parent
+        //             onClicked: {
+        //                 video.play()
+        //             }
+        //         }
+
+        //         focus: true
+        //         Keys.onSpacePressed: video.playbackState == MediaPlayer.PlayingState ? video.pause() : video.play()
+        //         Keys.onLeftPressed: video.seek(video.position - 5000)
+        //         Keys.onRightPressed: video.seek(video.position + 5000)
+        //     }
+        // }
+
+        Component {
+            id: imageComponent
+            BlowUpImage { }
+        }
+        
+
+        // AnimatedImage {
+        //     id: testImage
+        //     property real scaleFactor: 1.0
+        //     property int imageHeight: 0
+        //     property int imageWidth: 0
+
+        //     Component.onCompleted: {
+        //         mainWindow.scrollBlowUp.connect(scaleImage);
+        //     }
+
+        //     function scaleImage(wheelScroll) {
+        //         scaleFactor += 0.1 * wheelScroll;
+        //         if (scaleFactor < 0) scaleFactor = 0;
+
+        //         height = imageHeight * scaleFactor;
+        //         width = imageWidth * scaleFactor;
+        //     }
+
+        //     onStatusChanged: {
+        //         playing = (status === AnimatedImage.Ready);
+        //         if (status === AnimatedImage.Ready) {
+        //             imageHeight = height;
+        //             imageWidth = width;
+        //         }
+        //     }
+        // }
 /*
 		MouseArea {
 			anchors.fill: parent

@@ -68,7 +68,9 @@ Old.ScrollView {
                                 onPressAndHold: {
                                     var xPercent = mouse.x / parent.width
                                     var yPercent = mouse.y / parent.height
-                                    testImage.source = "file:///" + filepath
+
+                                    testPopup.setSource("file:///" + filepath)
+                                    // testImage.source = "file:///" + filepath
 
                                     var globalCoords = mapToGlobal(mouse.x, mouse.y);
                                     testPopup.openOnPoint(globalCoords, parent.width, parent.height, xPercent, yPercent);
