@@ -1,3 +1,6 @@
+import sys
+import linecache
+
 from enum import Enum
 from time import time
 from sqlalchemy import delete, insert, select, update
@@ -9,13 +12,15 @@ from .logger import Logger
 from .config import Config
 from .search import Search
 
+
 class CreationType(Enum):
         FULL = 0    # ex gallery_id and gallery_token
         PAGE = 1    # ex Individual page tokens
         GAL = 2     # ex gallery tokens
         HASH = 3    # file sha1 hash search
 
-class BaseIdentifier():
+
+class BaseIdentifier:
     identity = None    # data to identify 
     creation_type = None
 
@@ -42,7 +47,7 @@ class EHIdentifier(BaseIdentifier):
         PAGE = 1    # ex Individual page tokens
         HASH = 2    # file sha1 hash search
 
-    class GalIdentity():
+    class GalIdentity:
         gid = None   # int
         token = ""  # str
 
@@ -55,7 +60,7 @@ class EHIdentifier(BaseIdentifier):
             payload["gidlist"].append([self.gid, self.token])
             return payload
 
-    class PageIdentity():
+    class PageIdentity:
         gid = None   # int
         page_token = ""  # str
         page_number = None # int
@@ -70,9 +75,10 @@ class EHIdentifier(BaseIdentifier):
             payload["pagelist"].append([self.gid, self.page_token, self.page_number])
             return payload
 
-    class HashIdentity():
+    class HashIdentity:
         hash = ""   # sha1 str
         path = ""   # str
+
         def __init__(self, **kwargs):
             self.hash = kwargs.get('hash')
             self.path = kwargs.get('path')
@@ -183,7 +189,6 @@ class GenericGallery(Logger):
             return test
         return None
 
-
     # searches for gallery information
     # returns true if done
     #   false if need to search again
@@ -206,7 +211,7 @@ class GenericGallery(Logger):
 
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.Gallery]).where( user_database.Gallery.url == self.url)))
+                select([user_database.Gallery]).where(user_database.Gallery.url == self.url)))
 
         if results:
             results = results[0]

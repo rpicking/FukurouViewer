@@ -18,21 +18,20 @@ class Search(Logger):
         file = "file"
         file2 = "file1"
         
-        sha_hash = Utils.generate_sha_hash(file1)
+        sha_hash = Utils.generate_sha_hash(file)
         cls.ex_search(title=title, sha_hash=sha_hash, page_num=0, cover_only=1)
         sha_hash = Utils.generate_sha_hash(file2)
         cls.ex_search(sha_hash=sha_hash, page_num=0, cover_only=1)
 
     @classmethod
     def ex_search(cls, **kwargs):
-        cls = cls()
         title = kwargs.get("title", "")
         sha_hash = kwargs.get("sha_hash", "")
         page_num = kwargs.get("page_num", 0)
         cover_only = kwargs.get("cover_only", 1)
                 
         url = cls.BASE_EX_URL % (title, sha_hash, page_num, cover_only)
-        response = exRequestManager.get(url)
+        response = ex_request_manager.get(url)
         html_results = bs4.BeautifulSoup(response, "html.parser")
         results = [div.a for div in html_results.findAll("div", attrs={"class": "it5"})]
         result_urls = [r['href'] for r in results]

@@ -3,12 +3,15 @@ import sys
 import logging
 
 from .utils import Utils
-from .logger import Logger
 
-# setup logging
+# Create saved directory
 if not os.path.exists(Utils.fv_path()):
     os.mkdir(Utils.fv_path())
 
+from .logger import Logger
+from . import program, threads
+
+# setup logging
 log_dir = Utils.fv_path("logs")
 if not os.path.exists(log_dir):
     os.mkdir(log_dir)
@@ -21,12 +24,6 @@ requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.WARNING)
 requests_log.propagate = False
 
-from . import program, threads
-
-# workaround to use material style
-sys_argv = sys.argv
-sys_argv += ['-style', 'material']
-
-app = program.Program(sys_argv)
+app = program.Program(sys.argv)
 app.setup(sys.argv)
 threads.setup()

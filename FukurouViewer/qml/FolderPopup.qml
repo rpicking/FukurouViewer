@@ -3,14 +3,16 @@ import QtQuick.Window 2.2
 import QtQuick.Controls 2.1
 import QtQuick.Dialogs 1.2
 
+import "."
+
 Window {
     id: newFolderWindow
-    flags: Qt.FramelessWindowHint //| Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint | Qt.Popup //| Qt.WindowStaysOnTopHint
     width: 450
     height: 250
     modality: Qt.WindowModal
 
-    property bool validFolder: true
+    property bool validFolder: false
 
     Component.onCompleted: {
         mainWindow.receiveValidFolder.connect(validFolderCheck);
@@ -55,13 +57,13 @@ Window {
         anchors.right: parent.right
         anchors.left: parent.left
         anchors.top: parent.top
-        color: theme.background
+        color: Styles.background
 
         Text {
             text: "Add Favorite Folder"
             font.family: "Verdana"
             font.pointSize: 17
-            color: theme.foreground
+            color: Styles.foreground
             anchors.top: parent.top
             anchors.topMargin: 6
             anchors.left: parent.left
@@ -144,7 +146,7 @@ Window {
 
         Button {
             id: browseButton
-            width: 70
+            width: 80
             height: 40
             text: qsTr("Browse")
             padding: 6
@@ -180,7 +182,7 @@ Window {
             Text {
                 text: validFolder ? "\uf058" : "\uf057"
                 color: validFolder ? "green" : "red"
-                font.family: fontAwesome.name
+                font.family: Fonts.solidIcons
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 anchors.fill: parent
@@ -363,12 +365,8 @@ Window {
             height: 40
             radius: 5
             color: {
-                if(saveMA.containsPress) {
-                    return "#bcbcbc";
-                }
-                else if (saveMA.containsMouse) {
-                    return "#e0e0e0";
-                }
+                if(saveMA.containsPress) return "#bcbcbc";
+                else if (saveMA.containsMouse) return "#e0e0e0";
                 return "#ffffff";
             }
             anchors.bottom: parent.bottom
@@ -384,16 +382,18 @@ Window {
                 font.family: "Verdana"
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
-                color: theme.accent
+                color: Styles.accent
             }
 
             MouseArea {
                 id: saveMA
                 anchors.fill: parent
                 hoverEnabled: true
+                enabled: validFolder
                 onClicked: {
                     mainWindow.createFavFolder(nameInput.text, folderInput.text, colorField.color, 2);
                     clearValues();
+                    mainWindow.requestFolders();
                     newFolderWindow.close();
                 }
             }
@@ -426,7 +426,7 @@ Window {
                 font.family: "Verdana"
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: theme.accent
+                color: Styles.accent
             }
 
             MouseArea {

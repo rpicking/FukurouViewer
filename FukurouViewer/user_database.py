@@ -13,7 +13,7 @@ from FukurouViewer.logger import Logger
 DB_NAME = "db.sqlite"
 DATABASE_FILE = Utils.fv_path(DB_NAME)
 DATABASE_URI = "sqlite:///" + DATABASE_FILE
-MIGRATE_REPO =  Utils.convert_from_relative_path("migrate_repo/")
+MIGRATE_REPO = Utils.convert_from_relative_path("migrate_repo/")
 lock = Lock()
 
 
@@ -21,9 +21,11 @@ Base = declarative_base()
 engine = sqlalchemy.create_engine(DATABASE_URI)
 session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
+
 class UserDatabase(Logger):
-    "Dummy class for logging"
+    """Dummy class for logging"""
     pass
+
 
 Database = UserDatabase()
 
@@ -38,12 +40,13 @@ class History(Base):
     domain = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
     time_added = sqlalchemy.Column(sqlalchemy.Integer)
     type = sqlalchemy.Column(sqlalchemy.Integer, default=1)
-    full_path = sqlalchemy.Column(sqlalchemy.Text)
+    filepath = sqlalchemy.Column(sqlalchemy.Text)
     favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
-    folder = sqlalchemy.Column(sqlalchemy.Text)
     dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("folders.id"))
     gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
 
+    folder = relationship("Folders", foreign_keys=[folder_id])
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
 
@@ -63,7 +66,7 @@ class Gallery(Base):
     url = sqlalchemy.Column(sqlalchemy.Text)                # url of import site
     virtual = sqlalchemy.Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
 
-    #history_items = relationship("History", backref="gallery")
+    # history_items = relationship("History", backref="gallery")
 
 
 class Folders(Base):
@@ -78,10 +81,29 @@ class Folders(Base):
     type = sqlalchemy.Column(sqlalchemy.Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
 
 
+class Downloads(Base):
+    __tablename__ = "downloads"
+
+    id = sqlalchemy.Column(sqlalchemy.Text, primary_key=True)   # ui download item id
+    filepath = sqlalchemy.Column(sqlalchemy.Text)
+    filename = sqlalchemy.Column(sqlalchemy.Text)
+    base_name = sqlalchemy.Column(sqlalchemy.Text)
+    ext = sqlalchemy.Column(sqlalchemy.Text)
+    total_size = sqlalchemy.Column(sqlalchemy.Integer)
+    srcUrl = sqlalchemy.Column(sqlalchemy.Text)
+    pageUrl = sqlalchemy.Column(sqlalchemy.Text)
+    domain = sqlalchemy.Column(sqlalchemy.Text)
+    favicon_url = sqlalchemy.Column(sqlalchemy.Text)
+    timestamp = sqlalchemy.Column(sqlalchemy.Integer)
+    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
+
+    folder = relationship("Folders", foreign_keys=[folder_id])
+
+
 def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):
-        base.metadata.create_all(engine)
+        Base.metadata.create_all(engine)
         api.version_control(DATABASE_URI, MIGRATE_REPO, version=api.version(MIGRATE_REPO))
     else:
         try:
@@ -101,7 +123,7 @@ def get_session(requester, acquire=False):
         session = scoped_session(session_maker)
         yield session
         session.commit()
-    except:
+    except Exception:
         session.rollback()
         raise
     finally:

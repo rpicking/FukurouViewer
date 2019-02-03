@@ -1,11 +1,11 @@
 import os
 import json
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 
 from .utils import Utils
 
 
-class Config(SafeConfigParser):
+class Config(ConfigParser):
     """Configs for FukurouViewer application
 
     """
@@ -14,8 +14,7 @@ class Config(SafeConfigParser):
 
     SETTINGS = {
         "General": [
-            "folders",
-            "folder_options",
+            {"close": "tray"},
             "doujin_downloader",
         ],
         "Online": [
@@ -36,28 +35,42 @@ class Config(SafeConfigParser):
             self.load()
         except FileNotFoundError:
             self.save()
+            # set defaults
+            self.close = "tray"
+
         self.build()
+        self.save()
 
     def build(self):
-        need_save = False
         for section in self.SETTINGS:
             if not self.has_section(section):
                 self.add_section(section)
-                need_save = True
-            for option in self.SETTINGS.get(section):
-                if not self.has_option(section, option):
-                    self.set(section, option, "")
-                    need_save = True
-        if need_save:
-            self.save()
+            for option in self.SETTINGS.get(section):                
+                if type(option) is dict:
+                    option_key = next(iter(option))
+                else:
+                    option_key = option
+                if not self.has_option(section, option_key):
+                    value = ""
+                    if isinstance(option, dict):
+                        value = option.get(option_key, "")
+                    self.set(section, option_key, value)
 
     def save(self):
-        with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
+        with open(self.SETTINGS_FILE, "w+", encoding="utf-8") as f:
             self.write(f)
 
     def load(self):
         with open(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
             self.read_file(f)
+
+    @property
+    def close(self):
+        return self.get("General", "close")
+
+    @close.setter
+    def close(self, close_type):
+        self.set("General", "close", close_type)
 
     @property
     def folders(self):

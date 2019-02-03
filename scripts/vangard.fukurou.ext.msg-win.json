@@ -10,6 +10,6 @@
   "path": "fukurou_messenger.bat",
   "type": "stdio",
   "allowed_origins": [
-    "chrome-extension://foopdbdbfgikgdgdfldjlhkjooichmbk/"
+    "chrome-extension://flpaahbpffjbdnfclpiopmblojohgcoc/"
   ]
 }

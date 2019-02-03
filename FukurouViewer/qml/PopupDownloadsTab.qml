@@ -1,37 +1,16 @@
 import QtQuick 2.0
 import QtQuick.Controls 1.4
 
+import "."
+
 Item {
     id: downloadsWrapper
     anchors.fill: parent
 
-    Component.onCompleted: {
-        mainWindow.updateProgress.connect(updateProgress);
-        mainWindow.addDownloadItem.connect(addDownloadItem);
-    }
-
-    function updateProgress(percent, speed) {
-        totalProgressBar.value = percent;
-        totalSpeedField.text = speed + "KB/s"
-
-        if (percent === 1) {
-            downloadsField.text = 0
-            runningField.text = 0
-        }
-        else {
-            downloadsField.text = 1
-            runningField.text = 1
-        }
-    }
-
-    function addDownloadItem(info) {
-        downloadsModel.append(info);
-    }
-
     Rectangle {
         id: statusBar
-        color: theme.background
-        height: 150
+        color: Styles.background
+        height: 125
         anchors {
             left: parent.left
             right: parent.right
@@ -50,7 +29,7 @@ Item {
         }
         Text {
             id: downloadsField
-            text: "0"
+            text: downloadManager.total_downloads
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -71,7 +50,7 @@ Item {
         }
         Text {
             id: runningField
-            text: "0"
+            text: downloadManager.running_downloads
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -89,9 +68,10 @@ Item {
             anchors.top: runningLabel.bottom
             anchors.topMargin: 5
         }
+
         Text {
-            id: totalProgressField
-            text: "0B / 0B"
+            id: curProgress
+            text: downloadManager.current_progress
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -99,18 +79,32 @@ Item {
                 left: downloadsField.left
             }
         }
+
+        Text {
+            id: totalSize
+            text: " / " + downloadManager.total_progress
+            color: "white"
+            font.pixelSize: 16
+            anchors {
+                verticalCenter: curProgress.verticalCenter
+                left: curProgress.right
+            }
+
+        }
+
         Text {
             id: totalSpeedLabel
             text: qsTr("Speed:")
             color: "white"
             font.pixelSize: 16
-            anchors.left: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 20
+            anchors {
+                left: parent.horizontalCenter
+                verticalCenter: downloadsLabel.verticalCenter
+            }
         }
         Text {
             id: totalSpeedField
-            text: "0B/s"
+            text: downloadManager.speed
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -119,18 +113,20 @@ Item {
                 leftMargin: 5
             }
         }
+
         Text {
             id: etaLabel
             text: qsTr("ETA:")
             color: "white"
             font.pixelSize: 16
-            anchors.left: parent.horizontalCenter
-            anchors.top: totalSpeedLabel.bottom
-            anchors.topMargin: 10
+            anchors {
+                left: parent.horizontalCenter
+                verticalCenter: runningLabel.verticalCenter
+            }
         }
         Text {
             id: etaField
-            text: "~2hr 4min 13sec"
+            text: downloadManager.eta
             color: "white"
             font.pixelSize: 16
             anchors {
@@ -142,15 +138,14 @@ Item {
 
         ProgressBar {
             id: totalProgressBar
-            value: 0.0
-            height: 15
+            value: downloadManager.percent
             anchors {
                 left: parent.left
                 leftMargin: 10
                 right: parent.right
                 rightMargin: 10
                 bottom: parent.bottom
-                bottomMargin: 20
+                bottomMargin: 15
             }
         }
     }

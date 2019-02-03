@@ -8,10 +8,11 @@ Component {
     Rectangle {
         id: root
         height: 60
-        anchors.right: parent.right
+        width: 380
+        //anchors.right: parent.right
         anchors.rightMargin: 6
-        anchors.left: parent.left
-        anchors.leftMargin: 0
+        //anchors.left: parent.left
+        //anchors.leftMargin: 0
         //border.width: 1
 
         property bool expanded : false
@@ -30,12 +31,13 @@ Component {
             propagateComposedEvents: true
 
             onClicked: {
-                if (root.activeFocus) {
+                root.forceActiveFocus();
+                /*if (root.activeFocus) {
                     thumbnail.forceActiveFocus();
                 }
                 else {
                     root.forceActiveFocus();
-                }
+                }*/
             }
         }
 
@@ -87,7 +89,7 @@ Component {
 
             MouseArea {
                 id: filenameMouseArea
-                visible: false //!model.dead
+                visible: !model.dead
                 width: parent.contentWidth
                 anchors {
                     left: parent.left
@@ -97,7 +99,7 @@ Component {
 
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    mainWindow.openItem(model.full_path, "file");
+                    mainWindow.openItem(model.filepath, "file");
                 }
             }
         }
@@ -145,28 +147,26 @@ Component {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                     mainWindow.openItem(model.full_path, "folder");
+                     mainWindow.openItem(model.filepath, "folder");
                 }
             }
         }
 
         TextIconButton {
             id: deleteButton
-            fontFamily: fontAwesome.name
-            buttonText: "\uf00d"
-            textField.font.pointSize: 16
-            textField.color: mouseArea.containsMouse ? "#919191" : "#cecece"
-            ToolTip.visible: mouseArea.containsMouse
+            text: "\uf00d"
+            height: 16
+            textColor: hovered ? "#919191" : "#cecece"
+            ToolTip.visible: hovered
             ToolTip.text: qsTr("Remove item from list")
             ToolTip.delay: 1000
             anchors.right: parent.right
             anchors.rightMargin: 0
             anchors.verticalCenter: parent.verticalCenter
-            verticalOffset: -1
+            //verticalOffset: -1
 
-            mouseArea.onClicked: {
-                //console.log(model.id);
-                mainWindow.deleteHistoryItem(model.id);
+            onClicked: {
+                history.delete_item(model.index, model.id);
             }
         }
 
@@ -236,15 +236,6 @@ Component {
                 PropertyChanges {
                     target: deleteButton
                     anchors.topMargin: 5
-                }
-            },
-            State {
-                name: "shrink"
-                StateChangeScript {
-                    name: "shrinkScript"
-                    script: {
-                        //thumbnail.forceActiveFocus();
-                    }
                 }
             }
         ]
