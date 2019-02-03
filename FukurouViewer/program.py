@@ -558,7 +558,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.setOrganizationName("FV")
         self.setApplicationName("FukurouViewer")
         self.setOrganizationDomain(self.GITHUB)
-        self.version = "0.2.0"
+        self.version = "alpha"
     
         self.setQuitOnLastWindowClosed(False)
 
