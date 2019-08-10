@@ -1,5 +1,5 @@
 
-from PyQt5 import QtQuick, QtGui
+from PySide2 import QtQuick, QtGui
 
 from .utils import Utils
 
