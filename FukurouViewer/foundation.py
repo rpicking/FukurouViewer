@@ -7,7 +7,7 @@ from datetime import timedelta
 from humanize import naturalsize
 from sqlalchemy import select
 
-from PyQt5 import QtCore
+from PySide2 import QtCore
 
 from . import user_database
 from .utils import Utils
@@ -162,7 +162,7 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         except IndexError:
             return QtCore.QVariant()
 
-        return item.get(self._roles.get(role), QtCore.QVariant())
+        return item.get(self._roles.get(role), None)
 
 
 class FileItem(object):

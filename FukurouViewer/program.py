@@ -13,7 +13,7 @@ from .logger import Logger
 from .foundation import Foundation, BaseModel, FileItem
 from .history import History
 
-from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
+from PySide2 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
 from urllib.parse import unquote
 
@@ -278,7 +278,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
         grayimage = pixmap.toImage().convertToFormat(QtGui.QImage.Format_Mono)
         return grayimage, requestedSize
 
-    def requestPixmap(self, id, requestedSize):
+    def requestPixmap(self, id, size, requestedSize):
         width = requestedSize.width()
         height = requestedSize.height()
         with user_database.get_session(self, acquire=True) as session:
@@ -396,26 +396,26 @@ class DownloadUIManager(QtCore.QObject):
         self.on_percent.emit()
         self.on_eta.emit()
 
-    on_total_downloads = QtCore.pyqtSignal()
-    total_downloads = QtCore.pyqtProperty(int, get_total_downloads, notify=on_total_downloads)
+    on_total_downloads = QtCore.Signal()
+    total_downloads = QtCore.Property(int, get_total_downloads, notify=on_total_downloads)
 
-    on_running_downloads = QtCore.pyqtSignal()
-    running_downloads = QtCore.pyqtProperty(int, get_running_downloads, notify=on_running_downloads)
+    on_running_downloads = QtCore.Signal()
+    running_downloads = QtCore.Property(int, get_running_downloads, notify=on_running_downloads)
 
-    on_total_progress = QtCore.pyqtSignal()
-    total_progress = QtCore.pyqtProperty(str, get_total_progress, notify=on_total_progress)
+    on_total_progress = QtCore.Signal()
+    total_progress = QtCore.Property(str, get_total_progress, notify=on_total_progress)
 
-    on_current_progress = QtCore.pyqtSignal()
-    current_progress = QtCore.pyqtProperty(str, get_current_progress, notify=on_current_progress)
+    on_current_progress = QtCore.Signal()
+    current_progress = QtCore.Property(str, get_current_progress, notify=on_current_progress)
 
-    on_percent = QtCore.pyqtSignal()
-    percent = QtCore.pyqtProperty(float, get_percent, notify=on_percent)
+    on_percent = QtCore.Signal()
+    percent = QtCore.Property(float, get_percent, notify=on_percent)
 
-    on_speed = QtCore.pyqtSignal()
-    speed = QtCore.pyqtProperty(str, get_speed, notify=on_speed)
+    on_speed = QtCore.Signal()
+    speed = QtCore.Property(str, get_speed, notify=on_speed)
 
-    on_eta = QtCore.pyqtSignal()
-    eta = QtCore.pyqtProperty(str, get_eta, notify=on_eta)
+    on_eta = QtCore.Signal()
+    eta = QtCore.Property(str, get_eta, notify=on_eta)
 
 
 class GridModel(BaseModel):
@@ -459,7 +459,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
 
         return image, requestedSize
 
-    def requestPixmap(self, file, requestedSize):
+    def requestPixmap(self, file, size, requestedSize):
         width = requestedSize.width()
         height = requestedSize.height()
 
@@ -483,7 +483,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
             image = icon.pixmap(max(icon.availableSizes(), key=lambda x: x.height()))
             image = image.scaled(width - 20, height - 20, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
 
-        return image, requestedSize
+        return image#, requestedSize
 
 
 Coordinate = namedtuple("Coordinate", "x y")
@@ -529,9 +529,9 @@ class BlowUpItem(QtCore.QObject):
     def get_y(self):
         return self._y
 
-    on_postion_change = QtCore.pyqtSignal()
-    x = QtCore.pyqtProperty(int, get_x, notify=on_postion_change)
-    y = QtCore.pyqtProperty(int, get_y, notify=on_postion_change)
+    on_postion_change = QtCore.Signal()
+    x = QtCore.Property(int, get_x, notify=on_postion_change)
+    y = QtCore.Property(int, get_y, notify=on_postion_change)
 
 
 class Program(QtWidgets.QApplication, Logger):
@@ -558,7 +558,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.setOrganizationName("FV")
         self.setApplicationName("FukurouViewer")
         self.setOrganizationDomain(self.GITHUB)
-        self.version = "alpha"
+        self.version = "0.2.0"
     
         self.setQuitOnLastWindowClosed(False)
 
