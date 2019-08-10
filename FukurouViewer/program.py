@@ -421,8 +421,9 @@ class DownloadUIManager(QtCore.QObject):
 class GridModel(BaseModel):
     NameRole = QtCore.Qt.UserRole + 1
     FilepathRole = QtCore.Qt.UserRole + 2
+    TypeRole = QtCore.Qt.UserRole + 3
 
-    _roles = {NameRole: "name", FilepathRole: "filepath"}
+    _roles = {NameRole: "name", FilepathRole: "filepath", TypeRole: "type"}
 
     def __init__(self, _folder_path, items=None):
         super().__init__(items)

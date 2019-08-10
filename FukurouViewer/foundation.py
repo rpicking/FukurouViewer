@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import timedelta
 from humanize import naturalsize
 from sqlalchemy import select
+from mimetypes import guess_type
 
 from PySide2 import QtCore
 
@@ -170,6 +171,10 @@ class FileItem(object):
     def __init__(self, _filepath, _modified_date=None):
         self.filepath = _filepath
         self.path = Path(_filepath).resolve()
+
+        mimetype, encoding = guess_type(str(self.path))
+        self.type = mimetype.split("/", 1)[0]
+
         if _modified_date is not None:
             self.modified_date = _modified_date
         else:
@@ -180,10 +185,11 @@ class FileItem(object):
 
     def get(self, key, default=None):
         if key == "filepath":
-            test = str(self.path)
-            return test
+            return str(self.path)
         if key == "modified_date":
             return self.modified_date
+        if key == "type":
+            return self.type
         return default
 
     def exists(self):

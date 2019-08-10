@@ -86,7 +86,6 @@ ApplicationWindow {
         closeApplication();
     }
 
-
     TrayWindow { id: trayWindow }
 
     header: Rectangle {
@@ -303,29 +302,34 @@ ApplicationWindow {
         }
     }
 
-    //footer: ToolBar { height: 20 }
-
     StackView {
         id: stack
         anchors.fill: parent
-        initialItem: mainPage
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.AllButtons
-            onClicked: {
-                if ((mouse.button === Qt.BackButton) && (stack.depth > 1)) {
-                    stack.pop();
-                }
+        initialItem: galleryView
+    }
+
+    MouseArea {
+        id: mainMouseArea
+        acceptedButtons: Qt.BackButton
+        propagateComposedEvents: true
+        anchors {
+           top: mainWindow.header.top
+           bottom: mainWindow.bottom
+           left: mainWindow.left
+           right: mainWindow.right
+        }
+
+        onClicked: {
+            switch(mouse.button) {
+            case Qt.BackButton:
+                stack.pop();
+                break;
             }
         }
     }
 
-    /*SettingsPage {
-        id: settingsPage
-    }*/
-
-    MainPage {
-        id: mainPage
+    GalleryView {
+        id: galleryView
     }
 
 
@@ -357,8 +361,6 @@ ApplicationWindow {
             hide();
         }
 
-        //Image { id: testImage }
-
         Item {
             id: blowUpContent
             property alias loaderItem: blowUpContentLoader.item
@@ -369,71 +371,12 @@ ApplicationWindow {
             }
         }
 
-        // Component {
-        //     id: videoComponent
-        //     Video {
-        //         id: video
-        //         width : 800
-        //         height : 600
-
-        //         MouseArea {
-        //             anchors.fill: parent
-        //             onClicked: {
-        //                 video.play()
-        //             }
-        //         }
-
-        //         focus: true
-        //         Keys.onSpacePressed: video.playbackState == MediaPlayer.PlayingState ? video.pause() : video.play()
-        //         Keys.onLeftPressed: video.seek(video.position - 5000)
-        //         Keys.onRightPressed: video.seek(video.position + 5000)
-        //     }
-        // }
-
         Component {
             id: imageComponent
             BlowUpImage { }
         }
         
-
-        // AnimatedImage {
-        //     id: testImage
-        //     property real scaleFactor: 1.0
-        //     property int imageHeight: 0
-        //     property int imageWidth: 0
-
-        //     Component.onCompleted: {
-        //         mainWindow.scrollBlowUp.connect(scaleImage);
-        //     }
-
-        //     function scaleImage(wheelScroll) {
-        //         scaleFactor += 0.1 * wheelScroll;
-        //         if (scaleFactor < 0) scaleFactor = 0;
-
-        //         height = imageHeight * scaleFactor;
-        //         width = imageWidth * scaleFactor;
-        //     }
-
-        //     onStatusChanged: {
-        //         playing = (status === AnimatedImage.Ready);
-        //         if (status === AnimatedImage.Ready) {
-        //             imageHeight = height;
-        //             imageWidth = width;
-        //         }
-        //     }
-        // }
-/*
-		MouseArea {
-			anchors.fill: parent
-
-            onWheel: {
-                testImage.scaleImage(wheel.angleDelta.y / 120);
-
-            }
-        }*/
     }
-
-
 
 
     /*Popup {

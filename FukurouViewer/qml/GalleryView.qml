@@ -65,6 +65,9 @@ Old.ScrollView {
 
                             MouseArea {
                                 pressAndHoldInterval: 250
+                                onDoubleClicked: {
+                                    stack.push(Qt.resolvedUrl("IndividualItemPage.qml"), { source: "file:///" + filepath, type: type } );
+                                }
                                 onPressAndHold: {
                                     var xPercent = mouse.x / parent.width
                                     var yPercent = mouse.y / parent.height
@@ -84,7 +87,7 @@ Old.ScrollView {
                         }
                     }
                 }
-                asynchronous: index >= 60
+                asynchronous: index >= 30
             }
         }
     }
