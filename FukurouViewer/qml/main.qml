@@ -302,35 +302,40 @@ ApplicationWindow {
         }
     }
 
-    StackView {
-        id: stack
-        anchors.fill: parent
-        initialItem: galleryView
-    }
-
     MouseArea {
         id: mainMouseArea
         acceptedButtons: Qt.BackButton
         propagateComposedEvents: true
         anchors {
            top: mainWindow.header.top
-           bottom: mainWindow.bottom
-           left: mainWindow.left
-           right: mainWindow.right
+           bottom: parent.bottom
+           left: parent.left
+           right: parent.right
         }
 
         onClicked: {
             switch(mouse.button) {
             case Qt.BackButton:
-                stack.pop();
+                if (stack.depth > 1) {
+                    stack.pop();
+                }
                 break;
             }
         }
     }
 
+
+    StackView {
+        id: stack
+        anchors.fill: parent
+        initialItem: galleryView
+    }
+
     GalleryView {
         id: galleryView
     }
+
+
 
 
     // *********************************************
