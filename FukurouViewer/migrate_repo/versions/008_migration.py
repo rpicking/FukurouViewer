@@ -27,4 +27,5 @@ def upgrade(migrate_engine):
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
+    downloads = Table('downloads', meta, autoload=True)
     downloads.drop()
