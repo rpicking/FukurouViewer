@@ -224,8 +224,8 @@ class MessengerThread(BaseThread):
 
             try:
                 with user_database.get_session(self, acquire=True) as session:
-                        session.execute(update(user_database.Folders).where(
-                            user_database.Folders.uid == folder.get('uid')).values(values))
+                    session.execute(update(user_database.Folders).where(
+                        user_database.Folders.uid == folder.get('uid')).values(values))
             except Exception as e:
                 self.log_exception()
                 return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}

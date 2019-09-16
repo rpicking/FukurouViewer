@@ -100,6 +100,13 @@ class Downloads(Base):
     folder = relationship("Folders", foreign_keys=[folder_id])
 
 
+class Thumbnail(Base):
+    __tablename__ = "thumbnail"
+
+    hash = Column(Text, primary_key=True)
+    timestamp = Column(sqlalchemy.BigInteger)   # timestamp of thumbnail creation
+
+
 def setup():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):

@@ -12,6 +12,7 @@ from .config import Config
 from .logger import Logger
 from .foundation import Foundation, BaseModel, FileItem
 from .history import History
+from .thumbnails import ThumbnailProvider
 
 from PySide2 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
@@ -434,57 +435,6 @@ class GridModel(BaseModel):
         if path.is_dir():
             return self.folder_path.samefile(path)
         return self.folder_path.samefile(path.parent)
-
-
-class ThumbnailProvider(QtQuick.QQuickImageProvider):
-    THUMB_DIR = Utils.fv_path("thumbs")
-
-    def __init__(self):
-        QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
-        
-        self.supported_formats = ["." + format.data().decode("utf-8") for format in QtGui.QImageReader.supportedImageFormats() ]
-
-    def requestImage(self, file, requestedSize):
-        width = requestedSize.width()
-        height = requestedSize.height()
-
-        filepath = unquote(file)
-        _, ext = os.path.splitext(filepath)
-
-        if ext in self.supported_formats:
-            image = QtGui.QImage(filepath)
-            image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
-        else:
-            image = QtGui.QImage(200, 280, QtGui.QImage.Format_RGB32)
-            image.fill(QtCore.Qt.red)
-
-        return image, requestedSize
-
-    def requestPixmap(self, file, size, requestedSize):
-        width = requestedSize.width()
-        height = requestedSize.height()
-
-        filepath = unquote(file)
-        _, ext = os.path.splitext(filepath)
-
-        imageReader = QtGui.QImageReader(filepath)
-        imageReader.setDecideFormatFromContent(True)
-
-        if imageReader.canRead():
-            image = QtGui.QPixmap().fromImage(imageReader.read())
-            if width != -1 and height != -1:
-                image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-        else:
-            _, ext = os.path.splitext(filepath)
-            tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
-            if not os.path.exists(tmpfile):
-                open(tmpfile, 'a').close()
-
-            icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(tmpfile))
-            image = icon.pixmap(max(icon.availableSizes(), key=lambda x: x.height()))
-            image = image.scaled(width - 20, height - 20, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-
-        return image#, requestedSize
 
 
 Coordinate = namedtuple("Coordinate", "x y")

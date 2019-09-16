@@ -11,7 +11,7 @@ class Utils:
     """
 
     @staticmethod
-    def convert_result(result: ResultProxy) -> List:
+    def convert_result(result: ResultProxy) -> List[dict]:
         return list(map(dict, result))
 
     @classmethod
