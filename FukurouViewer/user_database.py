@@ -1,9 +1,11 @@
 import os
 import contextlib
 import migrate
+import sqlalchemy
+
+from sqlalchemy import Column, ForeignKey, Text, Integer
 from migrate.versioning import api
 from threading import Lock
-import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship, scoped_session
 
@@ -33,18 +35,18 @@ Database = UserDatabase()
 class History(Base):
     __tablename__ = "history"
 
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    filename = sqlalchemy.Column(sqlalchemy.Text)
-    src_url = sqlalchemy.Column(sqlalchemy.Text)
-    page_url = sqlalchemy.Column(sqlalchemy.Text)
-    domain = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
-    time_added = sqlalchemy.Column(sqlalchemy.Integer)
-    type = sqlalchemy.Column(sqlalchemy.Integer, default=1)
-    filepath = sqlalchemy.Column(sqlalchemy.Text)
-    favicon_url = sqlalchemy.Column(sqlalchemy.Text, default="-1")
-    dead = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
-    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("folders.id"))
-    gallery_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('gallery.id'))
+    id = Column(Integer, primary_key=True)
+    filename = Column(Text)
+    src_url = Column(Text)
+    page_url = Column(Text)
+    domain = Column(Text, nullable=False)
+    time_added = Column(Integer)
+    type = Column(Integer, default=1)
+    filepath = Column(Text)
+    favicon_url = Column(Text, default="-1")
+    dead = Column(sqlalchemy.Boolean, default=False)
+    folder_id = Column(Integer, ForeignKey("folders.id"))
+    gallery_id = Column(Integer, ForeignKey('gallery.id'))
 
     folder = relationship("Folders", foreign_keys=[folder_id])
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
@@ -53,49 +55,48 @@ class History(Base):
 class Gallery(Base):
     __tablename__ = "gallery"
 
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    title = sqlalchemy.Column(sqlalchemy.Text)
-    origin_title = sqlalchemy.Column(sqlalchemy.Text)
-    time_added = sqlalchemy.Column(sqlalchemy.Integer)
-    last_modified = sqlalchemy.Column(sqlalchemy.Integer)
-    site_rating = sqlalchemy.Column(sqlalchemy.Float)     # rating 0-10 float
-    user_rating = sqlalchemy.Column(sqlalchemy.Integer)     # rating 0-10 5 stars set by user
-    rating_count = sqlalchemy.Column(sqlalchemy.Integer)    # number of ratings from site at time of import
-    total_size = sqlalchemy.Column(sqlalchemy.Float)        # total size in mbs
-    file_count = sqlalchemy.Column(sqlalchemy.Integer)
-    url = sqlalchemy.Column(sqlalchemy.Text)                # url of import site
-    virtual = sqlalchemy.Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
-
+    id = Column(Integer, primary_key=True)
+    title = Column(Text)
+    origin_title = Column(Text)
+    time_added = Column(Integer)
+    last_modified = Column(Integer)
+    site_rating = Column(sqlalchemy.Float)     # rating 0-10 float
+    user_rating = Column(Integer)     # rating 0-10 5 stars set by user
+    rating_count = Column(Integer)    # number of ratings from site at time of import
+    total_size = Column(sqlalchemy.Float)        # total size in mbs
+    file_count = Column(Integer)
+    url = Column(Text)                # url of import site
+    virtual = Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
     # history_items = relationship("History", backref="gallery")
 
 
 class Folders(Base):
     __tablename__ = "folders"
 
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.Text)
-    uid = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
-    path = sqlalchemy.Column(sqlalchemy.Text, nullable=False)
-    color = sqlalchemy.Column(sqlalchemy.Text)
-    order = sqlalchemy.Column(sqlalchemy.Integer)
-    type = sqlalchemy.Column(sqlalchemy.Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
+    id = Column(Integer, primary_key=True)
+    name = Column(Text)
+    uid = Column(Text, nullable=False)
+    path = Column(Text, nullable=False)
+    color = Column(Text)
+    order = Column(Integer)
+    type = Column(Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
 
 
 class Downloads(Base):
     __tablename__ = "downloads"
 
-    id = sqlalchemy.Column(sqlalchemy.Text, primary_key=True)   # ui download item id
-    filepath = sqlalchemy.Column(sqlalchemy.Text)
-    filename = sqlalchemy.Column(sqlalchemy.Text)
-    base_name = sqlalchemy.Column(sqlalchemy.Text)
-    ext = sqlalchemy.Column(sqlalchemy.Text)
-    total_size = sqlalchemy.Column(sqlalchemy.Integer)
-    srcUrl = sqlalchemy.Column(sqlalchemy.Text)
-    pageUrl = sqlalchemy.Column(sqlalchemy.Text)
-    domain = sqlalchemy.Column(sqlalchemy.Text)
-    favicon_url = sqlalchemy.Column(sqlalchemy.Text)
-    timestamp = sqlalchemy.Column(sqlalchemy.Integer)
-    folder_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey(Folders.id))
+    id = Column(Text, primary_key=True)   # ui download item id
+    filepath = Column(Text)
+    filename = Column(Text)
+    base_name = Column(Text)
+    ext = Column(Text)
+    total_size = Column(Integer)
+    srcUrl = Column(Text)
+    pageUrl = Column(Text)
+    domain = Column(Text)
+    favicon_url = Column(Text)
+    timestamp = Column(Integer)
+    folder_id = Column(Integer, ForeignKey(Folders.id))
 
     folder = relationship("Folders", foreign_keys=[folder_id])
 
