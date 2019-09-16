@@ -67,6 +67,8 @@ class Gallery(Base):
     file_count = Column(Integer)
     url = Column(Text)                # url of import site
     virtual = Column(sqlalchemy.Boolean)         # true if gallery doesn't coincide with one on harddrive
+
+    tags = relationship("Tag", secondary="GalleryTagMapping")
     # history_items = relationship("History", backref="gallery")
 
 
@@ -106,6 +108,50 @@ class Thumbnail(Base):
 
     hash = Column(Text, primary_key=True)
     timestamp = Column(sqlalchemy.BigInteger)   # timestamp of thumbnail creation
+
+
+class TagNamespace(Base):
+    __tablename__ = "tag_namespace"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(Text)
+    description = Column(Text)
+
+
+class Tag(Base):
+    __tablename__ = "tag"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(Text)
+    description = Column(Text)
+    namespace_id = Column(Integer, ForeignKey(TagNamespace.id))
+
+    namespace = relationship("Namespace", foreign_keys=[namespace_id])
+
+    galleries = relationship("Gallery", secondary="GalleryTagMapping")
+    items = relationship("Item", secondary="ItemTagMapping")
+
+
+class Item(Base):
+    __tablename__ = "item"
+
+    id = Column(Integer, primary_key=True)
+
+    tags = relationship("Tag", secondary="GalleryTagMapping")
+
+
+class GalleryTagMapping(Base):
+    __tablename__ = "gallery_tag_mapping"
+
+    gallery_id = Column(Integer, ForeignKey(Gallery.id), primary_key=True)
+    tag_id = Column(Integer, ForeignKey(Tag.id), primary_key=True)
+
+
+class ItemTagMapping(Base):
+    __tablename__ = "item_tag_mapping"
+
+    item_id = Column(Integer, ForeignKey(Item.id), primary_key=True)
+    tag_id = Column(Integer, ForeignKey(Tag.id), primary_key=True)
 
 
 def setup():
