@@ -14,7 +14,8 @@ def upgrade(migrate_engine):
     tagNamespace = Table(
         'tag_namespace', meta,
         Column('id', Integer, primary_key=True),
-        Column('title', Text))
+        Column('title', Text, unique=True),
+        Column('description', Text))
     tagNamespace.create()
 
     tag = Table(

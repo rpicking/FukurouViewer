@@ -567,11 +567,9 @@ class Program(QtWidgets.QApplication, Logger):
             self.thumb_image_provider = ThumbnailProvider()
             self.engine.addImageProvider("thumbs", self.thumb_image_provider)
 
-
             self.downloadsModel = DownloadsModel()
             self.downloadUIManager = DownloadUIManager()
 
-            
             with user_database.get_session(self, acquire=True) as session:
                 results = Utils.convert_result(session.execute(
                     select([user_database.Folders]).where(user_database.Folders.id == 1)))
