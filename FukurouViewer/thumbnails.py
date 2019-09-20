@@ -20,11 +20,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
 
     def requestImage(self, file, size, requestedSize):
         """hash: filepath hash string"""
-        width = requestedSize.width()
-        height = requestedSize.height()
-
         filepath = unquote(file)
-
         thumbnail = ThumbnailCache.requestThumbnail(filepath, requestedSize)
 
         return thumbnail

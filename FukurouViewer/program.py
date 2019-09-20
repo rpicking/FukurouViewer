@@ -24,6 +24,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
         self.program = _program
         self.menu = QtWidgets.QMenu(parent)
+        self.exitAction = QtWidgets.QAction('&Exit', self)
         self.createMenu()
 
     def createMenu(self):
@@ -44,7 +45,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         openMenu.triggered.connect(self.openApp)
         self.menu.addAction(openMenu)
 
-        self.exitAction = QtWidgets.QAction('&Exit', self)
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
@@ -140,7 +140,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._items)
 
-    def data(self, index, role):
+    def data(self, index, role=QtCore.Qt.DisplayRole):
         try:
             item = self._items[index.row()]
         except IndexError:
@@ -206,14 +206,14 @@ class DownloadsModel(QtCore.QAbstractListModel):
     def updateItem(self, kwargs):
         """Updates active download values"""                
         index = self.get_item_index(kwargs.get("id"))
-        if index == None:
+        if index is None:
             return
         self._items[index].update(kwargs)
         self.do_item_update(index)
 
     def do_full_update(self):
         """Forces all items in UI to update to new data from model"""
-        start_index = self.createIndex(0,0)
+        start_index = self.createIndex(0, 0)
         end_index = self.createIndex(len(self._items) - 1, 0)
         self.dataChanged.emit(start_index, end_index, [])
 
@@ -264,7 +264,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
         height = requestedSize.height()
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.History]).where( user_database.History.id == id)))[0]
+                select([user_database.History]).where(user_database.History.id == id)))[0]
 
         path = results.get("filepath")
         if not os.path.exists(path):
@@ -276,7 +276,7 @@ class ImageProvider(QtQuick.QQuickImageProvider):
         icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
         pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
         pixmap = pixmap.scaled(width, height, mode=QtCore.Qt.SmoothTransformation)
-        return pixmap, requestedSize
+        return pixmap
 
 
 class DownloadUIManager(QtCore.QObject):
@@ -329,7 +329,7 @@ class DownloadUIManager(QtCore.QObject):
         self._total_downloads += 1
         self._total_progress += total_size
 
-        self._downloads.append({"id": id, "total_size": total_size, "cur_size": 0, "speed": 0, "eta": 0 })
+        self._downloads.append({"id": id, "total_size": total_size, "cur_size": 0, "speed": 0, "eta": 0})
 
         self.on_total_downloads.emit()
         self.on_total_progress.emit()
@@ -437,8 +437,8 @@ class BlowUpItem(QtCore.QObject):
     def initItem(self, _start_point, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.startPoint = Coordinate(_start_point.x(), _start_point.y())
 
-        self._x = self.startPoint.x - (item_width * xPercent);
-        self._y = self.startPoint.y - (item_height * yPercent);
+        self._x = self.startPoint.x - (item_width * xPercent)
+        self._y = self.startPoint.y - (item_height * yPercent)
         self.anchorPosition = Coordinate(self._x, self._y)
 
         self.width = item_width
@@ -596,7 +596,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.app_window.createFavFolder.connect(self.add_folder)
         self.app_window.requestValidFolder.connect(self.set_folder_access)
         self.app_window.updateFolders.connect(self.update_folders)
-        self.app_window.openItem.connect(self.open_item)
+        self.app_window.openItem.connect(Program.open_item)
         self.app_window.setEventFilter.connect(self.setEventFilter)
         self.app_window.closeApplication.connect(self.close)
         self.app_window.downloader_task.connect(self.downloader_task)
@@ -633,15 +633,17 @@ class Program(QtWidgets.QApplication, Logger):
             return True
         return super().eventFilter(obj, event)
 
-    def sorted_dir(self, folder):
+    @staticmethod
+    def sorted_dir(folder):
         def getmtime(name):
             path = os.path.join(folder, name)
             return os.path.getmtime(path)
         
         return sorted(os.listdir(folder), key=getmtime)
 
-    # open history item file in default application or open file explorer to directory
-    def open_item(self, path, type):
+    @staticmethod
+    def open_item(path, type):
+        """open history item file in default application or open file explorer to directory"""
         if type == "file":
             qurl = QtCore.QUrl.fromLocalFile(path)
         elif type == "folder":
@@ -652,8 +654,9 @@ class Program(QtWidgets.QApplication, Logger):
             return
         QtGui.QDesktopServices.openUrl(qurl)
 
-    # open url in default browser
-    def open_url(self, url):
+    @staticmethod
+    def open_url(url):
+        """open url in default browser"""
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
     # sends folders list to ui

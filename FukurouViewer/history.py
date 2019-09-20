@@ -33,7 +33,7 @@ class History(QtCore.QObject, Logger):
         self._model = HistoryModel()
         self.load_existing()
 
-    @QtCore.Property(QtCore.QAbstractListModel, constant=True)
+    @QtCore.Property(QtCore.QObject, constant=True)
     def model(self):
         return self._model
     
