@@ -56,7 +56,7 @@ class Foundation(Logger):
     @staticmethod
     def remove_invalid_chars(filename):
         """Remove invalid characters from string"""
-        invalid_chars = '<>:"/\|?*'
+        invalid_chars = '<>:"/\\|?*'
         return ''.join(c for c in filename if c not in invalid_chars)
 
     @staticmethod
@@ -75,9 +75,9 @@ class Foundation(Logger):
         seconds = seconds % 60
 
         eta_s = "{}{}{}{}".format(str(days) + "days, " if days > 0 else "",
-                                str(hours) + "h:" if hours > 0 else "",
-                                str(minutes) + "m:" if hours > 0 or minutes > 0 else "",
-                                str(seconds) + "s")
+                                  str(hours) + "h:" if hours > 0 else "",
+                                  str(minutes) + "m:" if hours > 0 or minutes > 0 else "",
+                                  str(seconds) + "s")
         return eta_s
 
 
@@ -90,7 +90,7 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         - do_item_update        
     """
 
-    _roles = {}    
+    _roles = {}
 
     def __init__(self, items=None, parent=None):
         super().__init__(parent)
@@ -155,8 +155,8 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         """notifies the view that item in the list at index has updated"""
         start_index = self.createIndex(index, 0)
         self.dataChanged.emit(start_index, start_index, [])
-        
-    def data(self, index, role):
+
+    def data(self, index, role=QtCore.Qt.DisplayRole):
         """returns data at given index with for property role"""
         try:
             item = self._items[index.row()]
@@ -164,6 +164,10 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
             return QtCore.QVariant()
 
         return item.get(self._roles.get(role), None)
+
+    @property
+    def items(self):
+        return self._items
 
 
 class FileItem(object):

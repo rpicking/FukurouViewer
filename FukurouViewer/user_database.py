@@ -7,7 +7,6 @@ from sqlalchemy import Column, ForeignKey, Text, Integer
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
 from migrate.versioning import api
 from threading import Lock
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship, scoped_session
 
 from FukurouViewer.utils import Utils

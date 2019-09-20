@@ -38,7 +38,7 @@ class History(QtCore.QObject, Logger):
         return self._model
     
     def newest_timestamp(self):
-        return self._model._items[0].get("time_added")
+        return self._model.items[0].get("time_added")
 
     @QtCore.Slot(name="load_existing")
     def load_existing(self):
