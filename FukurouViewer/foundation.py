@@ -177,7 +177,11 @@ class FileItem(object):
         self.path = Path(_filepath).resolve()
 
         mimetype, encoding = guess_type(str(self.path))
-        self.type = mimetype.split("/", 1)[0]
+
+        if mimetype is None:
+            self.type = "UNKNOWN"
+        else:
+            self.type = mimetype.split("/", 1)[0]
 
         if _modified_date is not None:
             self.modified_date = _modified_date

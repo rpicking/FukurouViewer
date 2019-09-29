@@ -1,4 +1,5 @@
 import os
+import ffmpeg
 import logging
 
 from hashlib import md5
@@ -31,6 +32,9 @@ class ThumbnailCache:
 
     THUMBNAIL_EXT = ".png"
     THUMBS_DIR = Utils.fv_path("thumbs")
+    FFPROBE_PATH = Utils.bin_path("ffprobe")
+    FFMPEG_PATH = Utils.bin_path("ffmpeg")
+
     """Interface with thumbnail cache on filesystem.  Provides functionality for generating
           and loading thumbnails for files.
        - Thumbnail Table
@@ -86,8 +90,9 @@ class ThumbnailCache:
     def generateThumbnail(filepath, filepath_hash, size: QtCore.QSize, modified_time, updateItem=False) -> QtGui.QImage:
         thumb_path = ThumbnailCache.getAbsoluteThumbPath(filepath_hash)
 
-        filetype = "unknown"
+        filetype = "video"
         thumb = None
+        fileSaved = False
 
         imageReader = QtGui.QImageReader(filepath)
         imageReader.setDecideFormatFromContent(True)
@@ -97,7 +102,7 @@ class ThumbnailCache:
         if filetype == "image":
             thumb = ThumbnailCache.generateImageThumbnail(filepath, size)
         elif filetype == "video":
-            thumb = ThumbnailCache.generateVideoThumbnail(filepath, size)
+            thumb, fileSaved = ThumbnailCache.generateVideoThumbnail(filepath, size, thumb_path)
         elif filetype == "document":
             thumb = ThumbnailCache.generateDocumentThumbnail(filepath, size)
         elif filetype == "audio":
@@ -105,25 +110,26 @@ class ThumbnailCache:
         elif filetype == "file":
             thumb = ThumbnailCache.generateFileThumbnail(filepath, size)
 
+        if thumb:
+            ThumbnailCache.saveThumbnail(thumb, thumb_path, filepath_hash, modified_time, updateItem, fileSaved)
         if not thumb:
             thumb = QtGui.QImage(size, QtGui.QImage.Format_RGB32)
             thumb.fill(QtCore.Qt.red)
 
-        ThumbnailCache.saveThumbnail(thumb, thumb_path, filepath_hash, modified_time, updateItem)
-
         return thumb
 
     @staticmethod
-    def saveThumbnail(image: QtGui.QImage, thumb_path, hash, modified_time, updateItem):
+    def saveThumbnail(image: QtGui.QImage, thumb_path, hash, modified_time, updateItem, fileSaved):
         """ Save the image to file and either update or create a table entry for the thumbnail """
-        thumb_dir = os.path.dirname(thumb_path)
-        if not os.path.exists(thumb_dir):
-            os.makedirs(thumb_dir)
 
-        saved = image.save(thumb_path, "PNG", -1)
+        if not fileSaved:
+            thumb_dir = os.path.dirname(thumb_path)
+            if not os.path.exists(thumb_dir):
+                os.makedirs(thumb_dir)
 
-        if not saved:
-            ThumbnailCache.logger.error(thumb_path + " thumbnail not saved")
+            saved = image.save(thumb_path, "PNG", -1)
+            if not saved:
+                ThumbnailCache.logger.error(thumb_path + " thumbnail not saved")
 
         payload = {
             "hash": hash,
@@ -146,9 +152,38 @@ class ThumbnailCache:
         return image
 
     @staticmethod
-    def generateVideoThumbnail(video_path, size: QtCore.QSize) -> QtGui.QImage:
+    def generateVideoThumbnail(video_path, size: QtCore.QSize, thumb_path) -> (QtGui.QImage, bool):
         """generates thumbnail of video at requested size."""
-        return None
+
+        thumb_dir = os.path.dirname(thumb_path)
+        if not os.path.exists(thumb_dir):
+            os.makedirs(thumb_dir)
+
+        probe = ffmpeg.probe(video_path, cmd=ThumbnailCache.FFPROBE_PATH)
+        video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+
+        total_duration = None
+        if video_stream and "duration" in video_stream:
+            total_duration = float(video_stream["duration"])
+        elif "format" in probe and "duration" in probe["format"]:   # some containers store duration in format instead of stream
+            total_duration = probe["format"]["duration"]
+
+        if not total_duration:
+            return None, False
+
+        time_str = Utils.seconds_to_ffmpeg_timestamp(total_duration * 0.24)
+
+        _, error = ffmpeg \
+            .input(video_path, ss=time_str) \
+            .filter('scale', size.width(), -1) \
+            .output(thumb_path, vframes=1) \
+            .run(cmd=ThumbnailCache.FFMPEG_PATH, quiet=True, overwrite_output=True)
+
+        if "Output file is empty" in error.decode("utf-8"):
+            return None, False
+
+        thumb = QtGui.QImage(thumb_path)
+        return thumb, True
 
     @staticmethod
     def generateDocumentThumbnail(pdf_path, size: QtCore.QSize) -> QtGui.QImage:

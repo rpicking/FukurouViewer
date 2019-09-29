@@ -29,6 +29,10 @@ class Utils:
         return Utils.norm_path(os.path.join("~/.fv", path))
 
     @staticmethod
+    def bin_path(path: str = "") -> str:
+        return Utils.base_path(os.path.join("bin", path))
+
+    @staticmethod
     def norm_path(path: str) -> str:
         return os.path.normpath(os.path.expanduser(path))
 
@@ -65,3 +69,13 @@ class Utils:
         z = x.copy()
         z.update(y)
         return z
+
+    @staticmethod
+    def seconds_to_ffmpeg_timestamp(total_seconds):
+        total_seconds = total_seconds % (24 * 3600)
+        hours = total_seconds // 3600
+        total_seconds %= 3600
+        minutes = total_seconds // 60
+        total_seconds %= 60
+        seconds = total_seconds
+        return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
