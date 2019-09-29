@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from PyQt5 import QtCore
+from PySide2 import QtCore
 from sqlalchemy import delete, select, update
 
 from . import user_database
@@ -33,14 +33,14 @@ class History(QtCore.QObject, Logger):
         self._model = HistoryModel()
         self.load_existing()
 
-    @QtCore.pyqtProperty(QtCore.QAbstractListModel, constant=True)
+    @QtCore.Property(QtCore.QObject, constant=True)
     def model(self):
         return self._model
     
     def newest_timestamp(self):
-        return self._model._items[0].get("time_added")
+        return self._model.items[0].get("time_added")
 
-    @QtCore.pyqtSlot(name="load_existing")
+    @QtCore.Slot(name="load_existing")
     def load_existing(self):
         today = datetime.today()
         items = []
@@ -97,7 +97,7 @@ class History(QtCore.QObject, Logger):
 
         self._model.insert_list(items, 0)
 
-    @QtCore.pyqtSlot(int, int, name="delete_item")
+    @QtCore.Slot(int, int, name="delete_item")
     def delete_item(self, index, db_id):
         self._model.remove_item_by_index(index)
         

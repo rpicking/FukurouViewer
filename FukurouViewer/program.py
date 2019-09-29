@@ -12,8 +12,9 @@ from .config import Config
 from .logger import Logger
 from .foundation import Foundation, BaseModel, FileItem
 from .history import History
+from .thumbnails import ThumbnailProvider
 
-from PyQt5 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
+from PySide2 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
 
 from urllib.parse import unquote
 
@@ -23,6 +24,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
         self.program = _program
         self.menu = QtWidgets.QMenu(parent)
+        self.exitAction = QtWidgets.QAction('&Exit', self)
         self.createMenu()
 
     def createMenu(self):
@@ -43,7 +45,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         openMenu.triggered.connect(self.openApp)
         self.menu.addAction(openMenu)
 
-        self.exitAction = QtWidgets.QAction('&Exit', self)
         self.exitAction.setStatusTip('Exit application')
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
@@ -139,7 +140,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._items)
 
-    def data(self, index, role):
+    def data(self, index, role=QtCore.Qt.DisplayRole):
         try:
             item = self._items[index.row()]
         except IndexError:
@@ -205,14 +206,14 @@ class DownloadsModel(QtCore.QAbstractListModel):
     def updateItem(self, kwargs):
         """Updates active download values"""                
         index = self.get_item_index(kwargs.get("id"))
-        if index == None:
+        if index is None:
             return
         self._items[index].update(kwargs)
         self.do_item_update(index)
 
     def do_full_update(self):
         """Forces all items in UI to update to new data from model"""
-        start_index = self.createIndex(0,0)
+        start_index = self.createIndex(0, 0)
         end_index = self.createIndex(len(self._items) - 1, 0)
         self.dataChanged.emit(start_index, end_index, [])
 
@@ -258,32 +259,12 @@ class ImageProvider(QtQuick.QQuickImageProvider):
     def __init__(self):
         QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
 
-    def requestImage(self, id, requestedSize):
+    def requestPixmap(self, id, size, requestedSize):
         width = requestedSize.width()
         height = requestedSize.height()
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.History]).where( user_database.History.id == id)))
-
-        path = results[0].get("filepath")
-        if not os.path.exists(path):
-            _, ext = os.path.splitext(path)
-            tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
-            path = tmpfile
-
-        icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
-        pixmap = icon.pixmap(icon.availableSizes()[-1]) # make pixmap out of largest icon size
-
-        # if tmpfile:
-        grayimage = pixmap.toImage().convertToFormat(QtGui.QImage.Format_Mono)
-        return grayimage, requestedSize
-
-    def requestPixmap(self, id, requestedSize):
-        width = requestedSize.width()
-        height = requestedSize.height()
-        with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                select([user_database.History]).where( user_database.History.id == id)))[0]
+                select([user_database.History]).where(user_database.History.id == id)))[0]
 
         path = results.get("filepath")
         if not os.path.exists(path):
@@ -294,8 +275,8 @@ class ImageProvider(QtQuick.QQuickImageProvider):
 
         icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(path))
         pixmap = icon.pixmap(icon.availableSizes()[-2])  # largest size screws up and makes small icon
-        pixmap = pixmap.scaled(width, height, transformMode=QtCore.Qt.SmoothTransformation)
-        return pixmap, requestedSize
+        pixmap = pixmap.scaled(width, height, mode=QtCore.Qt.SmoothTransformation)
+        return pixmap
 
 
 class DownloadUIManager(QtCore.QObject):
@@ -334,7 +315,7 @@ class DownloadUIManager(QtCore.QObject):
             cur_progress += item.get("cur_size")
 
         percent = 0 if not cur_progress else cur_progress / self._total_progress
-        #percent = cur_progress / self._total_progress
+        # percent = cur_progress / self._total_progress
         return percent
 
     def get_eta(self):
@@ -348,7 +329,7 @@ class DownloadUIManager(QtCore.QObject):
         self._total_downloads += 1
         self._total_progress += total_size
 
-        self._downloads.append({"id": id, "total_size": total_size, "cur_size": 0, "speed": 0, "eta": 0 })
+        self._downloads.append({"id": id, "total_size": total_size, "cur_size": 0, "speed": 0, "eta": 0})
 
         self.on_total_downloads.emit()
         self.on_total_progress.emit()
@@ -396,33 +377,34 @@ class DownloadUIManager(QtCore.QObject):
         self.on_percent.emit()
         self.on_eta.emit()
 
-    on_total_downloads = QtCore.pyqtSignal()
-    total_downloads = QtCore.pyqtProperty(int, get_total_downloads, notify=on_total_downloads)
+    on_total_downloads = QtCore.Signal()
+    total_downloads = QtCore.Property(int, get_total_downloads, notify=on_total_downloads)
 
-    on_running_downloads = QtCore.pyqtSignal()
-    running_downloads = QtCore.pyqtProperty(int, get_running_downloads, notify=on_running_downloads)
+    on_running_downloads = QtCore.Signal()
+    running_downloads = QtCore.Property(int, get_running_downloads, notify=on_running_downloads)
 
-    on_total_progress = QtCore.pyqtSignal()
-    total_progress = QtCore.pyqtProperty(str, get_total_progress, notify=on_total_progress)
+    on_total_progress = QtCore.Signal()
+    total_progress = QtCore.Property(str, get_total_progress, notify=on_total_progress)
 
-    on_current_progress = QtCore.pyqtSignal()
-    current_progress = QtCore.pyqtProperty(str, get_current_progress, notify=on_current_progress)
+    on_current_progress = QtCore.Signal()
+    current_progress = QtCore.Property(str, get_current_progress, notify=on_current_progress)
 
-    on_percent = QtCore.pyqtSignal()
-    percent = QtCore.pyqtProperty(float, get_percent, notify=on_percent)
+    on_percent = QtCore.Signal()
+    percent = QtCore.Property(float, get_percent, notify=on_percent)
 
-    on_speed = QtCore.pyqtSignal()
-    speed = QtCore.pyqtProperty(str, get_speed, notify=on_speed)
+    on_speed = QtCore.Signal()
+    speed = QtCore.Property(str, get_speed, notify=on_speed)
 
-    on_eta = QtCore.pyqtSignal()
-    eta = QtCore.pyqtProperty(str, get_eta, notify=on_eta)
+    on_eta = QtCore.Signal()
+    eta = QtCore.Property(str, get_eta, notify=on_eta)
 
 
 class GridModel(BaseModel):
     NameRole = QtCore.Qt.UserRole + 1
     FilepathRole = QtCore.Qt.UserRole + 2
+    TypeRole = QtCore.Qt.UserRole + 3
 
-    _roles = {NameRole: "name", FilepathRole: "filepath"}
+    _roles = {NameRole: "name", FilepathRole: "filepath", TypeRole: "type"}
 
     def __init__(self, _folder_path, items=None):
         super().__init__(items)
@@ -433,57 +415,6 @@ class GridModel(BaseModel):
         if path.is_dir():
             return self.folder_path.samefile(path)
         return self.folder_path.samefile(path.parent)
-
-
-class ThumbnailProvider(QtQuick.QQuickImageProvider):
-    THUMB_DIR = Utils.fv_path("thumbs")
-
-    def __init__(self):
-        QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)
-        
-        self.supported_formats = ["." + format.data().decode("utf-8") for format in QtGui.QImageReader.supportedImageFormats() ]
-
-    def requestImage(self, file, requestedSize):
-        width = requestedSize.width()
-        height = requestedSize.height()
-
-        filepath = unquote(file)
-        _, ext = os.path.splitext(filepath)
-
-        if ext in self.supported_formats:
-            image = QtGui.QImage(filepath)
-            image = image.scaledToWidth(width, QtCore.Qt.SmoothTransformation)
-        else:
-            image = QtGui.QImage(200, 280, QtGui.QImage.Format_RGB32)
-            image.fill(QtCore.Qt.red)
-
-        return image, requestedSize
-
-    def requestPixmap(self, file, requestedSize):
-        width = requestedSize.width()
-        height = requestedSize.height()
-
-        filepath = unquote(file)
-        _, ext = os.path.splitext(filepath)
-
-        imageReader = QtGui.QImageReader(filepath)
-        imageReader.setDecideFormatFromContent(True)
-
-        if imageReader.canRead():
-            image = QtGui.QPixmap().fromImage(imageReader.read())
-            if width != -1 and height != -1:
-                image = image.scaled(width, height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-        else:
-            _, ext = os.path.splitext(filepath)
-            tmpfile = os.path.join(Program.TMP_DIR, "tmpfile" + ext)
-            if not os.path.exists(tmpfile):
-                open(tmpfile, 'a').close()
-
-            icon = QtWidgets.QFileIconProvider().icon(QtCore.QFileInfo(tmpfile))
-            image = icon.pixmap(max(icon.availableSizes(), key=lambda x: x.height()))
-            image = image.scaled(width - 20, height - 20, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-
-        return image, requestedSize
 
 
 Coordinate = namedtuple("Coordinate", "x y")
@@ -500,12 +431,14 @@ class BlowUpItem(QtCore.QObject):
         
         self.width = 0
         self.height = 0
+        self.x_ratio = 0
+        self.y_ratio = 0
 
     def initItem(self, _start_point, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.startPoint = Coordinate(_start_point.x(), _start_point.y())
 
-        self._x = self.startPoint.x - (item_width * xPercent);
-        self._y = self.startPoint.y - (item_height * yPercent);
+        self._x = self.startPoint.x - (item_width * xPercent)
+        self._y = self.startPoint.y - (item_height * yPercent)
         self.anchorPosition = Coordinate(self._x, self._y)
 
         self.width = item_width
@@ -529,9 +462,9 @@ class BlowUpItem(QtCore.QObject):
     def get_y(self):
         return self._y
 
-    on_postion_change = QtCore.pyqtSignal()
-    x = QtCore.pyqtProperty(int, get_x, notify=on_postion_change)
-    y = QtCore.pyqtProperty(int, get_y, notify=on_postion_change)
+    on_postion_change = QtCore.Signal()
+    x = QtCore.Property(int, get_x, notify=on_postion_change)
+    y = QtCore.Property(int, get_y, notify=on_postion_change)
 
 
 class Program(QtWidgets.QApplication, Logger):
@@ -558,7 +491,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.setOrganizationName("FV")
         self.setApplicationName("FukurouViewer")
         self.setOrganizationDomain(self.GITHUB)
-        self.version = "alpha"
+        self.version = "0.2.0"
     
         self.setQuitOnLastWindowClosed(False)
 
@@ -570,6 +503,8 @@ class Program(QtWidgets.QApplication, Logger):
         
         self.setWindowIcon(QtGui.QIcon(QtGui.QPixmap(os.path.join(self.BASE_PATH, "icon.png"))))
         # self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
+
+        self.engine = None
 
     def setup(self, args):
         if not os.path.exists(self.THUMB_DIR):
@@ -603,81 +538,78 @@ class Program(QtWidgets.QApplication, Logger):
             self.start_application()
 
     def start_application(self, mode="TRAY"):
-        try:
-            self.engine
-        except AttributeError:  # qml engine not started
+        if self.engine is not None:
+            return
 
-            self.engine = QtQml.QQmlApplicationEngine()
-            self.engine.addImportPath(self.QML_DIR)
+        self.engine = QtQml.QQmlApplicationEngine()
+        self.engine.addImportPath(self.QML_DIR)
 
-            self.image_provider = ImageProvider()
-            self.engine.addImageProvider("fukurou", self.image_provider)
+        self.image_provider = ImageProvider()
+        self.engine.addImageProvider("fukurou", self.image_provider)
 
-            self.thumb_image_provider = ThumbnailProvider()
-            self.engine.addImageProvider("thumbs", self.thumb_image_provider)
+        self.thumb_image_provider = ThumbnailProvider()
+        self.engine.addImageProvider("thumbs", self.thumb_image_provider)
 
+        self.downloadsModel = DownloadsModel()
+        self.downloadUIManager = DownloadUIManager()
 
-            self.downloadsModel = DownloadsModel()
-            self.downloadUIManager = DownloadUIManager()
-
-            
-            with user_database.get_session(self, acquire=True) as session:
-                results = Utils.convert_result(session.execute(
-                    select([user_database.Folders]).where(user_database.Folders.id == 1)))
-                if results:
-                    results = results[0]
-
-            # gallery test grid
-            test = []
-            test_folder = ""
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Folders]).where(user_database.Folders.id == 1)))
             if results:
-                test_folder = results.get("path")
+                results = results[0]
 
-                for dirpath, subdirs, filenames in os.walk(test_folder):
-                    for file in sorted(filenames, key=lambda file:
-                                       os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
-                        filepath = os.path.join(dirpath, file)
-                        modified_time = os.path.getmtime(filepath)
-                        test.append(FileItem(filepath, modified_time))
+        # gallery test grid
+        test = []
+        test_folder = ""
+        if results:
+            test_folder = results.get("path")
 
-            self.gridModel = GridModel(test_folder, test)
+            for dirpath, subdirs, filenames in os.walk(test_folder):
+                for file in sorted(filenames, key=lambda file:
+                                   os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
+                    filepath = os.path.join(dirpath, file)
+                    modified_time = os.path.getmtime(filepath)
+                    test.append(FileItem(filepath, modified_time))
 
-            # blow up preview 
-            self.blow_up_item = BlowUpItem()
+        self.gridModel = GridModel(test_folder, test)
 
-            # history manager
-            self.history = History()
-            
-            self.context = self.engine.rootContext()
+        # blow up preview
+        self.blow_up_item = BlowUpItem()
 
-            self.context.setContextProperty("downloadsModel", self.downloadsModel)
-            self.context.setContextProperty("downloadManager", self.downloadUIManager)
-            self.context.setContextProperty("gridModel", self.gridModel)
-            self.context.setContextProperty("blowUp", self.blow_up_item)
-            self.context.setContextProperty("history", self.history)
+        # history manager
+        self.history = History()
 
-            self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
-            self.app_window = self.engine.rootObjects()[0]
+        self.context = self.engine.rootContext()
 
-            # SIGNALS
-            self.app_window.requestFolders.connect(self.send_folders)
-            self.app_window.createFavFolder.connect(self.add_folder)
-            self.app_window.requestValidFolder.connect(self.set_folder_access)
-            self.app_window.updateFolders.connect(self.update_folders)
-            self.app_window.openItem.connect(self.open_item)
-            self.app_window.setEventFilter.connect(self.setEventFilter)
-            self.app_window.closeApplication.connect(self.close)
-            self.app_window.downloader_task.connect(self.downloader_task)
+        self.context.setContextProperty("downloadsModel", self.downloadsModel)
+        self.context.setContextProperty("downloadManager", self.downloadUIManager)
+        self.context.setContextProperty("gridModel", self.gridModel)
+        self.context.setContextProperty("blowUp", self.blow_up_item)
+        self.context.setContextProperty("history", self.history)
 
-            # self.open("APP")
+        self.engine.load(os.path.join(self.QML_DIR, "main.qml"))
+        self.app_window = self.engine.rootObjects()[0]
 
-            #  default mode? move to qml then have way of changing if not starting in default
-            # self.app_window.setMode(mode)
+        # SIGNALS
+        self.app_window.requestFolders.connect(self.send_folders)
+        self.app_window.createFavFolder.connect(self.add_folder)
+        self.app_window.requestValidFolder.connect(self.set_folder_access)
+        self.app_window.updateFolders.connect(self.update_folders)
+        self.app_window.openItem.connect(Program.open_item)
+        self.app_window.setEventFilter.connect(self.setEventFilter)
+        self.app_window.closeApplication.connect(self.close)
+        self.app_window.downloader_task.connect(self.downloader_task)
 
-            # with user_database.get_session(self, acquire=True) as session:
-            #     results = session.query(user_database.History).filter(user_database.History.id == 183).first()
-            #     test = results.gallery
-            #     print("BREAK")
+        # self.open("APP")
+
+        #  default mode? move to qml then have way of changing if not starting in default
+        # self.app_window.setMode(mode)
+
+        # with user_database.get_session(self, acquire=True) as session:
+        #     results = session.query(user_database.History).filter(user_database.History.id == 183).first()
+        #     test = results.gallery
+        #     print("BREAK")
 
     def setEventFilter(self, coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.installEventFilter(self)
@@ -701,15 +633,17 @@ class Program(QtWidgets.QApplication, Logger):
             return True
         return super().eventFilter(obj, event)
 
-    def sorted_dir(self, folder):
+    @staticmethod
+    def sorted_dir(folder):
         def getmtime(name):
             path = os.path.join(folder, name)
             return os.path.getmtime(path)
         
         return sorted(os.listdir(folder), key=getmtime)
 
-    # open history item file in default application or open file explorer to directory
-    def open_item(self, path, type):
+    @staticmethod
+    def open_item(path, type):
+        """open history item file in default application or open file explorer to directory"""
         if type == "file":
             qurl = QtCore.QUrl.fromLocalFile(path)
         elif type == "folder":
@@ -720,8 +654,9 @@ class Program(QtWidgets.QApplication, Logger):
             return
         QtGui.QDesktopServices.openUrl(qurl)
 
-    # open url in default browser
-    def open_url(self, url):
+    @staticmethod
+    def open_url(url):
+        """open url in default browser"""
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
     # sends folders list to ui

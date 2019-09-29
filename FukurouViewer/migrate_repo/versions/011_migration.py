@@ -17,8 +17,6 @@ def upgrade(migrate_engine):
     folder_id_c.create(history)
 
 
-
-
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
     history = Table('history', meta, autoload=True)

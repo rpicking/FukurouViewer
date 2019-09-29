@@ -12,7 +12,7 @@ import linecache
 import threading
 import subprocess
 
-from PyQt5 import QtCore
+from PySide2 import QtCore
 from time import time
 from urllib.parse import unquote
 from collections import namedtuple
@@ -32,6 +32,7 @@ from .foundation import Foundation
 from .search import Search
 from .gallery import GenericGallery
 
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame.mixer as mixer
 
 mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
@@ -223,8 +224,8 @@ class MessengerThread(BaseThread):
 
             try:
                 with user_database.get_session(self, acquire=True) as session:
-                        session.execute(update(user_database.Folders).where(
-                            user_database.Folders.uid == folder.get('uid')).values(values))
+                    session.execute(update(user_database.Folders).where(
+                        user_database.Folders.uid == folder.get('uid')).values(values))
             except Exception as e:
                 self.log_exception()
                 return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
@@ -528,10 +529,10 @@ class DownloadItem:
 
 
 class Download_UI_Signals(QtCore.QObject):
-    create = QtCore.pyqtSignal(DownloadItem)
-    start = QtCore.pyqtSignal(str)
-    update = QtCore.pyqtSignal(dict)    
-    finish = QtCore.pyqtSignal(str, float, int)
+    create = QtCore.Signal(DownloadItem)
+    start = QtCore.Signal(str)
+    update = QtCore.Signal(dict)
+    finish = QtCore.Signal(str, float, int)
 
     def __init__(self):
         super().__init__()
@@ -912,10 +913,10 @@ class EventThread(BaseThread):
         self.signals.modified.connect(FukurouViewer.app.file_modified_event)
 
     class Signals(QtCore.QObject):
-        moved = QtCore.pyqtSignal(str, str)
-        created = QtCore.pyqtSignal(str)
-        deleted = QtCore.pyqtSignal(str)
-        modified = QtCore.pyqtSignal(str)
+        moved = QtCore.Signal(str, str)
+        created = QtCore.Signal(str)
+        deleted = QtCore.Signal(str)
+        modified = QtCore.Signal(str)
 
     def _run(self):
         while True:

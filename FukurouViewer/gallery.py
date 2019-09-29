@@ -14,10 +14,10 @@ from .search import Search
 
 
 class CreationType(Enum):
-        FULL = 0    # ex gallery_id and gallery_token
-        PAGE = 1    # ex Individual page tokens
-        GAL = 2     # ex gallery tokens
-        HASH = 3    # file sha1 hash search
+    FULL = 0    # ex gallery_id and gallery_token
+    PAGE = 1    # ex Individual page tokens
+    GAL = 2     # ex gallery tokens
+    HASH = 3    # file sha1 hash search
 
 
 class BaseIdentifier:
@@ -102,7 +102,7 @@ class EHIdentifier(BaseIdentifier):
                 self.identity = self.PageIdentity(**tokens)
         else:
             self.creation_type = self.CreationType.HASH
-            self.identity = self.HashIdentity(**tokens)
+            self.identity = self.HashIdentity(**kwargs)
 
     def url(self):
         if self.creation_type == self.CreationType.GAL:
