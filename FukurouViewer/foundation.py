@@ -192,6 +192,8 @@ class FileItem(object):
         return self.modified_date > other.modified_date
 
     def get(self, key, default=None):
+        if key == "name":
+            return self.path.name
         if key == "filepath":
             return str(self.path)
         if key == "modified_date":

@@ -8,6 +8,7 @@ from sqlalchemy.ext.declarative import as_declarative, declared_attr
 from migrate.versioning import api
 from threading import Lock
 from sqlalchemy.orm import backref, relationship, scoped_session
+from enum import Enum
 
 from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
@@ -136,13 +137,24 @@ class Gallery(Base):
 class Folders(Base):
     __tablename__ = "folders"
 
+    class Type(Enum):
+        # Gallery represented as directory with files inside it
+        GALLERY = 0
+        # Gallery packaged into single file format i.e. cbz, zip, cbr, rar
+        GALLERY_ARCHIVE = 1
+        # misc. collection of files/folders
+        COLLECTION_MISC = 2
+        # folder containing only GALLERY or GALLERY_ARCHIVE files/directories.  Other individual items in directory
+        # will be ignored
+        COLLECTION_GALLERY = 3
+
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     uid = Column(Text, nullable=False)
     path = Column(Text, nullable=False)
     color = Column(Text)
     order = Column(Integer)
-    type = Column(Integer, default=0)   # 0 = both, 1 = ext only, 2 = app only
+    type = Column(Integer, default=0)
 
     def __init__(self, id=None, name="", uid="", path="", color="", order=None, type=None):
         self.id = id

@@ -166,7 +166,7 @@ class ThumbnailCache:
         if video_stream and "duration" in video_stream:
             total_duration = float(video_stream["duration"])
         elif "format" in probe and "duration" in probe["format"]:   # some containers store duration in format instead of stream
-            total_duration = probe["format"]["duration"]
+            total_duration = float(probe["format"]["duration"])
 
         if not total_duration:
             return None, False

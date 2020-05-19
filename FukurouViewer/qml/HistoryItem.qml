@@ -50,7 +50,7 @@ Component {
             anchors.leftMargin: 10
             sourceSize.width: height
             sourceSize.height: width
-            source: "image://fukurou/" + id
+            source: "image://icon/" + id
         }
 
         Colorize {

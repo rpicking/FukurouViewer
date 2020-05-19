@@ -75,6 +75,10 @@ ApplicationWindow {
         testPopup.closeAndReset();
     }
 
+    function setStatus(status) {
+        statusText.text = status;
+    }
+
     onActiveChanged: {
         if (mainWindow.active && trayWindow.visible) {
             trayWindow.hide();
@@ -84,6 +88,14 @@ ApplicationWindow {
     onClosing: {
         close.accepted = false;
         closeApplication();
+    }
+
+    StackView {
+        id: stack
+        anchors.fill: parent
+        initialItem: GalleryView {
+            id: galleryView
+        }
     }
 
     TrayWindow { id: trayWindow }
@@ -170,6 +182,7 @@ ApplicationWindow {
                 id: searchText
                 placeholderText: "Search"
                 font.pointSize: 14
+                onTextChanged: gridModel.filter(text)
                 background: Rectangle {}
                 anchors {
                     left: searchIcon.right
@@ -302,6 +315,29 @@ ApplicationWindow {
         }
     }
 
+    footer: Rectangle {
+        id: bottomBar
+        height: 30
+        color: "#e3e3e3"
+        anchors.right: parent.right
+        anchors.rightMargin: 0
+        anchors.left: parent.left
+        anchors.leftMargin: 0
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 0
+
+        Text {
+            id: statusText
+            text: ""
+            anchors.rightMargin: 5
+            anchors.leftMargin: 5
+            verticalAlignment: Text.AlignVCenter
+            anchors.fill: parent
+            font.pixelSize: 12
+        }
+    }
+
+
     MouseArea {
         id: mainMouseArea
         acceptedButtons: Qt.BackButton
@@ -323,20 +359,6 @@ ApplicationWindow {
             }
         }
     }
-
-
-    StackView {
-        id: stack
-        anchors.fill: parent
-        initialItem: galleryView
-    }
-
-    GalleryView {
-        id: galleryView
-    }
-
-
-
 
     // *********************************************
     // ****** Mouse Hold Blow Up *******************
