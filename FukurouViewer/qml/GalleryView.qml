@@ -66,14 +66,13 @@ Old.ScrollView {
                             MouseArea {
                                 pressAndHoldInterval: 250
                                 onDoubleClicked: {
-                                    stack.push(Qt.resolvedUrl("IndividualItemPage.qml"), { source: "file:///" + filepath, type: type } );
+                                    stack.push(Qt.resolvedUrl("IndividualItemPage.qml"), { source: filepath, type: type } );
                                 }
                                 onPressAndHold: {
                                     var xPercent = mouse.x / parent.width
                                     var yPercent = mouse.y / parent.height
 
                                     testPopup.setSource("file:///" + filepath)
-                                    // testImage.source = "file:///" + filepath
 
                                     var globalCoords = mapToGlobal(mouse.x, mouse.y);
                                     testPopup.openOnPoint(globalCoords, parent.width, parent.height, xPercent, yPercent);

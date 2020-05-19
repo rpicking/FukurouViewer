@@ -7,6 +7,8 @@ Item {
     property string type: ""
 
     Component.onCompleted: {
+        source = "file:///" + source;
+
         loadSource();
         forceActiveFocus();
     }
