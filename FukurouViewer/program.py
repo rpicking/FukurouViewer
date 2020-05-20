@@ -10,6 +10,7 @@ from FukurouViewer.grid import GridModel, FilteredGridModel
 from . import user_database
 from .blowupview import BlowUpItem
 from .iconprovider import IconImageProvider
+from .threads import ThreadManager
 from .tray import SystemTrayIcon
 from .utils import Utils
 from .config import Config
@@ -68,6 +69,30 @@ class Program(QtWidgets.QApplication, Logger):
         # history manager
         self.history = History()
 
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Folders]).where(user_database.Folders.id == 1)))
+            if results:
+                results = results[0]
+
+            # gallery test grid
+        test = []
+        test_folder = ""
+        if results:
+            test_folder = results.get("path")
+
+            for dirpath, subdirs, filenames in os.walk(test_folder):
+                for file in sorted(filenames, key=lambda file:
+                os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
+                    filepath = os.path.join(dirpath, file)
+                    modified_time = os.path.getmtime(filepath)
+                    test.append(FileItem(filepath, modified_time))
+
+        self.gridModel = GridModel(test_folder, test)
+        self.filteredGridModel = FilteredGridModel(self.gridModel, self)
+
+        self.threadManager = ThreadManager(self)
+
         self.engine = None
         self.context = None
         self.app_window = None
@@ -103,6 +128,8 @@ class Program(QtWidgets.QApplication, Logger):
         else:
             self.start_application()
 
+        self.threadManager.startThreads()
+
     def start_application(self, mode="TRAY"):
         if self.engine is not None:
             return
@@ -112,28 +139,6 @@ class Program(QtWidgets.QApplication, Logger):
 
         self.engine.addImageProvider("icon", self.iconImageProvider)
         self.engine.addImageProvider("thumbs", self.thumb_image_provider)
-
-        with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                select([user_database.Folders]).where(user_database.Folders.id == 1)))
-            if results:
-                results = results[0]
-
-        # gallery test grid
-        test = []
-        test_folder = ""
-        if results:
-            test_folder = results.get("path")
-
-            for dirpath, subdirs, filenames in os.walk(test_folder):
-                for file in sorted(filenames, key=lambda file:
-                                   os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
-                    filepath = os.path.join(dirpath, file)
-                    modified_time = os.path.getmtime(filepath)
-                    test.append(FileItem(filepath, modified_time))
-
-        self.gridModel = GridModel(test_folder, test)
-        self.filteredGridModel = FilteredGridModel(self.gridModel, self)
 
         self.context = self.engine.rootContext()
         self.setContextProperties()

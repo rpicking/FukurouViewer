@@ -24,7 +24,6 @@ from watchdog.events import FileSystemEventHandler
 import FukurouViewer
 from FukurouViewer import exceptions
 from . import user_database
-from .program import Program
 from .request_manager import request_manager, ex_request_manager
 from .utils import Utils
 from .config import Config
@@ -107,7 +106,6 @@ class MessengerThread(BaseThread):
         super().__init__()
         self.downloadManager = downloadManager
         self.windows = _windows
-        self.signals = Download_UI_Signals()
 
         if self.windows:
             self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
@@ -143,8 +141,7 @@ class MessengerThread(BaseThread):
                     self.downloadManager.queue.put(item)
                     payload = {"task": "none"}
                 elif task == "saveManga":
-                    item = DownloadItem(self.downloadManager, msg)
-                    self.downloadManager.queue.put(item)
+                    self.downloadManager.queueItem(msg)
 
                 self.send_message(payload)
 
@@ -199,7 +196,7 @@ class MessengerThread(BaseThread):
     def create_download_item(self, msg):
         """creates DownloadItem to put in queue 
             adds download item to UI """
-        item = DownloadItem(self.downloadManager, msg)
+        item = DownloadItem(self.downloadManager, self.signals, msg)
         self.signals.create.emit(item)
         return item
 
@@ -265,16 +262,16 @@ class MessengerThread(BaseThread):
 class DownloadManager(Logger):
     THREAD_COUNT = 3  # number of simultaneous downloads
 
-    def __init__(self, searchThread):
+    def __init__(self, searchThread, signals):
         self.searchThread = searchThread
+        self.signals = signals
         self.queue = queue.Queue()
         self.threads = []
-        self.signals = Download_UI_Signals()
 
     def setup(self):
         FukurouViewer.app.app_window.resume_download.connect(self.resume_download)
         for i in range(self.THREAD_COUNT):
-            thread = DownloadThread(self)
+            thread = DownloadThread(self, self.signals)
             thread.setup()
             thread.start()
             self.threads.append(thread)
@@ -306,7 +303,7 @@ class DownloadManager(Logger):
             #     open(filepath, 'a').close()
 
             item["tmp_filepath"] = tmp_filepath
-            download_item = DownloadItem(self, item)
+            download_item = DownloadItem(self, self.signals, item)
             self.signals.create.emit(download_item)
 
             percent = int((download_item.downloaded / download_item.total_size) * 100)
@@ -328,8 +325,11 @@ class DownloadManager(Logger):
         else:
             results["downloaded"] = 0
 
-        download_item = DownloadItem(self, results)
+        download_item = DownloadItem(self, self.signals, results)
         self.queue.put(download_item)
+
+    def queueItem(self, msg):
+        self.queue.put(DownloadItem(self, self.signals, msg))
 
     def queueSearch(self, gallery):
         self.searchThread.queue.put(gallery)
@@ -339,9 +339,9 @@ class DownloadItem:
     FAVICON_PATH = Utils.fv_path("favicons")
     ETA_LIMIT = 2592000
 
-    def __init__(self, downloadManager: DownloadManager, msg):
+    def __init__(self, downloadManager: DownloadManager, signals, msg):
         self.downloadManager = downloadManager
-        self.signals = Download_UI_Signals()
+        self.signals = signals
 
         self.task = msg.get("task")
         self.resume = False
@@ -602,22 +602,22 @@ class Download_UI_Signals(QtCore.QObject):
     update = QtCore.Signal(dict)
     finish = QtCore.Signal(str, float, int)
 
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
-        self.create.connect(FukurouViewer.app.create_download_ui_item)
-        self.start.connect(FukurouViewer.app.start_download_ui_item)
-        self.update.connect(FukurouViewer.app.update_download_ui_item)
-        self.finish.connect(FukurouViewer.app.finish_download_ui_item)
+        self.create.connect(app.create_download_ui_item)
+        self.start.connect(app.start_download_ui_item)
+        self.update.connect(app.update_download_ui_item)
+        self.finish.connect(app.finish_download_ui_item)
 
 
 class DownloadThread(BaseThread):
     FAVICON_PATH = Utils.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
 
-    def __init__(self, downloadManager):
+    def __init__(self, downloadManager, signals):
         super().__init__()
         self.downloadManager = downloadManager
-        self.signals = Download_UI_Signals()
+        self.signals = signals
 
         self.download_item = None
         self._last_time = None
@@ -982,11 +982,13 @@ class EventThread(BaseThread):
 
 class ThreadManager:
 
-    def __init__(self, gridModel):
+    def __init__(self, app):
+        self.signals = Download_UI_Signals(app)
+
         self.searchThread = SearchThread()
-        self.downloadManager = DownloadManager(self.searchThread)
+        self.downloadManager = DownloadManager(self.searchThread, self.signals)
         # self.gallery_thread = GalleryThread()
-        self.eventThread = EventThread(gridModel)
+        self.eventThread = EventThread(app.gridModel)
         self.folderWatcherThread = FolderWatcherThread(self.eventThread)
         self.messengerThread = MessengerThread(self.downloadManager, isWindows)
 
@@ -1001,8 +1003,3 @@ class ThreadManager:
     def startThread(thread):
         thread.setup()
         thread.start()
-
-
-def setup(app: Program):
-    threadManager = ThreadManager(app.gridModel)
-    threadManager.startThreads()

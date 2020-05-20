@@ -319,12 +319,12 @@ ApplicationWindow {
         id: bottomBar
         height: 30
         color: "#e3e3e3"
-        anchors.right: parent.right
-        anchors.rightMargin: 0
-        anchors.left: parent.left
-        anchors.leftMargin: 0
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 0
+        anchors {
+            right: parent.right
+            rightMargin: 0
+            left: parent.left
+            leftMargin: 0
+        }
 
         Text {
             id: statusText
