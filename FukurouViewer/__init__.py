@@ -26,4 +26,4 @@ requests_log.propagate = False
 
 app = program.Program(sys.argv)
 app.setup(sys.argv)
-threads.setup()
+threads.setup(app)

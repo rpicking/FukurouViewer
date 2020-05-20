@@ -24,13 +24,19 @@ from watchdog.events import FileSystemEventHandler
 import FukurouViewer
 from FukurouViewer import exceptions
 from . import user_database
+from .program import Program
 from .request_manager import request_manager, ex_request_manager
 from .utils import Utils
 from .config import Config
 from .logger import Logger
-from .foundation import Foundation
+from .foundation import Foundation, FileItem
 from .search import Search
 from .gallery import GenericGallery
+
+isWindows = os.name == "nt"
+if isWindows:
+    import win32pipe
+    import win32file
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame.mixer as mixer
@@ -83,7 +89,7 @@ class BaseThread(threading.Thread, Logger):
                 if issubclass(extype, exceptions.BaseException):
                     restart = exvalue.thread_restart
                 # basesignal exception emit
-                if restart: # empty out queue
+                if restart:  # empty out queue
                     try:
                         while True:
                             self.queue.get_nowait()
@@ -97,9 +103,11 @@ class MessengerThread(BaseThread):
     PIPE_PATH = "/tmp/fukurou.fifo"
     WIN_PIPE_PATH = r'\\.\pipe\fukurou_pipe'
 
-    def __init__(self, _windows = True):
+    def __init__(self, downloadManager, _windows=True):
         super().__init__()
+        self.downloadManager = downloadManager
         self.windows = _windows
+        self.signals = Download_UI_Signals()
 
         if self.windows:
             self.pipe = win32pipe.CreateNamedPipe(self.WIN_PIPE_PATH,
@@ -114,9 +122,6 @@ class MessengerThread(BaseThread):
         if not os.path.exists(self.pipe):
             os.mkfifo(self.pipe)
 
-    def setup(self):
-        self.signals = Download_UI_Signals()
-
     def _run(self):
         win32pipe.ConnectNamedPipe(self.pipe, None)
         msg = None
@@ -128,22 +133,22 @@ class MessengerThread(BaseThread):
                 task = msg.get("task")
                 payload = {"task": "none"}
                 if task == "sync":
-                    payload = self.sync_task(msg)
+                    payload = self.sync_task()
                 elif task == "edit":
                     payload = self.edit_task(msg)
                 elif task == "delete":
                     payload = self.delete_task(msg)
                 elif task == "save":
                     item = self.create_download_item(msg)
-                    download_manager.queue.put(item)
+                    self.downloadManager.queue.put(item)
                     payload = {"task": "none"}
                 elif task == "saveManga":
-                    item = DownloadItem(msg)
-                    download_manager.queue.put(item)
+                    item = DownloadItem(self.downloadManager, msg)
+                    self.downloadManager.queue.put(item)
 
                 self.send_message(payload)
 
-            except win32pipe.error as e:    # messenger has closed
+            except win32pipe.error as e:  # messenger has closed
                 # self.logger.error("Messenger closed")
                 # self.logger.error(e)
                 self.pipe.Close()
@@ -183,29 +188,27 @@ class MessengerThread(BaseThread):
 
     # send message to host
     def send_message(self, MSG):
-        byte_message = str.encode(json.dumps(MSG))
+        jsonStr = json.dumps(MSG)
+        byte_message = str.encode(jsonStr)
         if self.windows:
             win32file.WriteFile(self.pipe, byte_message)
-            return
-
-        with open(self.pipe, "w") as pipe:
-            pipe.write(byte_message)
+        else:
+            with open(self.pipe, "w") as pipe:
+                pipe.write(jsonStr)
 
     def create_download_item(self, msg):
         """creates DownloadItem to put in queue 
             adds download item to UI """
-        item = DownloadItem(msg)
+        item = DownloadItem(self.downloadManager, msg)
         self.signals.create.emit(item)
         return item
 
     # sync folders with extension
-    def sync_task(self, msg):
+    def sync_task(self):
         payload = {'task': 'sync'}
         with user_database.get_session(self, acquire=True) as session:
             payload['folders'] = Utils.convert_result(session.execute(
                 select([user_database.Folders.name, user_database.Folders.uid]).order_by(user_database.Folders.order)))
-            # payload['folders'] = Utils.convert_result(session.execute(
-            #     select([user_database.Folders]).order_by(user_database.Folders.order)))
         return payload
 
     # edit folder info in database
@@ -226,7 +229,7 @@ class MessengerThread(BaseThread):
                 with user_database.get_session(self, acquire=True) as session:
                     session.execute(update(user_database.Folders).where(
                         user_database.Folders.uid == folder.get('uid')).values(values))
-            except Exception as e:
+            except Exception:
                 self.log_exception()
                 return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
         return {'task': 'edit', 'type': 'success'}
@@ -244,7 +247,6 @@ class MessengerThread(BaseThread):
                 with user_database.get_session(self) as session:
                     session.execute(delete(user_database.Folders).where(user_database.Folders.uid == folder.get('uid')))
                 return {'type': 'success', 'task': 'delete', 'name': name, 'uid': uid}
-
         except Exception:
             self.log_exception()
             return {'task': 'delete', 'type': 'crash'}
@@ -260,26 +262,91 @@ class MessengerThread(BaseThread):
         self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
-if os.name == 'nt':
-    import win32api
-    import win32pipe
-    import win32file
-    messenger_thread = MessengerThread()
-else:
-    messenger_thread = MessengerThread(False)
+class DownloadManager(Logger):
+    THREAD_COUNT = 3  # number of simultaneous downloads
+
+    def __init__(self, searchThread):
+        self.searchThread = searchThread
+        self.queue = queue.Queue()
+        self.threads = []
+        self.signals = Download_UI_Signals()
+
+    def setup(self):
+        FukurouViewer.app.app_window.resume_download.connect(self.resume_download)
+        for i in range(self.THREAD_COUNT):
+            thread = DownloadThread(self)
+            thread.setup()
+            thread.start()
+            self.threads.append(thread)
+
+        self.load_existing()
+
+    def start(self):
+        pass
+
+    def load_existing(self):
+        """load existing unfinished downloads from db and queue them"""
+        with user_database.get_session(self, acquire=True) as session:
+            downloads = Utils.convert_result(session.execute(
+                select([user_database.Downloads])))
+
+        for item in downloads:
+            item["task"] = "load"
+            tmp_filepath = item.get("filepath") + ".part"
+            if os.path.exists(tmp_filepath):
+                item["downloaded"] = os.path.getsize(tmp_filepath)
+            else:
+                item["downloaded"] = 0
+                open(tmp_filepath, 'a').close()
+
+            # if not os.path.exists(filepath):
+            #     with user_database.get_session(self, acquire=True) as session:
+            #         session.execute(
+            #         delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
+            #     open(filepath, 'a').close()
+
+            item["tmp_filepath"] = tmp_filepath
+            download_item = DownloadItem(self, item)
+            self.signals.create.emit(download_item)
+
+            percent = int((download_item.downloaded / download_item.total_size) * 100)
+            kwargs = {"id": download_item.id,
+                      "cur_size": download_item.downloaded,
+                      "percent": percent}
+            self.signals.update.emit(kwargs)
+
+            self.queue.put(download_item)
+
+    def resume_download(self, id):
+        with user_database.get_session(self, acquire=True) as session:
+            results = Utils.convert_result(session.execute(
+                select([user_database.Downloads]).where(user_database.Downloads.id == id)))[0]
+        results["task"] = "load"
+        filepath = results.get("filepath") + ".part"
+        if os.path.exists(filepath):
+            results["downloaded"] = os.path.getsize(filepath)
+        else:
+            results["downloaded"] = 0
+
+        download_item = DownloadItem(self, results)
+        self.queue.put(download_item)
+
+    def queueSearch(self, gallery):
+        self.searchThread.queue.put(gallery)
 
 
 class DownloadItem:
     FAVICON_PATH = Utils.fv_path("favicons")
     ETA_LIMIT = 2592000
 
-    def __init__(self, msg):
+    def __init__(self, downloadManager: DownloadManager, msg):
+        self.downloadManager = downloadManager
         self.signals = Download_UI_Signals()
 
         self.task = msg.get("task")
         self.resume = False
 
-        if self.task == "saveManga":    
+        if self.task == "saveManga":
             self.url = msg.get("url")
             return
 
@@ -287,7 +354,7 @@ class DownloadItem:
         if not self.id:
             self.set_id()
 
-        self.url = msg.get('srcUrl')   
+        self.url = msg.get('srcUrl')
         self.page_url = msg.get('pageUrl')
         self.domain = msg.get('domain')
 
@@ -299,12 +366,12 @@ class DownloadItem:
         self.cookies = dict()
         for cookie in msg.get('cookies', []):
             self.cookies[cookie[0]] = cookie[1]
-        
+
         self.favicon_url = msg.get('favicon_url', "")
         self.download_favicon()
 
         # folder
-        self.folder = {} 
+        self.folder = {}
         with user_database.get_session(self, acquire=True) as session:
             folder_id = msg.get('uid', None)
             if folder_id:
@@ -317,8 +384,8 @@ class DownloadItem:
         self.dir = msg.get("dir", self.folder.get("path"))
         self.filepath = msg.get("filepath", None)
         self.tmp_filepath = msg.get("tmp_filepath", None)
-        self.filename = msg.get("filename", None)    # basename and extension filename.txt
-        self.base_name = msg.get("base_name", None)   # filename before .ext
+        self.filename = msg.get("filename", None)  # basename and extension filename.txt
+        self.base_name = msg.get("base_name", None)  # filename before .ext
         self.ext = msg.get("ext", None)
         self.total_size = msg.get("total_size", None)
         if self.total_size:
@@ -350,12 +417,13 @@ class DownloadItem:
                         "favicon_url": self.favicon_url,
                         "timestamp": self.start_time,
                         "folder_id": self.folder.get("id")
-                    })) 
+                    }))
 
     def get_information(self):
         """Downloads item information before downloading gets
              filename, size, tmp_path"""
-        response = requests.head(self.url, headers=self.send_headers, cookies=self.cookies, timeout=10, allow_redirects=True)
+        response = requests.head(self.url, headers=self.send_headers, cookies=self.cookies, timeout=10,
+                                 allow_redirects=True)
         headers = response.headers
 
         # content-length
@@ -371,12 +439,12 @@ class DownloadItem:
         if "Content-Type" in headers:
             self.ext = guess_extension(headers.get("Content-Type").split()[0].rstrip(";"))
 
-        if not self.filename:   # no filename in Content-Disposition header
+        if not self.filename:  # no filename in Content-Disposition header
             self.set_filename()
             self.filename = Foundation.remove_invalid_chars(self.filename)
 
         temp_base_name, ext = os.path.splitext(self.filename)
-        if ext:    # have extension
+        if ext:  # have extension
             self.ext = ext
         self.ext = self.ext_convention(self.ext)
 
@@ -415,7 +483,6 @@ class DownloadItem:
                     for chunk in icon:
                         f.write(chunk)
             else:
-                data = ""
                 byte_obj = self.favicon_url.split(',')[1]
                 if encoding == "base64":
                     data = base64.b64decode(byte_obj)
@@ -436,7 +503,8 @@ class DownloadItem:
 
     # Given data string 'data:image/png;base64,BAKFKDSlasd...
     # return tuple of format and encoding
-    def getDataType(self, data_str):
+    @staticmethod
+    def getDataType(data_str):
         format_regex = re.findall('(?<=:)(.*?)(?=,)', data_str)
         parts = []
         if format_regex:
@@ -449,10 +517,10 @@ class DownloadItem:
 
     def set_filename(self):
         """Sets self.filename from url"""
-        full_filename = self.url.split('/')[-1]   # get filename from srcUrl
-        full_filename = full_filename.split('?')[0]   # strip query string parameters
-        full_filename = full_filename.split('#')[0]   # strip anchor
-        full_filename = full_filename.split(':')[0]   # string delimiter
+        full_filename = self.url.split('/')[-1]  # get filename from srcUrl
+        full_filename = full_filename.split('?')[0]  # strip query string parameters
+        full_filename = full_filename.split('#')[0]  # strip anchor
+        full_filename = full_filename.split(':')[0]  # string delimiter
         full_filename = unquote(full_filename)
         self.filename = full_filename
 
@@ -463,10 +531,10 @@ class DownloadItem:
             return '.jpg'
         return ext.lower()
 
-    def fix_image_extension(self):  
+    def fix_image_extension(self):
         """checks image file headers and renames image to proper extension when necessary"""
         format = imghdr.what(self.filepath)
-        if not format:    # not image so do nothing
+        if not format:  # not image so do nothing
             return
 
         format = self.ext_convention(''.join(('.', format)))
@@ -498,7 +566,7 @@ class DownloadItem:
     def finish(self):
         finish_time = time()
         os.rename(self.tmp_filepath, self.filepath)
-        self.fix_image_extension()        
+        self.fix_image_extension()
 
         self.signals.finish.emit(self.id, finish_time, self.total_size)
 
@@ -518,14 +586,14 @@ class DownloadItem:
                     "folder_id": self.folder.get("id")
                 }))
             db_id = int(result.inserted_primary_key[0])
-            
+
         kwargs = {"url": self.page_url,
                   "domain": self.domain,
                   "history_item": db_id,
                   "galleryUrl": self.gallery_url}
 
         gal = GenericGallery(**kwargs)
-        search_thread.queue.put(gal)
+        self.downloadManager.queueSearch(gal)
 
 
 class Download_UI_Signals(QtCore.QObject):
@@ -538,111 +606,40 @@ class Download_UI_Signals(QtCore.QObject):
         super().__init__()
         self.create.connect(FukurouViewer.app.create_download_ui_item)
         self.start.connect(FukurouViewer.app.start_download_ui_item)
-        self.update.connect(FukurouViewer.app.update_download_ui_item)        
+        self.update.connect(FukurouViewer.app.update_download_ui_item)
         self.finish.connect(FukurouViewer.app.finish_download_ui_item)
 
 
-class DownloadManager(Logger):
-    THREAD_COUNT = 3    # number of simultaneous downloads
-
-    def __init__(self):
-        self.queue = queue.Queue()
-
-    def setup(self):
-        self.signals = Download_UI_Signals()
-        FukurouViewer.app.app_window.resume_download.connect(self.resume_download)
-
-        self.threads = []
-        for i in range(self.THREAD_COUNT):
-            thread = DownloadThread()
-            thread.setup()
-            thread.start()
-            self.threads.append(thread)
-
-        self.load_existing()
-        
-    def start(self):
-        pass
-
-    def load_existing(self):
-        """load existing unfinished downloads from db and queue them"""
-        with user_database.get_session(self, acquire=True) as session:
-            downloads = Utils.convert_result(session.execute(
-                select([user_database.Downloads])))
-
-        for item in downloads:
-            item["task"] = "load"
-            tmp_filepath = item.get("filepath") + ".part"
-            if os.path.exists(tmp_filepath):
-                item["downloaded"] = os.path.getsize(tmp_filepath)
-            else:
-                item["downloaded"] = 0
-                open(tmp_filepath, 'a').close()
-
-            # if not os.path.exists(filepath):
-            #     with user_database.get_session(self, acquire=True) as session:
-            #         session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == item.get("id")))
-            #     open(filepath, 'a').close()
-
-            item["tmp_filepath"] = tmp_filepath
-            download_item = DownloadItem(item)
-            self.signals.create.emit(download_item)
-
-            percent = int((download_item.downloaded / download_item.total_size) * 100)
-            kwargs = {"id": download_item.id, 
-                      "cur_size": download_item.downloaded, 
-                      "percent": percent }
-            self.signals.update.emit(kwargs)
-
-            self.queue.put(download_item)
-
-    def resume_download(self, id):
-        with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                select([user_database.Downloads]).where( user_database.Downloads.id == id)))[0]
-        results["task"] = "load"
-        filepath = results.get("filepath") + ".part"
-        if os.path.exists(filepath):
-            results["downloaded"] = os.path.getsize(filepath)
-        else:
-            results["downloaded"] = 0
-
-        download_item = DownloadItem(results)
-        self.queue.put(download_item)
-
-
-download_manager = DownloadManager()
-
-
 class DownloadThread(BaseThread):
-
     FAVICON_PATH = Utils.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
 
-    def __init__(self):
+    def __init__(self, downloadManager):
         super().__init__()
+        self.downloadManager = downloadManager
+        self.signals = Download_UI_Signals()
+
         self.download_item = None
         self._last_time = None
         self.paused = False
         self.stopped = False
         self.toBeDeleted = False
         self.max_speed = 1024 * 1024 * 1024
-        self.f = None   # file object
+        self.f = None  # file object
         self.headers = {}
         self.status_code = None
         self.status_msg = ""
 
-        self._curl = None 
+        self.curl = None
 
     def setup(self):
         super().setup()
-        self.signals = Download_UI_Signals()
         FukurouViewer.app.app_window.downloader_task.connect(self.receive_ui_task)
 
     def _run(self):
         try:
             while True:
-                self.download_item = download_manager.queue.get()                
+                self.download_item = self.downloadManager.queue.get()
                 if self.download_item.task == "save":
                     self.start_download()
                 elif self.download_item.task == "saveManga":
@@ -668,7 +665,8 @@ class DownloadThread(BaseThread):
         self.toBeDeleted = deleteAfterStopping
         if deleteAfterStopping:
             with user_database.get_session(self, acquire=True) as session:
-                    session.execute(delete(user_database.Downloads).where(user_database.Downloads.id == self.download_item.id))
+                session.execute(
+                    delete(user_database.Downloads).where(user_database.Downloads.id == self.download_item.id))
 
     def togglePause(self):
         print("toggle pause")
@@ -709,7 +707,7 @@ class DownloadThread(BaseThread):
         self.curl.setopt(pycurl.XFERINFOFUNCTION, self.progress)
 
         self.curl.setopt(pycurl.HEADERFUNCTION, self.header)
-        self.curl.setopt(pycurl.HTTPHEADER, [k+': '+v for k,v in self.download_item.send_headers.items()])
+        self.curl.setopt(pycurl.HTTPHEADER, [k + ': ' + v for k, v in self.download_item.send_headers.items()])
 
         if self.download_item.resume:
             self.curl.setopt(pycurl.RESUME_FROM, self.download_item.downloaded)
@@ -732,7 +730,7 @@ class DownloadThread(BaseThread):
                     os.remove(self.download_item.tmp_filepath)
 
             if not self.stopped:
-                self.logger.error("Failed downloading " + self.download_item.filename + " with error: " + error)
+                self.logger.error("Failed downloading " + self.download_item.filename + " with error: " + str(error))
             return
         except Exception as error:
             print(error)
@@ -757,13 +755,13 @@ class DownloadThread(BaseThread):
     def header(self, header):
         header = header.decode("utf-8")
         header = header.strip()
-        
+
         if ":" not in header and header:
             key = "http_code"
             value = header
         elif header:
             key, value = header.split(":", 1)
-        else:   # end of headers
+        else:  # end of headers
             self.get_status_code(self.headers.get("http_code"))
             return
 
@@ -776,7 +774,7 @@ class DownloadThread(BaseThread):
         # don't update UI unless request succeeded
         if self.status_code < 200 or self.status_code > 299:
             return
-            
+
         current_time = time()
         # speed
         duration = current_time - self.download_item.start_time + 1
@@ -790,22 +788,22 @@ class DownloadThread(BaseThread):
         self._last_time = current_time
         downloaded = self.download_item.downloaded + download_d
         percent = int((downloaded / self.download_item.total_size) * 100)
-        
+
         # ETA
         if avg_speed == 0.0:
             eta = self.download_item.ETA_LIMIT
         else:
             eta = int((self.download_item.total_size - downloaded) / avg_speed)
 
-        kwargs = {"id": self.download_item.id, 
-                  "cur_size": downloaded, 
-                  "percent": percent, 
+        kwargs = {"id": self.download_item.id,
+                  "cur_size": downloaded,
+                  "percent": percent,
                   "speed": avg_speed,
-                  "eta": eta }
+                  "eta": eta}
         self.signals.update.emit(kwargs)
 
     def get_status_code(self, status_string):
-        status = self.headers.get("http_code")  #'HTTP/1.1 200 OK'
+        # status = self.headers.get("http_code")  # 'HTTP/1.1 200 OK'
         status_parts = status_string.split(" ")
         self.status_code = int(status_parts[1])
         self.status_msg = status_parts[2]
@@ -814,13 +812,12 @@ class DownloadThread(BaseThread):
         self.logger.debug("--- Downloading Manga ---")
         url = [self.download_item.url]
 
-        doujin_downloader = [Config.doujin_downloader]
-        doujin_downloader.append(url)
-        doujin_downloader.append("nogui")
+        doujin_downloader = [Config.doujin_downloader, url, "nogui"]
         subprocess.Popen(doujin_downloader)
 
-    # delete file
-    def delete_file(self, filepath):
+    @staticmethod
+    def delete_file(filepath):
+        """Delete a file by its absolute filepath"""
         if os.path.isfile(filepath):
             os.remove(filepath)
 
@@ -849,12 +846,9 @@ class SearchThread(BaseThread):
                 self.queue.put(gal)
 
 
-search_thread = SearchThread()
-
-
 class GalleryThread(BaseThread):
     running = False
-    
+
     def setup(self):
         super().setup()
         # signals for find galleries done in program.py
@@ -868,15 +862,21 @@ class GalleryThread(BaseThread):
             with FukurouViewer.app.gallery_lock:
                 print("HUH")
 
-# gallery_thread = GalleryThread()
-
 
 class FolderWatcherThread(BaseThread):
     observer = None
 
+    def __init__(self, eventThread):
+        super().__init__()
+        self.eventThread = eventThread
+
     class Handler(FileSystemEventHandler):
+        def __init__(self, eventThread):
+            super().__init__()
+            self.eventThread = eventThread
+
         def on_any_event(self, event):
-            event_thread.queue.put([event])
+            self.eventThread.queue.put([event])
 
     def setup(self):
         super().setup()
@@ -896,27 +896,28 @@ class FolderWatcherThread(BaseThread):
                 select([user_database.Folders.path]).order_by(user_database.Folders.order)))
         for folder in folders:
             if os.path.exists(folder.get('path')):
-                self.observer.schedule(self.Handler(), folder.get('path'), recursive=True)
-
-
-folder_watcher_thread = FolderWatcherThread()
+                self.observer.schedule(self.Handler(self.eventThread), folder.get('path'), recursive=True)
 
 
 class EventThread(BaseThread):
-
-    def setup(self):
-        super().setup()
-        self.signals = self.Signals()
-        self.signals.moved.connect(FukurouViewer.app.file_moved_event)
-        self.signals.created.connect(FukurouViewer.app.file_created_event)
-        self.signals.deleted.connect(FukurouViewer.app.file_deleted_event)
-        self.signals.modified.connect(FukurouViewer.app.file_modified_event)
 
     class Signals(QtCore.QObject):
         moved = QtCore.Signal(str, str)
         created = QtCore.Signal(str)
         deleted = QtCore.Signal(str)
         modified = QtCore.Signal(str)
+
+    def __init__(self, gridModel):
+        super().__init__()
+        self.gridModel = gridModel
+        self.signals = self.Signals()
+
+    def setup(self):
+        super().setup()
+        self.signals.moved.connect(self.file_moved_event)
+        self.signals.created.connect(self.file_created_event)
+        self.signals.deleted.connect(self.file_deleted_event)
+        self.signals.modified.connect(self.file_modified_event)
 
     def _run(self):
         while True:
@@ -939,21 +940,69 @@ class EventThread(BaseThread):
                 self.signals.modified.emit(event.src_path)
                 print("modified")
 
+    def file_moved_event(self, src_path, dst_path):
+        try:
+            if self.gridModel.isCurrentFolder(src_path):
+                self.gridModel.remove_item(FileItem(src_path))
+            if self.gridModel.isCurrentFolder(dst_path):
+                self.gridModel.insert_new_item(FileItem(dst_path))
+        except Exception as e:
+            self.logger.error("MovedEvent", e)
 
-event_thread = EventThread()
+    def file_deleted_event(self, filepath):
+        try:
+            if not self.gridModel.isCurrentFolder(filepath):
+                return
+            self.gridModel.remove_item(FileItem(filepath))
+        except Exception as e:
+            self.logger.error("DeletedEvent", e)
+
+    def file_created_event(self, filepath):
+        try:
+            if not self.gridModel.isCurrentFolder(filepath):
+                return
+            self.gridModel.insert_new_item(FileItem(filepath))
+        except Exception as e:
+            self.logger.error("CreatedEvent", e)
+
+    def file_modified_event(self, filepath):
+        try:
+            if not self.gridModel.isCurrentFolder(filepath):
+                return
+
+            item = FileItem(filepath)
+            self.gridModel.remove_item(item)
+
+            if not item.exists():
+                return
+            self.gridModel.insert_new_item(item)
+        except Exception as e:
+            self.logger.error("ModifiedEvent", e)
 
 
-THREADS = [
-    messenger_thread,
-    download_manager,
-    search_thread,
-    folder_watcher_thread,
-    event_thread
-    # gallery_thread,
-]
+class ThreadManager:
 
+    def __init__(self, gridModel):
+        self.searchThread = SearchThread()
+        self.downloadManager = DownloadManager(self.searchThread)
+        # self.gallery_thread = GalleryThread()
+        self.eventThread = EventThread(gridModel)
+        self.folderWatcherThread = FolderWatcherThread(self.eventThread)
+        self.messengerThread = MessengerThread(self.downloadManager, isWindows)
 
-def setup():
-    for thread in THREADS:
+    def startThreads(self):
+        self.startThread(self.messengerThread)
+        self.startThread(self.downloadManager)
+        self.startThread(self.searchThread)
+        self.startThread(self.eventThread)
+        self.startThread(self.folderWatcherThread)
+
+    @staticmethod
+    def startThread(thread):
         thread.setup()
         thread.start()
+
+
+def setup(app: Program):
+    threadManager = ThreadManager(app.gridModel)
+    threadManager.startThreads()
