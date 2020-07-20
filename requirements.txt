@@ -15,13 +15,13 @@ pycparser==2.19
 pycurl==7.43.0.2
 pygame==1.9.6
 pypiwin32==223
-PySide2==5.13.0
+PySide2==5.15.0
 python-libmagic==0.4.0
 python-magic==0.4.15
 pywin32==224
 PyYAML==5.1.2
 requests==2.22.0
-shiboken2==5.13.0
+shiboken2==5.15.0
 sip==4.19.8
 six==1.12.0
 soupsieve==1.9.2
