@@ -9,7 +9,7 @@ if not os.path.exists(Utils.fv_path()):
     os.mkdir(Utils.fv_path())
 
 from .logger import Logger
-from . import program, threads
+from . import program
 
 # setup logging
 log_dir = Utils.fv_path("logs")

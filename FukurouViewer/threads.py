@@ -62,10 +62,10 @@ class BaseThread(threading.Thread, Logger):
         pass
 
     @classmethod
-    def generate_workers(self, global_queue, target):
+    def generate_workers(cls, global_queue, target):
         worker = namedtuple("worker", "thread data errors")
         workers = []
-        for _ in range(0, self.THREAD_COUNT):
+        for _ in range(0, cls.THREAD_COUNT):
             data_queue = queue.Queue()
             error_queue = queue.Queue()
             thread = threading.Thread(target=target, args=(global_queue, data_queue, error_queue))
@@ -102,9 +102,10 @@ class MessengerThread(BaseThread):
     PIPE_PATH = "/tmp/fukurou.fifo"
     WIN_PIPE_PATH = r'\\.\pipe\fukurou_pipe'
 
-    def __init__(self, downloadManager, _windows=True):
+    def __init__(self, downloadManager, signals, _windows=True):
         super().__init__()
         self.downloadManager = downloadManager
+        self.signals = signals
         self.windows = _windows
 
         if self.windows:
@@ -196,7 +197,7 @@ class MessengerThread(BaseThread):
     def create_download_item(self, msg):
         """creates DownloadItem to put in queue 
             adds download item to UI """
-        item = DownloadItem(self.downloadManager, self.signals, msg)
+        item = DownloadItem(self.downloadManager, msg)
         self.signals.create.emit(item)
         return item
 
@@ -303,7 +304,7 @@ class DownloadManager(Logger):
             #     open(filepath, 'a').close()
 
             item["tmp_filepath"] = tmp_filepath
-            download_item = DownloadItem(self, self.signals, item)
+            download_item = DownloadItem(self, item)
             self.signals.create.emit(download_item)
 
             percent = int((download_item.downloaded / download_item.total_size) * 100)
@@ -325,11 +326,11 @@ class DownloadManager(Logger):
         else:
             results["downloaded"] = 0
 
-        download_item = DownloadItem(self, self.signals, results)
+        download_item = DownloadItem(self, results)
         self.queue.put(download_item)
 
     def queueItem(self, msg):
-        self.queue.put(DownloadItem(self, self.signals, msg))
+        self.queue.put(DownloadItem(self, msg))
 
     def queueSearch(self, gallery):
         self.searchThread.queue.put(gallery)
@@ -339,9 +340,9 @@ class DownloadItem:
     FAVICON_PATH = Utils.fv_path("favicons")
     ETA_LIMIT = 2592000
 
-    def __init__(self, downloadManager: DownloadManager, signals, msg):
+    def __init__(self, downloadManager: DownloadManager, msg):
         self.downloadManager = downloadManager
-        self.signals = signals
+        self.signals = downloadManager.signals
 
         self.task = msg.get("task")
         self.resume = False
@@ -988,9 +989,9 @@ class ThreadManager:
         self.searchThread = SearchThread()
         self.downloadManager = DownloadManager(self.searchThread, self.signals)
         # self.gallery_thread = GalleryThread()
-        self.eventThread = EventThread(app.gridModel)
+        self.eventThread = EventThread(app.mainFilteredGridModel.gridModel)
         self.folderWatcherThread = FolderWatcherThread(self.eventThread)
-        self.messengerThread = MessengerThread(self.downloadManager, isWindows)
+        self.messengerThread = MessengerThread(self.downloadManager, self.signals, isWindows)
 
     def startThreads(self):
         self.startThread(self.messengerThread)

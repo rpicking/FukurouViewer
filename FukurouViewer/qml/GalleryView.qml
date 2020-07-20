@@ -10,13 +10,18 @@ import "."
 Old.ScrollView {
     id: scrollView
 
+    property var usedModel: undefined
+
     GridView {
         id: grid
         property int viewportWidth: parent.width
         property int columns: viewportWidth / 220
+        property double horizontalSpacing: 10
+        property double verticalSpacing: 10
         cellWidth: Math.floor(viewportWidth / columns)
         cellHeight: 300
-        model: gridModel
+
+        model: usedModel
         interactive: true
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: (350 + 16) * 10
@@ -30,8 +35,9 @@ Old.ScrollView {
             Loader {
                 sourceComponent: Component {
                     Item {
-                        width: grid.cellWidth
-                        height: grid.cellHeight
+                        id: rootItem
+                        width: grid.cellWidth - grid.horizontalSpacing
+                        height: grid.cellHeight - grid.verticalSpacing
 
                         BusyIndicator {
                             anchors.centerIn: parent
@@ -50,8 +56,13 @@ Old.ScrollView {
                             sourceSize.height: 280
                             //asynchronous: true
                             fillMode: Image.PreserveAspectFit
-                            source: "image://thumbs/" + encodeURIComponent(filepath)
-                            anchors.centerIn: parent
+                            source: "image://thumbs/" + encodeURIComponent(fileURI)
+                            anchors {
+                                top: rootItem.top
+                                right: rootItem.right
+                                bottom: nameText.top
+                                left: rootItem.left
+                            }
                             smooth: false
                             onStateChanged: {
                                 if (status == Image.Ready) {
@@ -66,7 +77,7 @@ Old.ScrollView {
                             MouseArea {
                                 pressAndHoldInterval: 250
                                 onDoubleClicked: {
-                                    stack.push(Qt.resolvedUrl("IndividualItemPage.qml"), { source: filepath, type: type } );
+                                    stack.push(Qt.resolvedUrl("IndividualItemPage.qml"), { filepath: filepath, type: type } );
                                 }
                                 onPressAndHold: {
                                     var xPercent = mouse.x / parent.width
@@ -82,6 +93,24 @@ Old.ScrollView {
                                 }
 
                                 anchors.fill: parent
+                            }
+                        }
+
+                        Text {
+                            id: nameText
+                            text: name
+                            height: 40
+                            font.pointSize: 10
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                            padding: {
+                                top: 2
+                                bottom: 2
+                            }
+                            anchors {
+                                bottom: parent.bottom
+                                left: parent.left
+                                right: parent.right
                             }
                         }
                     }

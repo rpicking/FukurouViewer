@@ -7,7 +7,6 @@ from typing import List
 
 class Utils:
     """Utility functions for FukurouViewer application
-
     """
 
     @staticmethod

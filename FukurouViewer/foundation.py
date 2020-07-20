@@ -8,9 +8,10 @@ from humanize import naturalsize
 from sqlalchemy import select
 from mimetypes import guess_type
 
-from PySide2 import QtCore
+from PySide2 import QtCore, QtGui
 
 from . import user_database
+from .filetype import FileType, FileTypeUtils
 from .utils import Utils
 from .logger import Logger
 
@@ -145,7 +146,7 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         self.endRemoveRows()
         self.do_list_update(index)
 
-    def do_list_update(self, index):
+    def do_list_update(self, index=0):
         """notifies the view that the list starting at index has updated"""
         start_index = self.createIndex(index, 0)
         end_index = self.createIndex(len(self._items), 0)
@@ -171,35 +172,71 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
 
 
 class FileItem(object):
+    BUFFER_SUB_PROVIDER = "buffer/"
 
-    def __init__(self, _filepath, _modified_date=None):
+    def __init__(self, _filepath: str, _modified_date=None, data=None, isBuffer=None):
         self.filepath = _filepath
+        self.data = data
         self.path = Path(_filepath).resolve()
 
-        mimetype, encoding = guess_type(str(self.path))
+        self.data = data
+        self.isBuffer = isBuffer if isBuffer is not None else data is not None
 
-        if mimetype is None:
-            self.type = "UNKNOWN"
-        else:
-            self.type = mimetype.split("/", 1)[0]
+        _, extension = os.path.splitext(self.filepath)
+        self.extension = extension[1:]
+
+        self.mimetype, self.encoding = guess_type(str(self.path))
+        self.mimeGroupType = None
+        if self.mimetype is not None:
+            self.mimeGroupType = self.mimetype.split("/", 1)[0]
 
         if _modified_date is not None:
             self.modified_date = _modified_date
         else:
             self.updateModifiedDate()
 
-    def __lt__(self, other):
-        return self.modified_date > other.modified_date
+        self.type = self.determineType()
+
+    def determineType(self) -> FileType:
+        mimeFileType = None
+        if self.mimeGroupType is not None:
+            mimeFileType = self.mimeGroupType.upper()
+
+        # confirm image type
+        if mimeFileType is FileType.IMAGE and self.canReadAsImage():
+            return FileType.IMAGE
+
+        extensionGuessedType = FileTypeUtils.file_type_from_extension(self.extension)
+
+        if FileTypeUtils.extension_overrides_type(self.extension) and extensionGuessedType is not FileType.UNKNOWN:
+            return extensionGuessedType
+
+        isSupported = FileType.has_value(mimeFileType)
+
+        if isSupported:
+            return FileType(mimeFileType)
+
+        return FileType.UNKNOWN
+
+    def canReadAsImage(self):
+        if self.isBuffer:
+            return self.type == FileType.IMAGE
+
+        imageReader = QtGui.QImageReader(self.filepath)
+        imageReader.setDecideFormatFromContent(True)
+        return imageReader.canRead()
 
     def get(self, key, default=None):
         if key == "name":
-            return self.path.name
+            return self.name
+        if key == "fileURI":
+            return self.fileURI
         if key == "filepath":
-            return str(self.path)
+            return self.filepath
         if key == "modified_date":
             return self.modified_date
         if key == "type":
-            return self.type
+            return self.type.value
         return default
 
     def exists(self):
@@ -211,8 +248,37 @@ class FileItem(object):
     def updateModifiedDate(self):
         self.modified_date = os.path.getmtime(self.filepath) if os.path.exists(self.filepath) else -1
 
+    def load(self, data):
+        self.data = data
+
+    @property
+    def name(self):
+        return self.path.name
+
+    @property
+    def fileURI(self):
+        if self.isBuffer:
+            return FileItem.BUFFER_SUB_PROVIDER + self.filepath
+        return self.filepath
+
+    @property
+    def isLoaded(self):
+        return self.data is not None
+
+    def __lt__(self, other):
+        return self.modified_date > other.modified_date
+
     def __eq__(self, other):
         return self.path == other.path
 
     def __str__(self):
         return ','.join((self.path.name, str(self.modified_date)))
+
+    @property
+    def __dict__(self):
+        return {
+            "name": self.name,
+            "filepath": self.filepath,
+            "type": self.type.value,
+            "fileURI": self.fileURI
+        }

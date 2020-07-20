@@ -1,10 +1,15 @@
+import os
 import sys
 import linecache
+import zipfile
 
 from enum import Enum
 from time import time
+from pathlib import Path
+from typing import List, Union, Optional
 from sqlalchemy import delete, insert, select, update
 
+from .foundation import FileItem
 from .request_manager import ex_request_manager
 from . import user_database
 from .utils import Utils
@@ -132,6 +137,7 @@ class EHIdentifier(BaseIdentifier):
             self.identity = self.GalIdentity(**response)
             return False
         elif self.creation_type == self.CreationType.HASH:
+            item = "TEST" # NOT SURE IF ITS ACTUALLY BROKEN OR NOT BUT SAID ITEM DOESN'T EXIST
             response = Search.ex_search(sha_hash=item)
             # FIXME
             # DO STUFF TO GET CORRECT THE GID AND TOKEN
@@ -285,3 +291,79 @@ class GenericGallery(Logger):
         linecache.checkcache(filename)
         line = linecache.getline(filename, lineno, f.f_globals)
         self.logger.error('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
+
+
+###############################################################
+###############################################################
+###############################################################
+class GalleryArchive(Logger):
+    """ Gallery packaged into a single file in archive format
+    """
+
+    def __init__(self, file: Union[FileItem, str], loadAllData=False):
+        if isinstance(file, str):
+            file = FileItem(file)
+
+        self.file = file
+        self.archive = None  # type: Optional[zipfile.ZipFile]
+        self.filesDict = {}
+
+        self.coverKey = None
+
+        self.openArchive()
+        infoList = self.archive.infolist()  # type: List[zipfile.ZipInfo]
+
+        if len(infoList) > 0:
+            coverItem = infoList[0]
+            self.coverKey = coverItem.filename
+
+        for item in infoList:
+            file = GalleryArchive.createArchiveFileItem(self.archive, item, loadAllData)
+            self.filesDict[file.name] = file
+
+        self.archive.close()
+
+    def openArchive(self):
+        self.archive = zipfile.ZipFile(self.file.filepath, "r")
+
+    def load(self):
+        self.openArchive()
+        for file in self.filesDict.values():
+            file.load(GalleryArchive.loadArchiveData(self.archive, file))
+        self.archive.close()
+
+    def getFile(self, filepath: str) -> Optional[FileItem]:
+        return self.filesDict.get(filepath, None)
+
+    @property
+    def cover(self) -> FileItem:
+        cover = self.filesDict[self.coverKey]
+        if not cover.isLoaded:
+            cover.load(GalleryArchive.loadArchiveData(self.archive, cover))
+        return cover
+
+    @property
+    def files(self):
+        return self.filesDict.values()
+
+    @property
+    def __dict__(self):
+        return {
+            "cover": vars(self.cover),
+            "name": self.file.name,
+            #"tags": [],
+            #"files": [vars(file) for file in self.files]
+        }
+
+    def __del__(self):
+        self.archive.close()
+
+    @staticmethod
+    def createArchiveFileItem(archive: zipfile.ZipFile, zipInfo: zipfile.ZipInfo, loadData: bool):
+        data = archive.read(zipInfo.filename) if loadData else None
+        return FileItem(zipInfo.filename, data=data, isBuffer=True)
+
+    @staticmethod
+    def loadArchiveData(archive: zipfile.ZipFile, zipInfo: Union[zipfile.ZipInfo, FileItem]):
+        filename = zipInfo.filename if isinstance(zipInfo, zipfile.ZipInfo) else zipInfo.filepath
+        return archive.read(filename)

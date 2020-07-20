@@ -1,14 +1,18 @@
 import os
+import sys
 import argparse
 from enum import Enum
 from threading import RLock
+
+from PySide2.QtCore import Slot
 from sqlalchemy import insert, select, update
-from collections import namedtuple
 
 from FukurouViewer.downloads import DownloadUIManager, DownloadsModel
-from FukurouViewer.grid import GridModel, FilteredGridModel
+from FukurouViewer.grid import GridModel, FilteredGridModel, SortType, GalleryGridModel
 from . import user_database
 from .blowupview import BlowUpItem
+from .filetype import FileType
+from .gallery import GalleryArchive
 from .iconprovider import IconImageProvider
 from .threads import ThreadManager
 from .tray import SystemTrayIcon
@@ -19,7 +23,7 @@ from .foundation import Foundation, FileItem
 from .history import History
 from .thumbnails import ThumbnailProvider
 
-from PySide2 import QtCore, QtGui, QtQml, QtQuick, QtWidgets
+from PySide2 import QtCore, QtGui, QtQml, QtWidgets
 
 
 class Program(QtWidgets.QApplication, Logger):
@@ -41,13 +45,12 @@ class Program(QtWidgets.QApplication, Logger):
         TagSort = "sort_tag"
 
     def __init__(self, args):
-        self.addLibraryPath(os.path.dirname(__file__))  #not sure
+        self.addLibraryPath(os.path.dirname(__file__))  # not sure
         super().__init__(args)
         self.setOrganizationName("FV")
         self.setApplicationName("FukurouViewer")
         self.setOrganizationDomain(self.GITHUB)
         self.version = "0.2.0"
-    
         self.setQuitOnLastWindowClosed(False)
 
         # id = QtGui.QFontDatabase.addApplicationFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf"))
@@ -55,9 +58,10 @@ class Program(QtWidgets.QApplication, Logger):
         # font = QtGui.QFont(family)
         font = QtGui.QFont("Verdana")
         self.setFont(font)
-        
+
         self.setWindowIcon(QtGui.QIcon(QtGui.QPixmap(os.path.join(self.BASE_PATH, "icon.png"))))
         # self.setWindowIcon(QtGui.QIcon(os.path.join(self.BASE_PATH, "icon.ico")))
+        self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self)
 
         self.iconImageProvider = IconImageProvider()
         self.thumb_image_provider = ThumbnailProvider()
@@ -75,21 +79,12 @@ class Program(QtWidgets.QApplication, Logger):
             if results:
                 results = results[0]
 
-            # gallery test grid
-        test = []
-        test_folder = ""
-        if results:
-            test_folder = results.get("path")
+        aDirectory = results.get("path") if results else None
 
-            for dirpath, subdirs, filenames in os.walk(test_folder):
-                for file in sorted(filenames, key=lambda file:
-                os.path.getmtime(os.path.join(dirpath, file)), reverse=True):
-                    filepath = os.path.join(dirpath, file)
-                    modified_time = os.path.getmtime(filepath)
-                    test.append(FileItem(filepath, modified_time))
+        # main filtered gridmodel
+        self.mainFilteredGridModel = FilteredGridModel(aDirectory, SortType.DATE_MODIFIED)
 
-        self.gridModel = GridModel(test_folder, test)
-        self.filteredGridModel = FilteredGridModel(self.gridModel, self)
+        self.galleryGridModel = GalleryGridModel()
 
         self.threadManager = ThreadManager(self)
 
@@ -104,26 +99,17 @@ class Program(QtWidgets.QApplication, Logger):
             os.makedirs(self.FAVICON_DIR)
         if not os.path.exists(self.TMP_DIR):
             os.makedirs(self.TMP_DIR)
-        user_database.setup()     
+        user_database.setup()
 
-        # HANDLING OF TRAY ICON
-        self.w = QtWidgets.QWidget()
-        self.trayIcon = SystemTrayIcon(QtGui.QIcon(Utils.base_path("icon.ico")), self, self.w)
-        self.trayIcon.show()
-        self.trayIcon.exitAction.triggered.connect(self.quit)
         self.setDoubleClickInterval(300)
-        # timer for differentiating double click from single click
-        self.clickTimer = QtCore.QTimer(self)
-        self.clickTimer.setSingleShot(True)
-        self.clickTimer.timeout.connect(self.singleClickActivated)
-        self.trayIcon.activated.connect(self.onTrayIconActivated)
+        self.trayIcon.show()
 
         # ARGUMENTS
         parser = argparse.ArgumentParser()
         parser.add_argument("-d", "--downloader", help="start program in downloader mode", action="store_true")
         args = parser.parse_args()
 
-        if not args.downloader:    # launching app (not host)
+        if not args.downloader:  # launching app (not host)
             self.start_application("MAIN")
         else:
             self.start_application()
@@ -162,9 +148,11 @@ class Program(QtWidgets.QApplication, Logger):
         """
             Sets the context properties for use within QML components
         """
+        self.context.setContextProperty("application", self)
         self.context.setContextProperty("downloadsModel", self.downloadsModel)
         self.context.setContextProperty("downloadManager", self.downloadUIManager)
-        self.context.setContextProperty("gridModel", self.filteredGridModel)
+        self.context.setContextProperty("gridModel", self.mainFilteredGridModel)
+        self.context.setContextProperty("galleryGridModel", self.galleryGridModel)
         self.context.setContextProperty("blowUp", self.blowUpItem)
         self.context.setContextProperty("history", self.history)
 
@@ -180,6 +168,23 @@ class Program(QtWidgets.QApplication, Logger):
         self.app_window.setEventFilter.connect(self.setEventFilter)
         self.app_window.closeApplication.connect(self.close)
         self.app_window.downloader_task.connect(self.downloader_task)
+
+    @Slot(str, str, result="QVariant")
+    def loadGallery(self, filepath, type: str) -> dict:
+
+        if FileType.has_value(type):
+            type = FileType(type)
+        else:
+            return {}
+
+        if type is FileType.ARCHIVE:
+            archiveGal = GalleryArchive(filepath)
+            self.galleryGridModel.setGallery(archiveGal)
+
+            return vars(archiveGal)
+
+
+        return {}
 
     def setEventFilter(self, coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.installEventFilter(self)
@@ -197,7 +202,7 @@ class Program(QtWidgets.QApplication, Logger):
             if event.button() == QtCore.Qt.LeftButton:
                 self.closeBlowUpItem()
             return True
-        if event.type() == QtCore.QEvent.Wheel: # zoom blowup on scroll wheel
+        if event.type() == QtCore.QEvent.Wheel:  # zoom blowup on scroll wheel
             scrollAmount = event.angleDelta().y() / 120
             self.app_window.scrollBlowUp.emit(scrollAmount)
             return True
@@ -208,7 +213,7 @@ class Program(QtWidgets.QApplication, Logger):
         def getmtime(name):
             path = os.path.join(folder, name)
             return os.path.getmtime(path)
-        
+
         return sorted(os.listdir(folder), key=getmtime)
 
     @staticmethod
@@ -250,9 +255,10 @@ class Program(QtWidgets.QApplication, Logger):
                     "color": color,
                     "order": order,
                     "type": type
-                })) 
+                }))
 
-    # updates ui indicator if folder path is accessable
+            # updates ui indicator if folder path is accessable
+
     def set_folder_access(self, path: str):
         if os.path.exists(path):
             valid = os.access(path, os.R_OK | os.W_OK)
@@ -267,9 +273,9 @@ class Program(QtWidgets.QApplication, Logger):
             for folder in folders:
                 session.execute(update(user_database.Folders).where(
                     user_database.Folders.id == folder.get("id")).values(
-                        {
-                            "order": folder.get("order")
-                        }))
+                    {
+                        "order": folder.get("order")
+                    }))
 
     def create_download_ui_item(self, item):
         """Creates download item in ui"""
@@ -289,7 +295,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.downloadsModel.finish_item(id, timestamp)
         self.downloadUIManager.finish_download(id, total_size)
         self.history.add_new()
-        
+
     def downloader_task(self, id, status):
         if status == "delete" or status == "done":
             self.downloadsModel.remove_item(id)
@@ -314,7 +320,7 @@ class Program(QtWidgets.QApplication, Logger):
         elif type == "quit":
             self.app_window.closeWindows()
             self.quit()
-        else:  
+        else:
             self.logger.error("received invalid close parameter")
             self.quit()
 
@@ -322,16 +328,6 @@ class Program(QtWidgets.QApplication, Logger):
     def quit(self):
         self.trayIcon.hide()
         super().quit()
-
-    def onTrayIconActivated(self, event):
-        if event == QtWidgets.QSystemTrayIcon.Trigger:
-            self.last = "Click"
-            self.clickTimer.start(self.doubleClickInterval())
-        elif event == QtWidgets.QSystemTrayIcon.DoubleClick:
-            self.last = "DoubleClick"
-            self.close()
-            self.open("APP")
-            print("OPENING MAIN APPLICATION")
 
     # single click on tray icon
     def singleClickActivated(self):

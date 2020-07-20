@@ -12,6 +12,12 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.exitAction = QtWidgets.QAction('&Exit', self)
         self.createMenu()
 
+        self.last = None
+        self.clickTimer = QtCore.QTimer(self)
+        self.clickTimer.setSingleShot(True)
+        self.clickTimer.timeout.connect(self.singleClick)
+        self.activated.connect(self.onTrayIconActivated)
+
     def createMenu(self):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
@@ -31,11 +37,29 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.menu.addAction(openMenu)
 
         self.exitAction.setStatusTip('Exit application')
+        self.exitAction.triggered.connect(self.program.quit)
         self.menu.addAction(self.exitAction)
         self.setContextMenu(self.menu)
         self.setToolTip("Fukurou Viewer")
 
     def openApp(self):
+        self.program.open("APP")
+
+    def onTrayIconActivated(self, event):
+        if event == QtWidgets.QSystemTrayIcon.Trigger:
+            self.last = "Click"
+            self.clickTimer.start(self.program.doubleClickInterval())
+        elif event == QtWidgets.QSystemTrayIcon.DoubleClick:
+            self.doubleClick()
+
+    def singleClick(self):
+        if self.last != "Click":
+            return
+        self.program.open()
+
+    def doubleClick(self):
+        self.last = "DoubleClick"
+        self.program.close()
         self.program.open("APP")
 
 

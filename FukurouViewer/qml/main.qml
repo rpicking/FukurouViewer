@@ -95,6 +95,7 @@ ApplicationWindow {
         anchors.fill: parent
         initialItem: GalleryView {
             id: galleryView
+            usedModel: gridModel
         }
     }
 
@@ -377,8 +378,8 @@ ApplicationWindow {
         }
 
         function setSource(file) {
-            blowUpContentLoader.sourceComponent = imageComponent
-            blowUpContent.loaderItem.source = file
+            blowUpContentLoader.sourceComponent = imageComponent;
+            blowUpContent.loaderItem.source = file;
         
         }
 
