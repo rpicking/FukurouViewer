@@ -12,14 +12,14 @@ from FukurouViewer.grid import GridModel, FilteredGridModel, SortType, GalleryGr
 from . import user_database
 from .blowupview import BlowUpItem
 from .filetype import FileType
-from .gallery import GalleryArchive
+from .gallery import ZipArchiveGallery, DirectoryGallery
 from .iconprovider import IconImageProvider
 from .threads import ThreadManager
 from .tray import SystemTrayIcon
 from .utils import Utils
 from .config import Config
 from .logger import Logger
-from .foundation import Foundation, FileItem
+from .foundation import Foundation, FileItem, DirectoryItem
 from .history import History
 from .thumbnails import ThumbnailProvider
 
@@ -177,14 +177,17 @@ class Program(QtWidgets.QApplication, Logger):
         else:
             return {}
 
+        metadata = {}
         if type is FileType.ARCHIVE:
-            archiveGal = GalleryArchive(filepath)
+            archiveGal = ZipArchiveGallery(filepath)
             self.galleryGridModel.setGallery(archiveGal)
+            metadata = vars(archiveGal)
+        elif type is FileType.DIRECTORY:
+            gallery = DirectoryGallery(filepath)
+            self.galleryGridModel.setGallery(gallery)
+            metadata = vars(gallery)
 
-            return vars(archiveGal)
-
-
-        return {}
+        return metadata
 
     def setEventFilter(self, coords, thumb_width, thumb_height, item_width, item_height, xPercent, yPercent):
         self.installEventFilter(self)

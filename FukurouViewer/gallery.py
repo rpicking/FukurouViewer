@@ -2,14 +2,15 @@ import os
 import sys
 import linecache
 import zipfile
+from abc import ABC, abstractmethod
 
 from enum import Enum
 from time import time
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict, ValuesView, Iterable
 from sqlalchemy import delete, insert, select, update
 
-from .foundation import FileItem
+from .foundation import FileItem, DirectoryItem, FileSystemItem
 from .request_manager import ex_request_manager
 from . import user_database
 from .utils import Utils
@@ -48,12 +49,12 @@ class EHIdentifier(BaseIdentifier):
     SITE_MAX_ENTRIES = 25
 
     class CreationType(Enum):
-        GAL = 0    # ex gallery_id and gallery_token
-        PAGE = 1    # ex Individual page tokens
-        HASH = 2    # file sha1 hash search
+        GAL = 0  # ex gallery_id and gallery_token
+        PAGE = 1  # ex Individual page tokens
+        HASH = 2  # file sha1 hash search
 
     class GalIdentity:
-        gid = None   # int
+        gid = None  # int
         token = ""  # str
 
         def __init__(self, **kwargs):
@@ -66,23 +67,23 @@ class EHIdentifier(BaseIdentifier):
             return payload
 
     class PageIdentity:
-        gid = None   # int
+        gid = None  # int
         page_token = ""  # str
-        page_number = None # int
+        page_number = None  # int
 
         def __init__(self, **kwargs):
             self.gid = kwargs.get('gid')
             self.page_token = kwargs.get('page_token')
             self.page_number = kwargs.get('page_number')
-        
+
         def payload(self):
             payload = {"method": "gtoken", "pagelist": []}
             payload["pagelist"].append([self.gid, self.page_token, self.page_number])
             return payload
 
     class HashIdentity:
-        hash = ""   # sha1 str
-        path = ""   # str
+        hash = ""  # sha1 str
+        path = ""  # str
 
         def __init__(self, **kwargs):
             self.hash = kwargs.get('hash')
@@ -97,7 +98,7 @@ class EHIdentifier(BaseIdentifier):
             tokens = Utils.split_ex_url(kwargs.get("galleryUrl"))
             self.creation_type = self.CreationType.GAL
             self.identity = self.GalIdentity(**tokens)
-        elif kwargs.get("url"): # non-gallery page url
+        elif kwargs.get("url"):  # non-gallery page url
             tokens = Utils.split_ex_url(kwargs.get("url"))
             if tokens.get("type") == "g":
                 self.creation_type = self.CreationType.GAL
@@ -113,7 +114,8 @@ class EHIdentifier(BaseIdentifier):
         if self.creation_type == self.CreationType.GAL:
             return self.BASE_URL.format("g", self.identity.gid, self.identity.token)
         elif self.creation_type == self.CreationType.PAGE:
-            return self.BASE_URL.format("s", self.identity.page_token, "-".join(self.identity.gid, self.identity.page_number))
+            return self.BASE_URL.format("s", self.identity.page_token,
+                                        "-".join(self.identity.gid, self.identity.page_number))
         return None
 
     # searches for gallery information
@@ -137,7 +139,7 @@ class EHIdentifier(BaseIdentifier):
             self.identity = self.GalIdentity(**response)
             return False
         elif self.creation_type == self.CreationType.HASH:
-            item = "TEST" # NOT SURE IF ITS ACTUALLY BROKEN OR NOT BUT SAID ITEM DOESN'T EXIST
+            item = "TEST"  # NOT SURE IF ITS ACTUALLY BROKEN OR NOT BUT SAID ITEM DOESN'T EXIST
             response = Search.ex_search(sha_hash=item)
             # FIXME
             # DO STUFF TO GET CORRECT THE GID AND TOKEN
@@ -147,10 +149,9 @@ class EHIdentifier(BaseIdentifier):
 class ExIdentifier(EHIdentifier):
     BASE_URL = "https://exhentai.org/{}/{}/{}/"
     API_URL = "https://exhentai.org/api.php"
-    
+
 
 class GenericGallery(Logger):
-
     VALID_SITES = {
         "e-hentai.org": "EHIdentifier",
         "exhentai.org": "ExIdentifier",
@@ -171,9 +172,9 @@ class GenericGallery(Logger):
     url = ""
     virtual = None
 
-    identifier = None       # identifier for site specific gallery linking
+    identifier = None  # identifier for site specific gallery linking
     dead = False
-    
+
     def __init__(self, **kwargs):
         self.history_items = []
         self.url = kwargs.get("galleryUrl", "")
@@ -181,12 +182,12 @@ class GenericGallery(Logger):
         item = kwargs.get('history_item')
         if item:
             self.history_items.append(item)
-        if kwargs.get('local'): # creating from local file/folder
-            pass    # fIXME
-        else:   # creating virtual from downloaded file
+        if kwargs.get('local'):  # creating from local file/folder
+            pass  # fIXME
+        else:  # creating virtual from downloaded file
             self.virtual = True
             self.identifier = self.match_site(**kwargs)
-                
+
     def match_site(self, **kwargs):
         domain = kwargs.get("domain")
 
@@ -227,7 +228,7 @@ class GenericGallery(Logger):
             self.insert()
         return True
 
-    def insert(self):   # insert gallery into database
+    def insert(self):  # insert gallery into database
         if not self.db_id:  # only create new row if not in db
             payload = {}
             if self.title:
@@ -269,7 +270,7 @@ class GenericGallery(Logger):
             with user_database.get_session(self, acquire=True) as session:
                 for item in self.history_items:
                     session.execute(update(user_database.History).where(
-                        user_database.History.id == item).values({"gallery_id": self.db_id }))
+                        user_database.History.id == item).values({"gallery_id": self.db_id}))
         except Exception as e:
             pass
 
@@ -296,74 +297,158 @@ class GenericGallery(Logger):
 ###############################################################
 ###############################################################
 ###############################################################
-class GalleryArchive(Logger):
-    """ Gallery packaged into a single file in archive format
+
+
+class Gallery(ABC, Logger):
+    """Base Abstract Gallery class
     """
 
-    def __init__(self, file: Union[FileItem, str], loadAllData=False):
-        if isinstance(file, str):
-            file = FileItem(file)
+    def __init__(self, item: Union[DirectoryItem, FileItem]):
+        self.item = item
 
-        self.file = file
-        self.archive = None  # type: Optional[zipfile.ZipFile]
-        self.filesDict = {}
+        self.filesDict = {}  # type: Dict[str, FileItem]
+        self.coverKey = None  # type: Optional[str]
+        self.initialize()
 
-        self.coverKey = None
+    def select_cover(self):
+        """Chooses the cover FileItem for the Gallery"""
+        if len(self.filesDict) <= 0:
+            return
 
-        self.openArchive()
-        infoList = self.archive.infolist()  # type: List[zipfile.ZipInfo]
+        files = sorted(self.files, key=lambda f: f.filename)
+        self.coverKey = files[0].filename
 
-        if len(infoList) > 0:
-            coverItem = infoList[0]
-            self.coverKey = coverItem.filename
-
-        for item in infoList:
-            file = GalleryArchive.createArchiveFileItem(self.archive, item, loadAllData)
-            self.filesDict[file.name] = file
-
-        self.archive.close()
-
-    def openArchive(self):
-        self.archive = zipfile.ZipFile(self.file.filepath, "r")
-
-    def load(self):
-        self.openArchive()
-        for file in self.filesDict.values():
-            file.load(GalleryArchive.loadArchiveData(self.archive, file))
-        self.archive.close()
-
-    def getFile(self, filepath: str) -> Optional[FileItem]:
-        return self.filesDict.get(filepath, None)
+    def add_file(self, file: FileItem):
+        self.filesDict[file.filename] = file
 
     @property
-    def cover(self) -> FileItem:
-        cover = self.filesDict[self.coverKey]
-        if not cover.isLoaded:
-            cover.load(GalleryArchive.loadArchiveData(self.archive, cover))
-        return cover
+    def cover(self) -> FileItem or None:
+        """Returns the cover FileItem.  If one hasn't already been selected, select a cover FileItem before returning"""
+        if self.coverKey in self.filesDict:
+            return self.filesDict[self.coverKey]
+        else:
+            self.select_cover()
+
+        if self.coverKey in self.filesDict:
+            return self.cover
+        return None
 
     @property
-    def files(self):
+    def files(self) -> Iterable[FileItem]:
+        """Returns an iterable of all file items in the Gallery"""
         return self.filesDict.values()
+
+    def get_file(self, filepath: str) -> Optional[FileItem]:
+        """Given a filepath, returns relavant FileItem if one exists"""
+        return self.filesDict.get(filepath, None)
 
     @property
     def __dict__(self):
         return {
-            "cover": vars(self.cover),
-            "name": self.file.name,
-            #"tags": [],
-            #"files": [vars(file) for file in self.files]
+            "name": self.item.filename,
+            "tags": [],
         }
+
+    @abstractmethod
+    def initialize(self):
+        """Loads the filesDict with all FileItem(s) related to the Gallery"""
+        raise NotImplementedError("Method not Implemented")
+
+    @abstractmethod
+    def load(self):
+        """Loads relevant data for the Gallery. Called when the gallery is being prepared to be displayed."""
+        raise NotImplementedError("Method not Implemented")
+
+
+class DirectoryGallery(Gallery):
+    """Gallery represented by a directory in the filesystem"""
+
+    def __init__(self, directory: Union[DirectoryItem, str]):
+        if isinstance(directory, str):
+            directory = DirectoryItem(directory, True, False)
+        super().__init__(directory)
+
+    def initialize(self):
+        if not self.item.parsed:
+            self.item.parse(False)
+
+        for file in self.item.files:
+            self.add_file(file)
+
+    def load(self):
+        return
+
+
+class ZipArchiveGallery(Gallery):
+    """ Gallery packaged into a single file in archive format
+    """
+
+    def __init__(self, file: Union[FileItem, str], loadAllData=False):
+        self.loadAllData = loadAllData
+        self.archive = None  # type: Optional[zipfile.ZipFile]
+        self.isOpen = False
+        super().__init__(file)
+
+    def initialize(self):
+        self.openArchive()
+        infoList = self.archive.infolist()  # type: List[zipfile.ZipInfo]
+
+        for item in infoList:
+            file = ZipArchiveGallery.createArchiveFileItem(self.archive, item, self.loadAllData)
+            self.add_file(file)
+        self.closeArchive()
+
+    def load(self):
+        self.openArchive()
+        for file in self.filesDict.values():
+            file.load(self.loadArchiveData(file))
+        self.closeArchive()
+
+    @property
+    def cover(self) -> FileItem or None:
+        cover = super().cover
+        if not cover.isLoaded:
+            cover.load(self.loadArchiveData(cover))
+        return cover
+
+    def openArchive(self):
+        self.archive = zipfile.ZipFile(self.item.filepath, "r")
+        self.isOpen = True
+
+    def closeArchive(self):
+        self.archive.close()
+        self.isOpen = False
 
     def __del__(self):
         self.archive.close()
+
+    def loadArchiveData(self, zipInfo: Union[zipfile.ZipInfo, FileItem]):
+        shouldOpen = not self.isOpen
+        if shouldOpen:
+            self.openArchive()
+
+        filename = zipInfo.filename if isinstance(zipInfo, zipfile.ZipInfo) else zipInfo.filepath
+        data = self.archive.read(filename)
+
+        if shouldOpen:
+            self.closeArchive()
+        return data
 
     @staticmethod
     def createArchiveFileItem(archive: zipfile.ZipFile, zipInfo: zipfile.ZipInfo, loadData: bool):
         data = archive.read(zipInfo.filename) if loadData else None
         return FileItem(zipInfo.filename, data=data, isBuffer=True)
 
-    @staticmethod
-    def loadArchiveData(archive: zipfile.ZipFile, zipInfo: Union[zipfile.ZipInfo, FileItem]):
-        filename = zipInfo.filename if isinstance(zipInfo, zipfile.ZipInfo) else zipInfo.filepath
-        return archive.read(filename)
+
+class CollectionMisc(Logger):
+    """ Directory containing a misc. collection of files/directories
+    """
+
+    def __init__(self, directory: Path):
+        self.directory = directory
+
+
+class CollectionGallery(Logger):
+    """ Directory containing only Gallery or GalleryArchive files/directories
+        Other individual items/directories will be ignored
+    """

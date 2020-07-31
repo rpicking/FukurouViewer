@@ -2,8 +2,12 @@ import os
 import random
 import string
 import bisect
+from abc import abstractmethod
+from enum import Enum
 from pathlib import Path
 from datetime import timedelta
+from typing import Union, List
+
 from humanize import naturalsize
 from sqlalchemy import select
 from mimetypes import guess_type
@@ -110,6 +114,10 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
                 return index
         return None
 
+    def set_list(self, list):
+        self._items.clear()
+        self.insert_list(list, 0)
+
     def insert_list(self, list, index=-1):
         """ insert list of items at index
             if index not specified insert at end
@@ -171,17 +179,143 @@ class BaseModel(QtCore.QAbstractListModel, Logger):
         return self._items
 
 
-class FileItem(object):
+class SortType(Enum):
+    """Different ways of sorting list of files"""
+    NAME = 1
+    DATE_MODIFIED = 2
+
+
+class FileSystemItem(object):
+
+    def __init__(self, filepath: Union[Path, str], modified_date=None):
+        if isinstance(filepath, str):
+            filepath = Path(filepath).resolve()
+
+        self.path = Path(filepath).resolve()
+
+        self.modified_date = self.getModifiedDate() if modified_date is None else modified_date
+
+        self.initialize()
+        self.type = self.determineType()
+
+    def getModifiedDate(self) -> float:
+        return os.path.getmtime(self.filepath) if os.path.exists(self.filepath) else -1
+
+    @property
+    def filepath(self):
+        return str(self.path)
+
+    @property
+    def filename(self):
+        return self.path.name
+
+    @property
+    def fileURI(self):
+        return self.filepath
+
+    def get(self, key, default=None):
+        if key == "name":
+            return self.filename
+        if key == "fileURI":
+            return self.fileURI
+        if key == "filepath":
+            return self.filepath
+        if key == "modified_date":
+            return self.modified_date
+        if key == "type":
+            return self.type.value
+        return default
+
+    @abstractmethod
+    def initialize(self):
+        raise NotImplementedError("Method not implemented")
+
+    @abstractmethod
+    def determineType(self) -> FileType:
+        return FileType.UNKNOWN
+
+    def __eq__(self, other):
+        if isinstance(other, FileSystemItem):
+            return self.path == other.path
+        elif isinstance(other, str):
+            return self.path == Path(other).resolve()
+        return False
+
+    @staticmethod
+    def createItem(path: Union[Path, str]):
+        if isinstance(path, str):
+            path = Path(path).resolve()
+
+        if path.is_dir():
+            return DirectoryItem(path, False, False)
+        else:
+            return FileItem(path)
+
+
+class DirectoryItem(FileSystemItem):
+
+    def __init__(self, filepath: Union[Path, str], shouldParse=True, recursive=False):
+        self.shouldParse = shouldParse
+        self.recursive = recursive
+        self.parsed = False
+
+        self.directories = []  # type: List[DirectoryItem]
+        self.files = []  # type: List[FileItem]
+
+        super().__init__(filepath)
+
+    def initialize(self):
+        if self.shouldParse:
+            self.parse(self.recursive)
+
+    def determineType(self) -> FileType:
+        return FileType.DIRECTORY
+
+    def parse(self, recursive=False):
+        item: os.DirEntry
+        for item in os.scandir(str(self.filepath)):
+            if item.is_dir():
+                self.directories.append(DirectoryItem(item.path, recursive, recursive))
+                continue
+            else:
+                self.files.append(FileItem(item.path))
+        DirectoryItem.sort_files(self.files)
+        self.parsed = True
+
+    @property
+    def contents(self) -> List[FileSystemItem]:
+        contents = []  # type: List[FileSystemItem]
+        contents.extend(self.directories)
+        contents.extend(self.files)
+        return contents
+
+    @staticmethod
+    def sort_files(files, sortMethod: SortType = SortType.NAME, desc=False):
+        if sortMethod is SortType.NAME:
+            def sortMethod(aFile: FileItem): return aFile.filename
+        elif sortMethod is SortType.DATE_MODIFIED:
+            def sortMethod(aFile: FileItem): return aFile.modified_date
+        else:
+            return
+
+        files.sort(key=sortMethod, reverse=desc)
+
+
+class FileItem(FileSystemItem):
     BUFFER_SUB_PROVIDER = "buffer/"
 
-    def __init__(self, _filepath: str, _modified_date=None, data=None, isBuffer=None):
-        self.filepath = _filepath
-        self.data = data
-        self.path = Path(_filepath).resolve()
-
+    def __init__(self, _filepath: Union[Path, str], _modified_date=None, data=None, isBuffer=None):
         self.data = data
         self.isBuffer = isBuffer if isBuffer is not None else data is not None
 
+        self.extension = None
+        self.encoding = None
+        self.mimetype = None
+        self.mimeGroupType = None
+
+        super().__init__(_filepath, _modified_date)
+
+    def initialize(self):
         _, extension = os.path.splitext(self.filepath)
         self.extension = extension[1:]
 
@@ -189,13 +323,6 @@ class FileItem(object):
         self.mimeGroupType = None
         if self.mimetype is not None:
             self.mimeGroupType = self.mimetype.split("/", 1)[0]
-
-        if _modified_date is not None:
-            self.modified_date = _modified_date
-        else:
-            self.updateModifiedDate()
-
-        self.type = self.determineType()
 
     def determineType(self) -> FileType:
         mimeFileType = None
@@ -212,7 +339,6 @@ class FileItem(object):
             return extensionGuessedType
 
         isSupported = FileType.has_value(mimeFileType)
-
         if isSupported:
             return FileType(mimeFileType)
 
@@ -225,19 +351,6 @@ class FileItem(object):
         imageReader = QtGui.QImageReader(self.filepath)
         imageReader.setDecideFormatFromContent(True)
         return imageReader.canRead()
-
-    def get(self, key, default=None):
-        if key == "name":
-            return self.name
-        if key == "fileURI":
-            return self.fileURI
-        if key == "filepath":
-            return self.filepath
-        if key == "modified_date":
-            return self.modified_date
-        if key == "type":
-            return self.type.value
-        return default
 
     def exists(self):
         return self.path.exists()
@@ -252,24 +365,15 @@ class FileItem(object):
         self.data = data
 
     @property
-    def name(self):
-        return self.path.name
-
-    @property
-    def fileURI(self):
-        if self.isBuffer:
-            return FileItem.BUFFER_SUB_PROVIDER + self.filepath
-        return self.filepath
-
-    @property
     def isLoaded(self):
         return self.data is not None
 
+    @property
+    def fileURI(self):
+        return super().fileURI if not self.isBuffer else FileItem.BUFFER_SUB_PROVIDER + self.filepath
+
     def __lt__(self, other):
         return self.modified_date > other.modified_date
-
-    def __eq__(self, other):
-        return self.path == other.path
 
     def __str__(self):
         return ','.join((self.path.name, str(self.modified_date)))
@@ -277,7 +381,7 @@ class FileItem(object):
     @property
     def __dict__(self):
         return {
-            "name": self.name,
+            "name": self.filename,
             "filepath": self.filepath,
             "type": self.type.value,
             "fileURI": self.fileURI

@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Union
 
 import ffmpeg
 import logging
@@ -12,12 +12,12 @@ from urllib.parse import unquote
 from PySide2.QtCore import QSize
 from sqlalchemy import delete, insert, select, update
 
-from PySide2 import QtQuick, QtGui, QtCore
+from PySide2 import QtQuick, QtGui, QtCore, QtQml
 
 import FukurouViewer
 from .filetype import FileType
-from .foundation import FileItem
-from .gallery import GalleryArchive
+from .foundation import FileItem, FileSystemItem, DirectoryItem
+from .gallery import ZipArchiveGallery, DirectoryGallery
 from .utils import Utils
 from . import user_database
 
@@ -102,7 +102,7 @@ class ThumbnailCache:
         return ThumbnailCache.generateThumbnail(filepath, path_hash, size, modified_time, updateItem)
 
     @staticmethod
-    def getAbsoluteThumbPath(hash) -> str:
+    def getAbsoluteThumbPath(hash: str) -> str:
         thumb_dir = os.path.join(
             ThumbnailCache.THUMBS_DIR,
             hash[:2],
@@ -121,11 +121,10 @@ class ThumbnailCache:
         return thumb
 
     @staticmethod
-    def generateThumbnail(filepath, filepath_hash, size: QtCore.QSize, modified_time, updateItem=False) -> QtGui.QImage:
+    def generateThumbnail(filepath: str, filepath_hash, size: QtCore.QSize, modified_time, updateItem=False) -> QtGui.QImage:
         thumb_path = ThumbnailCache.getAbsoluteThumbPath(filepath_hash)
 
-        file = FileItem(filepath)
-        thumb, thumbExists = ThumbnailCache.getThumbnailCached(file, size, thumb_path)
+        thumb, thumbExists = ThumbnailCache.getThumbnailCached(filepath, size, thumb_path)
 
         if thumb:
             ThumbnailCache.saveThumbnail(thumb, thumb_path, filepath_hash, modified_time, updateItem, thumbExists)
@@ -136,27 +135,35 @@ class ThumbnailCache:
         return thumb
 
     @staticmethod
-    def getThumbnailCached(file: FileItem, size: QSize, thumb_path: Optional[str] = None) -> (QtGui.QImage, bool):
+    def getThumbnailCached(item: Union[FileSystemItem, str], size: QSize, thumb_path: Optional[str] = None) -> (QtGui.QImage, bool):
         thumb = None
         fileSaved = False
+
+        if item is None:
+            return None, fileSaved
 
         deleteThumb = thumb_path is None
         if deleteThumb:
             thumb_path = ThumbnailCache.TMP_THUMB_PATH
 
+        if isinstance(item, str):
+            item = FileSystemItem.createItem(item)
+
         # generate thumbnail
-        if file.type is FileType.IMAGE:
-            thumb = ThumbnailCache.generateImageThumbnail(file, size)
-        elif file.type == FileType.VIDEO:
-            thumb, fileSaved = ThumbnailCache.generateVideoThumbnail(file, size, thumb_path)
-        elif file.type is FileType.ARCHIVE:
-            thumb = ThumbnailCache.generateArchiveThumbnail(file, size)
-        elif file.type is FileType.DOCUMENT:
-            thumb = ThumbnailCache.generateDocumentThumbnail(file, size)
-        elif file.type is FileType.AUDIO:
-            thumb = ThumbnailCache.generateAudioThumbnail(file, size)
-        elif file.type is FileType.FILE:
-            thumb = ThumbnailCache.generateFileThumbnail(file, size)
+        if item.type is FileType.IMAGE:
+            thumb = ThumbnailCache.generateImageThumbnail(item, size)
+        elif item.type == FileType.VIDEO:
+            thumb, fileSaved = ThumbnailCache.generateVideoThumbnail(item, size, thumb_path)
+        elif item.type is FileType.ARCHIVE:
+            thumb = ThumbnailCache.generateArchiveThumbnail(item, size)
+        elif item.type is FileType.DOCUMENT:
+            thumb = ThumbnailCache.generateDocumentThumbnail(item, size)
+        elif item.type is FileType.AUDIO:
+            thumb = ThumbnailCache.generateAudioThumbnail(item, size)
+        elif item.type is FileType.FILE:
+            thumb = ThumbnailCache.generateFileThumbnail(item, size)
+        elif item.type is FileType.DIRECTORY:
+            thumb = ThumbnailCache.generateDirectoryThumbnail(item, size)
 
         return thumb, fileSaved
 
@@ -254,27 +261,12 @@ class ThumbnailCache:
 
     @staticmethod
     def generateArchiveThumbnail(file: FileItem, size: QSize) -> QtGui.QImage or None:
-        try:
+        archive = ZipArchiveGallery(file)
+        thumb, _ = ThumbnailCache.getThumbnailCached(archive.cover, size)
+        return thumb
 
-            archive = GalleryArchive(file)
-            thumb, _ = ThumbnailCache.getThumbnailCached(archive.cover, size)
-            return thumb
-
-
-
-            # archive = zipfile.ZipFile(file.filepath, "r")
-            # infoList = archive.infolist()
-            #
-            # if len(infoList) < 1:
-            #     return None
-            #
-            # coverZipInfo = infoList[0]
-            # data = archive.read(coverZipInfo.filename)
-            # file = FileItem(coverZipInfo.filename, data=data)
-            # thumb, _ = ThumbnailCache.getThumbnailBuffered(file, None, size)
-            # return thumb
-
-        except (zipfile.BadZipFile, zipfile.LargeZipFile) as e:
-            print(e)
-
-        return None
+    @staticmethod
+    def generateDirectoryThumbnail(directory: DirectoryItem, size: QSize) -> QtGui.QImage or None:
+        gallery = DirectoryGallery(directory)
+        thumb, _ = ThumbnailCache.getThumbnailCached(gallery.cover, size)
+        return thumb

@@ -31,6 +31,7 @@ Item {
             componentSource = "VideoItemPage.qml";
             break;
         case "ARCHIVE":
+        case "DIRECTORY":
             componentSource = "GalleryItemPage.qml";
             break;
         default:
