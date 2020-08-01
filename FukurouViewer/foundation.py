@@ -191,6 +191,7 @@ class FileSystemItem(object):
         if isinstance(filepath, str):
             filepath = Path(filepath).resolve()
 
+        self.isBuffer = False
         self.path = Path(filepath).resolve()
 
         self.modified_date = self.getModifiedDate() if modified_date is None else modified_date
@@ -212,6 +213,10 @@ class FileSystemItem(object):
     @property
     def fileURI(self):
         return self.filepath
+
+    @property
+    def exists(self):
+        return self.path.exists()
 
     def get(self, key, default=None):
         if key == "name":
@@ -243,6 +248,9 @@ class FileSystemItem(object):
 
     @staticmethod
     def createItem(path: Union[Path, str]):
+        if path is None:
+            return None
+
         if isinstance(path, str):
             path = Path(path).resolve()
 
@@ -306,14 +314,13 @@ class FileItem(FileSystemItem):
 
     def __init__(self, _filepath: Union[Path, str], _modified_date=None, data=None, isBuffer=None):
         self.data = data
-        self.isBuffer = isBuffer if isBuffer is not None else data is not None
-
         self.extension = None
         self.encoding = None
         self.mimetype = None
         self.mimeGroupType = None
 
         super().__init__(_filepath, _modified_date)
+        self.isBuffer = isBuffer if isBuffer is not None else data is not None
 
     def initialize(self):
         _, extension = os.path.splitext(self.filepath)
@@ -351,12 +358,6 @@ class FileItem(FileSystemItem):
         imageReader = QtGui.QImageReader(self.filepath)
         imageReader.setDecideFormatFromContent(True)
         return imageReader.canRead()
-
-    def exists(self):
-        return self.path.exists()
-
-    def setModifiedDate(self, date):
-        self.modified_date = date
 
     def updateModifiedDate(self):
         self.modified_date = os.path.getmtime(self.filepath) if os.path.exists(self.filepath) else -1

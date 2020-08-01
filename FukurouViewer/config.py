@@ -91,7 +91,7 @@ class Config(ConfigParser):
         self.set("General", "folder_options", json.dumps(value, ensure_ascii=False))
 
     @property
-    def doujin_downloader(self):
+    def doujin_downloader(self) -> str:
         return self.get("General", "doujin_downloader")
 
     @doujin_downloader.setter

@@ -13,16 +13,18 @@ Item {
         console.log(type);
 
         coverImage.source = "image://thumbs/" + encodeURIComponent(filepath);
-        title.text = gallerySource;
 
         galleryItem = application.loadGallery(filepath, type)
+
         for(var key in galleryItem){
             var value = galleryItem[key]
             console.log(key, ": ", value)
-        }
+        }        
+
+        title.text = galleryItem.name
     }
 
-    Rectangle {
+    Item {
         id: topSection
         height: 280
 
@@ -34,7 +36,7 @@ Item {
 
         // COVER
         Rectangle {
-            color: "#000000"
+            color: "white"
             anchors.fill: coverImage
         }
         Image {
@@ -44,24 +46,56 @@ Item {
             Layout.preferredHeight: 280
             fillMode: Image.PreserveAspectFit
             anchors.top: parent.top
-            anchors.topMargin: 0
         }
 
-        // TITLE
-        Text {
-            id: title
-            height: 150
-            text: qsTr("Text")            
-
-            font.pixelSize: 16
+        ColumnLayout {
+            spacing: 10
 
             anchors {
-                left :parent.left
-                leftMargin: 610
+                left: coverImage.right
                 top: parent.top
-                right: topSection.right
+                right: parent.right
+                bottom: parent.bottom
+                margins: 5
             }
+
+            // TITLE
+            Text {
+                id: title
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 26
+
+                Layout.leftMargin: 10
+                Layout.rightMargin: 10
+                Layout.fillWidth: true
+            }
+
+            Rectangle {
+                height: 1
+                Layout.fillWidth: true
+                color: "#d3d3d3"
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+
+                Text {
+                    id: tags
+                    text: qsTr("Tags")
+                    anchors {
+                        left: parent.left
+                        top: parent.top
+                    }
+
+                }
+            }
+
         }
+
+
+
     }
 
     // GRID VIEW of files

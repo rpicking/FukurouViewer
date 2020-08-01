@@ -814,7 +814,8 @@ class DownloadThread(BaseThread):
         url = [self.download_item.url]
 
         doujin_downloader = [Config.doujin_downloader, url, "nogui"]
-        subprocess.Popen(doujin_downloader)
+        wkdir = os.path.dirname(Config.doujin_downloader)
+        subprocess.Popen(doujin_downloader, cwd=wkdir)
 
     @staticmethod
     def delete_file(filepath):
