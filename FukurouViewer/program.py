@@ -88,7 +88,6 @@ class Program(QtWidgets.QApplication, Logger):
 
         # main filtered gridmodel
         self.mainFilteredGridModel = FilteredGridModel(aDirectory, SortType.DATE_MODIFIED)
-
         self.galleryGridModel = GalleryGridModel()
 
         self.threadManager = ThreadManager(self)

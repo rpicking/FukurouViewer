@@ -19,7 +19,7 @@ from FukurouViewer.logger import Logger
 DB_NAME = "db.sqlite"
 DATABASE_FILE = Utils.fv_path(DB_NAME)
 DATABASE_URI = "sqlite:///" + DATABASE_FILE
-MIGRATE_REPO = Utils.convert_from_relative_path("migrate_repo/")
+MIGRATE_REPO = Utils.base_path("migrate_repo/")
 lock = Lock()
 
 
@@ -182,6 +182,33 @@ class Folder(Base):
         self.color = color
         self.order = order
         self.type = type
+
+        self.absolute_path = Folder.parse_path(self.path)
+
+    @staticmethod
+    def parse_path(path: str) -> Optional[Path]:
+        """Given a path, return an absolute path, substituting a relative or drive relative path variables when required.
+           Given D:/Dir/FukurouViewer/program.py
+             ../Test/ -> D:/Dir/Test/
+             ?:/Other/Test -> D:/Other/Test"""
+        if path is None:
+            return None
+
+        # windows drive replacement
+        if path.startswith("?:/"):
+            drive, tail = os.path.splitdrive(Utils.base_path())
+            path = path.replace("?:", drive)
+
+        # UNC path replacement
+        if path.startswith("//?/"):
+            drive, tail = os.path.splitdrive(Utils.base_path())
+            path = path.replace("//?", drive)
+
+        # relative path replacement
+        if path.startswith("../") or path.startswith("./"):
+            path = Utils.base_path(path)
+
+        return Path(path)
 
 
 class Downloads(Base):
