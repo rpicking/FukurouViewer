@@ -21,7 +21,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def createMenu(self):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.Folders]).order_by(user_database.Folders.order)))
+                select([user_database.Folder]).order_by(user_database.Folder.order)))
 
         for folder in results:
             name = folder.get("name")

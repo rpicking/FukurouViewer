@@ -3,6 +3,7 @@ from PySide2 import QtCore
 from sqlalchemy import select
 
 from FukurouViewer import user_database, Utils
+from FukurouViewer.downloads.downloaditem import DownloadItem
 from FukurouViewer.foundation import Foundation, BaseModel
 
 
@@ -208,19 +209,22 @@ class DownloadsModel(BaseModel):
 
 
 class Download(object):
-    def __init__(self, item):
+    def __init__(self, item: DownloadItem):
         self.id = item.id
         self.filename = item.filename
         self.filepath = item.filepath
         self.total_size = item.total_size_str
-        self.folderName = item.folder.get("name")
-        self.color = item.folder.get("color")
+        self.folderName = item.folder.name
+        self.color = item.folder.color
         self.cur_size = "0 B"
         self.percent = 0
         self.speed = "queued"
         self.queued = True
         self.timestamp = item.start_time
         self.eta = item.ETA_LIMIT
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
 
     def update(self, kwargs):
         for key in kwargs:
@@ -245,4 +249,17 @@ class Download(object):
         self.speed = ""
         self.timestamp = _timestamp
         self.eta = ""
-        self.remove_item_by_index(index)
+
+
+class Download_UI_Signals(QtCore.QObject):
+    create = QtCore.Signal(DownloadItem)
+    start = QtCore.Signal(str)
+    update = QtCore.Signal(dict)
+    finish = QtCore.Signal(str, float, int)
+
+    def __init__(self, app):
+        super().__init__()
+        self.create.connect(app.create_download_ui_item)
+        self.start.connect(app.start_download_ui_item)
+        self.update.connect(app.update_download_ui_item)
+        self.finish.connect(app.finish_download_ui_item)

@@ -84,7 +84,8 @@ class ThumbnailCache(object):
         return thumb
 
     @staticmethod
-    def generateThumbnail(filepath: str, filepath_hash: str, size: QtCore.QSize, modified_time, updateItem=False) -> QtGui.QImage:
+    def generateThumbnail(filepath: str, filepath_hash: str, size: QtCore.QSize, modified_time, updateItem=False) \
+            -> QtGui.QImage:
         thumb_path = ThumbnailCache.getAbsoluteThumbPath(filepath_hash)
 
         thumb, file = ImageGenerator.requestImage(filepath, size)

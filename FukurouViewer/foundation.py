@@ -14,10 +14,8 @@ from mimetypes import guess_type
 
 from PySide2 import QtCore, QtGui
 
-from . import user_database
-from .filetype import FileType, FileTypeUtils
-from .utils import Utils
-from .logger import Logger
+from FukurouViewer import user_database, Logger, Utils
+from FukurouViewer.filetype import FileType, FileTypeUtils
 
 
 class Foundation(Logger):
@@ -38,7 +36,7 @@ class Foundation(Logger):
     def uniqueFolderID(cls):
         with user_database.get_session(cls, acquire=True) as session:
             used_ids = Utils.convert_result(session.execute(
-                select([user_database.Folders.uid])))
+                select([user_database.Folder.uid])))
 
         used_ids = [item['uid'] for item in used_ids]
         return cls.uniqueID(used_ids)
@@ -53,7 +51,7 @@ class Foundation(Logger):
         """returns the highest order value + 1 of folders table"""
         with user_database.get_session(cls, acquire=True) as session:
             values = Utils.convert_result(session.execute(
-                select([user_database.Folders.order])))
+                select([user_database.Folder.order])))
             if not values:
                 return 1
             return max([x['order'] for x in values]) + 1
@@ -201,6 +199,12 @@ class FileSystemItem(object):
 
     def getModifiedDate(self) -> float:
         return os.path.getmtime(self.filepath) if os.path.exists(self.filepath) else -1
+
+    def samefile(self, other):
+        if isinstance(other, FileSystemItem):
+            return self.path.samefile(other.path)
+        else:
+            return self.path.samefile(other)
 
     @property
     def filepath(self):

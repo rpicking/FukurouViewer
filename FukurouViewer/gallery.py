@@ -387,6 +387,10 @@ class ZipArchiveGallery(Gallery):
         self.loadAllData = loadAllData
         self.archive = None  # type: Optional[zipfile.ZipFile]
         self.isOpen = False
+
+        if not isinstance(file, FileItem):
+            file = FileSystemItem.createItem(file)
+
         super().__init__(file)
 
     def initialize(self):

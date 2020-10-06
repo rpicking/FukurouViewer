@@ -1,5 +1,8 @@
 import os
 import contextlib
+from pathlib import Path
+from typing import Optional
+
 import migrate
 import sqlalchemy
 
@@ -35,9 +38,9 @@ Database = UserDatabase()
 @as_declarative()
 class Base(object):
 
-    @declared_attr
-    def __tablename__(cls):
-        return cls.__name__.lower()
+    @classmethod
+    def get(cls, **kwargs):
+        return cls(**kwargs)
 
     def add(self):
         with get_session(self, acquire=True) as session:
@@ -68,7 +71,7 @@ class History(Base):
     folder_id = Column(Integer, ForeignKey("folders.id"))
     gallery_id = Column(Integer, ForeignKey('gallery.id'))
 
-    folder = relationship("Folders", foreign_keys=[folder_id])
+    folder = relationship("Folder", foreign_keys=[folder_id])
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
     def __init__(self, id=None, filename="", src_url="", page_url="", domain="", time_added=0, type=1, filepath="",
@@ -84,13 +87,23 @@ class History(Base):
         self.favicon_url = favicon_url
         self.dead = dead
 
-        if isinstance(folder, Folders):
+        self.folder = None
+        if isinstance(folder, Folder):
             self.folder_id = folder.id
+            self.folder = folder
+        elif isinstance(folder, dict):
+            self.folder = Folder(**folder)
+            self.folder_id = self.folder.id
         else:
             self.folder_id = folder
 
-        if isinstance(folder, Gallery):
+        self.gallery = None
+        if isinstance(gallery, Gallery):
             self.gallery_id = gallery.id
+            self.gallery = gallery
+        elif isinstance(gallery, dict):
+            self.gallery = Gallery(**gallery)
+            self.gallery_id = self.gallery.id
         else:
             self.gallery_id = gallery
 
@@ -115,7 +128,8 @@ class Gallery(Base):
     # history_items = relationship("History", backref="gallery")
 
     def __init__(self, id=None, title="", origin_title="", time_added=0, last_modified=0, site_rating=None,
-                 user_rating=None, rating_count=0, total_size=0, file_count=0, url="", virtual=False):
+                 user_rating=None, rating_count=0, total_size=0, file_count=0, url="", virtual=False, tags=None):
+
         self.id = id
         self.title = title
         self.origin_title = origin_title
@@ -129,12 +143,16 @@ class Gallery(Base):
         self.url = url
         self.virtual = virtual
 
+        if tags is None:
+            tags = []
+        self.tags = [tag if isinstance(tag, Tag) else Tag(**tag) for tag in tags]
+
     def addTag(self, tag):
         galleryTagMap = GalleryTagMapping(self, tag)
         galleryTagMap.add()
 
 
-class Folders(Base):
+class Folder(Base):
     __tablename__ = "folders"
 
     class Type(Enum):
@@ -180,9 +198,9 @@ class Downloads(Base):
     domain = Column(Text)
     favicon_url = Column(Text)
     timestamp = Column(Integer)
-    folder_id = Column(Integer, ForeignKey(Folders.id))
+    folder_id = Column(Integer, ForeignKey(Folder.id))
 
-    folder = relationship("Folders", foreign_keys=[folder_id])
+    folder = relationship("Folder", foreign_keys=[folder_id])
 
     def __init__(self, id=None, filepath="", filename="", base_name="", ext="", total_size=None, srcUrl="", pageUrl="",
                  domain="", favicon_url="", timestamp=None, folder=None):
@@ -198,8 +216,12 @@ class Downloads(Base):
         self.favicon_url = favicon_url
         self.timestamp = timestamp
 
-        if isinstance(folder, Folders):
+        if isinstance(folder, Folder):
             self.folder_id = folder.id
+            self.folder = folder
+        elif isinstance(folder, dict):
+            self.folder = Folder(**folder)
+            self.folder_id = self.folder.id
         else:
             self.folder_id = folder
 

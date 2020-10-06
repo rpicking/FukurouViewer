@@ -7,21 +7,24 @@ from threading import RLock
 from PySide2.QtCore import Slot
 from sqlalchemy import insert, select, update
 
-from FukurouViewer.downloads import DownloadUIManager, DownloadsModel
-from FukurouViewer.grid import GridModel, FilteredGridModel, SortType, GalleryGridModel
+from FukurouViewer.grid import FilteredGridModel, SortType, GalleryGridModel
 from . import user_database
 from .blowupview import BlowUpItem
+from .downloads.downloaditem import DownloadItem
+from .downloads.frontend import DownloadsModel, DownloadUIManager, Download
 from .filetype import FileType
 from .gallery import ZipArchiveGallery, DirectoryGallery
 from .iconprovider import IconImageProvider
+from .images import FullImageProvider
 from .threads import ThreadManager
 from .tray import SystemTrayIcon
 from .utils import Utils
 from .config import Config
 from .logger import Logger
-from .foundation import Foundation, FileItem, DirectoryItem
+from .foundation import Foundation
 from .history import History
 from .thumbnails import ThumbnailProvider
+
 
 from PySide2 import QtCore, QtGui, QtQml, QtWidgets
 
@@ -75,7 +78,7 @@ class Program(QtWidgets.QApplication, Logger):
 
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.Folders]).where(user_database.Folders.id == 1)))
+                select([user_database.Folder]).where(user_database.Folder.id == 1)))
             if results:
                 results = results[0]
 
@@ -107,16 +110,14 @@ class Program(QtWidgets.QApplication, Logger):
         # ARGUMENTS
         parser = argparse.ArgumentParser()
         parser.add_argument("-d", "--downloader", help="start program in downloader mode", action="store_true")
+        parser.add_argument("-a", "--app", help="open application on launch", action="store_true")
         args = parser.parse_args()
 
-        if not args.downloader:  # launching app (not host)
-            self.start_application("MAIN")
-        else:
-            self.start_application()
+        self.start_application(args.app)
 
         self.threadManager.startThreads()
 
-    def start_application(self, mode="TRAY"):
+    def start_application(self, launchApp=False):
         if self.engine is not None:
             return
 
@@ -134,7 +135,8 @@ class Program(QtWidgets.QApplication, Logger):
 
         self.setupSignals()
 
-        # self.open("APP")
+        if launchApp:
+            self.open("APP")
 
         #  default mode? move to qml then have way of changing if not starting in default
         # self.app_window.setMode(mode)
@@ -241,7 +243,7 @@ class Program(QtWidgets.QApplication, Logger):
     def send_folders(self):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.Folders]).order_by(user_database.Folders.order)))
+                select([user_database.Folder]).order_by(user_database.Folder.order)))
             self.app_window.receiveFolders.emit(results)
 
     # add new folder entry into database
@@ -250,7 +252,7 @@ class Program(QtWidgets.QApplication, Logger):
         order = Foundation.last_order()
 
         with user_database.get_session(self) as session:
-            session.execute(insert(user_database.Folders).values(
+            session.execute(insert(user_database.Folder).values(
                 {
                     "name": name,
                     "uid": uid,
@@ -274,15 +276,15 @@ class Program(QtWidgets.QApplication, Logger):
         folders = folders.toVariant()
         with user_database.get_session(self) as session:
             for folder in folders:
-                session.execute(update(user_database.Folders).where(
-                    user_database.Folders.id == folder.get("id")).values(
+                session.execute(update(user_database.Folder).where(
+                    user_database.Folder.id == folder.get("id")).values(
                     {
                         "order": folder.get("order")
                     }))
 
-    def create_download_ui_item(self, item):
+    def create_download_ui_item(self, item: DownloadItem):
         """Creates download item in ui"""
-        self.downloadsModel.addItem(item)
+        self.downloadsModel.insert_item(Download(item))
         self.downloadUIManager.add_download(item.id, item.total_size)
 
     def start_download_ui_item(self, id):
@@ -301,7 +303,7 @@ class Program(QtWidgets.QApplication, Logger):
 
     def downloader_task(self, id, status):
         if status == "delete" or status == "done":
-            self.downloadsModel.remove_item(id)
+            self.downloadsModel.remove_item_by_id(id)
             self.downloadUIManager.remove_download(id, status)
 
     def open(self, mode="TRAY"):

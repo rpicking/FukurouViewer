@@ -24,7 +24,7 @@ class GridModel(BaseModel):
         self.sortType = sortType
         self.desc = desc
 
-        self.directory = None
+        self.directory = None   # type: Optional[DirectoryItem]
         if directory is not None:
             self.setDirectory(directory)
 
