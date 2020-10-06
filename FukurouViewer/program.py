@@ -68,6 +68,8 @@ class Program(QtWidgets.QApplication, Logger):
 
         self.iconImageProvider = IconImageProvider()
         self.thumb_image_provider = ThumbnailProvider()
+        self.full_image_provider = FullImageProvider()
+
         self.downloadsModel = DownloadsModel()
         self.downloadUIManager = DownloadUIManager()
 
@@ -126,6 +128,7 @@ class Program(QtWidgets.QApplication, Logger):
 
         self.engine.addImageProvider("icon", self.iconImageProvider)
         self.engine.addImageProvider("thumbs", self.thumb_image_provider)
+        self.engine.addImageProvider("full", self.full_image_provider)
 
         self.context = self.engine.rootContext()
         self.setContextProperties()

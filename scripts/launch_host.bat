@@ -4,13 +4,5 @@
 :: found in the LICENSE file.
 
 call %~dp0/../venv/Scripts/activate.bat
-python "%~dp0/../main.py" --downloader%*
+python "%~dp0/../main.py" -d%*
 call %~dp0/../venv/Scripts/deactivate.bat
-:: When combined, this should be...
-:: python "%~dp0/../main.py" %*
-:: this file will be in /Scripts
-:: FukurouViewer
-::     /Scripts
-::     /FukurouViewer
-::         program.py
-::         threads.py, etc.

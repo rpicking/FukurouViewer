@@ -1,6 +1,7 @@
 import os
 import random
 import hashlib
+
 from sqlalchemy.engine import ResultProxy
 from typing import List
 
@@ -14,15 +15,10 @@ class Utils:
         return list(map(dict, result))
 
     @classmethod
-    def convert_from_relative_path(cls, path: str = "") -> str:
-        folder = os.path.dirname(__file__)
-        return cls.norm_path(os.path.join(folder, path))
-
-    @classmethod
     def base_path(cls, path: str = "") -> str:
         folder = os.path.dirname(os.path.abspath(__file__))
         return cls.norm_path(os.path.join(folder, path))
-    
+
     @staticmethod
     def fv_path(path: str = "") -> str:
         return Utils.norm_path(os.path.join("~/.fv", path))
@@ -58,9 +54,9 @@ class Utils:
         if pieces[1] == "g":
             return {"type": "g", "gid": int(pieces[2]), "token": pieces[3]}
         split = pieces[3].split("-")
-        return {"type": "s", 
-                "page_token": pieces[2], 
-                "gid": int(split[0]), 
+        return {"type": "s",
+                "page_token": pieces[2],
+                "gid": int(split[0]),
                 "page_number": int(split[1])}
 
     @staticmethod

@@ -109,7 +109,7 @@ class HistoryItem(object):
     def __init__(self, item):
         self.id = item.get("id")
         self.date = item.get("date")
-        self.timeadded = item.get("time_added")
+        self.time_added = item.get("time_added")
         self.filename = item.get("filename")
         self.filepath = item.get("filepath")
         self.src_url = item.get("src_url")
@@ -119,21 +119,7 @@ class HistoryItem(object):
         return self.id > other.id
 
     def get(self, key, default=None):
-        if key == "id":
-            return self.id
-        if key == "date":
-            return self.date
-        if key == "time_added":
-            return self.timeadded
-        if key == "filename":
-            return self.filename
-        if key == "filepath":
-            return self.filepath
-        if key == "src_url":
-            return self.src_url
-        if key == "dead":
-            return self.dead
-        return default
+        return getattr(self, key, default)
 
     def __eq__(self, other):
         return self.id == other.id

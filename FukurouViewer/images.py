@@ -14,6 +14,15 @@ from FukurouViewer.foundation import FileItem, FileSystemItem, DirectoryItem
 from FukurouViewer.gallery import ZipArchiveGallery, DirectoryGallery
 
 
+class FullImageProvider(QtQuick.QQuickImageProvider):
+    def __init__(self):
+        super().__init__(QtQuick.QQuickImageProvider.Image)#, QtQml.QQmlImageProviderBase.ForceAsynchronousImageLoading)
+
+    def requestImage(self, id, size: QSize, requestedSize: QSize):
+        image, file = ImageGenerator.requestImage(id, requestedSize)
+        return image
+
+
 class ImageBuffer(object):
 
     @staticmethod
