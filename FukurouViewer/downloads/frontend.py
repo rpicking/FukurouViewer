@@ -3,7 +3,7 @@ from PySide2 import QtCore
 from sqlalchemy import select
 
 from FukurouViewer import user_database, Utils
-from FukurouViewer.foundation import Foundation
+from FukurouViewer.foundation import Foundation, BaseModel
 
 
 class DownloadUIManager(QtCore.QObject):
@@ -126,7 +126,7 @@ class DownloadUIManager(QtCore.QObject):
     eta = QtCore.Property(str, get_eta, notify=on_eta)
 
 
-class DownloadsModel(QtCore.QAbstractListModel):
+class DownloadsModel(BaseModel):
     IDRole = QtCore.Qt.UserRole + 1
     FilenameRole = QtCore.Qt.UserRole + 2
     FilepathRole = QtCore.Qt.UserRole + 3
@@ -147,53 +147,7 @@ class DownloadsModel(QtCore.QAbstractListModel):
               EtaRole: "eta"}
 
     def __init__(self, parent=None):
-        super(DownloadsModel, self).__init__(parent)
-        self._items = []
-
-    def addItem(self, item):
-        self.beginInsertRows(QtCore.QModelIndex(), self.rowCount(), self.rowCount())
-        self._items.insert(0, Download(item))
-        self.endInsertRows()
-        self.do_item_update(0)
-
-    def rowCount(self, parent=QtCore.QModelIndex()):
-        return len(self._items)
-
-    def data(self, index, role=QtCore.Qt.DisplayRole):
-        try:
-            item = self._items[index.row()]
-        except IndexError:
-            return QtCore.QVariant()
-
-        if role == self.IDRole:
-            return item.id
-        if role == self.FilenameRole:
-            return item.filename
-        if role == self.FilepathRole:
-            return item.filepath
-        if role == self.TotalSizeRole:
-            return item.total_size
-        if role == self.FolderNameRole:
-            return item.folderName
-        if role == self.ColorRole:
-            return item.color
-        if role == self.CurSizeRole:
-            return item.cur_size
-        if role == self.PercentRole:
-            return item.percent
-        if role == self.SpeedRole:
-            return item.speed
-        if role == self.QueuedRole:
-            return item.queued
-        if role == self.TimeStampRole:
-            return item.timestamp
-        if role == self.EtaRole:
-            return item.eta
-
-        return QtCore.QVariant()
-
-    def roleNames(self):
-        return {x: self._roles[x].encode() for x in self._roles}
+        super().__init__(parent)
 
     def getIDs(self):
         """Returns list of all used download UI ids"""
@@ -219,9 +173,6 @@ class DownloadsModel(QtCore.QAbstractListModel):
         else:   # id doesn't exist
             return None
 
-    # TODO: THIS MIGHT NEED TO BE SWITCHED TO SETDATA
-    # https://stackoverflow.com/questions/20784500/qt-setdata-method-in-a-qabstractitemmodel
-    # updates filename and color of current download item with id
     def updateItem(self, kwargs):
         """Updates active download values"""
         index = self.get_item_index(kwargs.get("id"))
@@ -229,17 +180,6 @@ class DownloadsModel(QtCore.QAbstractListModel):
             return
         self._items[index].update(kwargs)
         self.do_item_update(index)
-
-    def do_full_update(self):
-        """Forces all items in UI to update to new data from model"""
-        start_index = self.createIndex(0, 0)
-        end_index = self.createIndex(len(self._items) - 1, 0)
-        self.dataChanged.emit(start_index, end_index, [])
-
-    def do_item_update(self, index):
-        """Forces specific item at index to update in UI"""
-        model_index = self.index(index, 0)
-        self.dataChanged.emit(model_index, model_index, self.roleNames())
 
     def start_item(self, id):
         """Sets start values for item that has begun downloading"""
@@ -260,15 +200,11 @@ class DownloadsModel(QtCore.QAbstractListModel):
         self.do_item_update(index)
         return self._items[index].total_size
 
-    def remove_item(self, id):
+    def remove_item_by_id(self, id):
         """Remove an item at id from the download list and updates UI"""
         index = self.get_item_index(id)
         if index is None:
             return
-
-        self.beginRemoveRows(QtCore.QModelIndex(), index, index)
-        self._items.pop(index)
-        self.endRemoveRows()
 
 
 class Download(object):
@@ -309,3 +245,4 @@ class Download(object):
         self.speed = ""
         self.timestamp = _timestamp
         self.eta = ""
+        self.remove_item_by_index(index)
