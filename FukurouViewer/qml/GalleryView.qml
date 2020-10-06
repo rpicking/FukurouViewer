@@ -31,7 +31,7 @@ Old.ScrollView {
             model: usedModel
             interactive: true
             boundsBehavior: Flickable.StopAtBounds
-            cacheBuffer: (350 + 16) * 10
+            cacheBuffer: 50 // cellHeight * 4 // (350 + 16) * 10
 
             anchors {
                 left: parent.left
@@ -42,8 +42,7 @@ Old.ScrollView {
                 topMargin: verticalSpacing
             }
 
-            delegate: Component {
-                Loader {
+            delegate: Loader {
                     sourceComponent: Component {
                         Item {
                             id: rootItemBackground
@@ -98,16 +97,16 @@ Old.ScrollView {
                                             stack.push(Qt.resolvedUrl("IndividualItemPage.qml"), { filepath: filepath, type: type } );
                                         }
                                         onPressAndHold: {
-                                            var xPercent = mouse.x / parent.width
-                                            var yPercent = mouse.y / parent.height
+                                            var xPercent = mouse.x / parent.width;
+                                            var yPercent = mouse.y / parent.height;
 
-                                            testPopup.setSource("file:///" + filepath)
+                                            blowUpWindow.setSource("file:///" + filepath);
 
                                             var globalCoords = mapToGlobal(mouse.x, mouse.y);
-                                            testPopup.openOnPoint(globalCoords, parent.width, parent.height, xPercent, yPercent);
+                                            blowUpWindow.openOnPoint(globalCoords, parent.width, parent.height, xPercent, yPercent);
 
-                                            testPopup.show();
-                                            testPopup.requestActivate();
+                                            blowUpWindow.show();
+                                            blowUpWindow.requestActivate();
                                         }
 
                                         anchors.fill: parent
@@ -134,9 +133,8 @@ Old.ScrollView {
                             }
                         }
                     }
-                    asynchronous: index >= 30
+                    //asynchronous: index >= 30
                 }
-            }
         }
     }
 }

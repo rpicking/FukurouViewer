@@ -72,7 +72,7 @@ ApplicationWindow {
     }
 
     function closeBlowUpWindow() {
-        testPopup.closeAndReset();
+        blowUpWindow.closeAndReset();
     }
 
     function setStatus(status) {
@@ -366,7 +366,7 @@ ApplicationWindow {
     // *********************************************
 
     Window {
-        id: testPopup
+        id: blowUpWindow
         width: blowUpContent.loaderItem.width
         height: blowUpContent.loaderItem.height
         flags: Qt.FramelessWindowHint
@@ -380,7 +380,6 @@ ApplicationWindow {
         function setSource(file) {
             blowUpContentLoader.sourceComponent = imageComponent;
             blowUpContent.loaderItem.source = file;
-        
         }
 
         function closeAndReset() {
@@ -401,7 +400,9 @@ ApplicationWindow {
 
         Component {
             id: imageComponent
-            BlowUpImage { }
+            BlowUpImage {
+                id: blowUpImage
+            }
         }
         
     }
