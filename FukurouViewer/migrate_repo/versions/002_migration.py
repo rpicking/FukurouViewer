@@ -9,9 +9,8 @@ post_meta = MetaData()
 
 def upgrade(migrate_engine):
     meta = MetaData(bind=migrate_engine)
-    history = Table('history', meta, autoload=True)
-    folderc = Column('folder', Text)
-    folderc.create(history)
+    history = Table('history', meta, Column('folder', Text))
+    history.create()
     deadc = Column('dead', Boolean, default=ColumnDefault(False))
     deadc.create(history)
 

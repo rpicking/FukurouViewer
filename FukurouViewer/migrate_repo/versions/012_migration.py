@@ -9,11 +9,12 @@ meta = MetaData()
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     history = Table('history', meta, autoload=True)
-    history.c.full_path.alter(name="filepath")
+    filepath = Column('filepath', Text)
+    filepath.create(history)
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
     history = Table('history', meta, autoload=True)
-    history = Table('history', meta, autoload=True)
-    history.c.filepath.alter(name="full_path")
+
+    history.c.filepath.drop()

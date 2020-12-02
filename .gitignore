@@ -58,3 +58,5 @@ log/
 venv/
 *.log
 .vs/
+build/
+dist/
