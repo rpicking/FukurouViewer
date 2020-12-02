@@ -10,14 +10,15 @@ import requests
 from sqlalchemy import insert, delete
 
 import FukurouViewer
-from FukurouViewer import Utils, user_database
-from FukurouViewer.db_utils import DBUtils
+from FukurouViewer import user_database
+from FukurouViewer.config import Config
 from FukurouViewer.foundation import Foundation
 from FukurouViewer.gallery import GenericGallery
+from FukurouViewer.user_database import Folder
 
 
 class DownloadItem:
-    FAVICON_PATH = Utils.fv_path("favicons")
+    FAVICON_PATH = Config.fv_path("favicons")
     ETA_LIMIT = 2592000
     USER_AGENT = "Mozilla/5.0 ;Windows NT 6.1; WOW64; Trident/7.0; rv:11.0; like Gecko"
 
@@ -53,7 +54,7 @@ class DownloadItem:
         self.download_favicon()
 
         # folder
-        self.folder = DBUtils.get_folder(msg.get("uid", None))
+        self.folder = Folder.get_by_id(msg.get("uid", None))
 
         self.dir = msg.get("dir", self.folder.absolute_path)
         self.filepath = msg.get("filepath", None)

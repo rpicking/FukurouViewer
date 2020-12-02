@@ -16,12 +16,7 @@ class Utils:
 
     @classmethod
     def base_path(cls, path: str = "") -> str:
-        folder = os.path.dirname(os.path.abspath(__file__))
-        return cls.norm_path(os.path.join(folder, path))
-
-    @staticmethod
-    def fv_path(path: str = "") -> str:
-        return Utils.norm_path(os.path.join("~/.fv", path))
+        return cls.norm_path(os.path.join(Utils.BASE_DIR, path))
 
     @staticmethod
     def bin_path(path: str = "") -> str:

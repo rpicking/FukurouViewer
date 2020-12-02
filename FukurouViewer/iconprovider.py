@@ -4,11 +4,12 @@ from PySide2 import QtQuick, QtWidgets, QtCore
 from sqlalchemy import select
 
 from FukurouViewer import Utils, user_database
+from .config import Config
 
 
 class IconImageProvider(QtQuick.QQuickImageProvider):
     """image provider for default file icons i.e. icon of default program that runs file"""
-    TMP_DIR = Utils.fv_path("tmp")
+    TMP_DIR = Config.fv_path("tmp")
 
     def __init__(self):
         QtQuick.QQuickImageProvider.__init__(self, QtQuick.QQuickImageProvider.Pixmap)

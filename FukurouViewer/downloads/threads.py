@@ -20,7 +20,7 @@ mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
 
 
 class DownloadThread(BaseThread):
-    FAVICON_PATH = Utils.fv_path("favicons")
+    FAVICON_PATH = Config.fv_path("favicons")
     SUCCESS_CHIME = os.path.join(Utils.base_path("audio"), "success-chime.mp3")
 
     def __init__(self, downloadManager, signals):

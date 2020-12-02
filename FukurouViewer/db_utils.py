@@ -1,20 +1,11 @@
-from typing import Optional
+from typing import Optional, List, Union
 
-from sqlalchemy import select
+from sqlalchemy import select, update, insert
 
 from FukurouViewer import user_database, Utils
-from FukurouViewer.user_database import Folder
 
 
 class DBUtils:
-
-    @staticmethod
-    def get_folder(folder_uid: str) -> Optional[Folder]:
-        folder = DBUtils.select_first(user_database.Folder, where=user_database.Folder.uid == folder_uid)
-        if folder is None:
-            return None
-
-        return None if folder is None else Folder(**folder)
 
     @staticmethod
     def select_first(table, where=None, order=None, limit=None, offset=None) -> Optional[dict]:
@@ -37,3 +28,20 @@ class DBUtils:
                 query = query.offset(offset)
 
             return Utils.convert_result(session.execute(query))
+
+    @staticmethod
+    def update(table, values: dict, where=None):
+        with user_database.get_session(DBUtils, acquire=True) as session:
+            query = update(table)
+            if where is not None:
+                query = query.where(where)
+            session.execute(query.values(values))
+
+    @staticmethod
+    def insert(table, values: Union[dict, List[dict]]) -> List[int]:
+        """Inserts values dict(s) into given table, returning a list of all primary key(s) inserted"""
+        with user_database.get_session(DBUtils, acquire=True) as session:
+            query = insert(table)
+
+            results = session.execute(query.values(values))
+            return results.inserted_primary_key

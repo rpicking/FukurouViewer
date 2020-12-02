@@ -10,10 +10,11 @@ class Config(ConfigParser):
 
     """
 
-    SETTINGS_FILE = Utils.fv_path("settings.ini")
+    SETTINGS_FILE = Utils.base_path("settings.ini")
 
     SETTINGS = {
         "General": [
+            {"appData": "~/.fv"},
             {"close": "tray"},
             "doujin_downloader",
         ],
@@ -35,8 +36,6 @@ class Config(ConfigParser):
             self.load()
         except FileNotFoundError:
             self.save()
-            # set defaults
-            self.close = "tray"
 
         self.build()
         self.save()
@@ -56,6 +55,10 @@ class Config(ConfigParser):
                         value = option.get(option_key, "")
                     self.set(section, option_key, value)
 
+    def set(self, section, option, value=None):
+        super().set(section, option, value)
+        self.save()
+
     def save(self):
         with open(self.SETTINGS_FILE, "w+", encoding="utf-8") as f:
             self.write(f)
@@ -64,6 +67,18 @@ class Config(ConfigParser):
         with open(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
             self.read_file(f)
 
+    def fv_path(self, path: str = ""):
+        return os.path.abspath(Utils.norm_path(os.path.join(self.appData, path)))
+
+    @property
+    def appData(self) -> str:
+        return self.get("General", "appData")
+
+    @appData.setter
+    def appData(self, path):
+        self.set("General", "appData", path)
+        self.save()
+
     @property
     def close(self):
         return self.get("General", "close")
@@ -71,6 +86,7 @@ class Config(ConfigParser):
     @close.setter
     def close(self, close_type):
         self.set("General", "close", close_type)
+        self.save()
 
     @property
     def folders(self):
@@ -80,6 +96,7 @@ class Config(ConfigParser):
     @folders.setter
     def folders(self, folder):
         self.set("General", "folders", json.dumps(folder, ensure_ascii=False))
+        self.save()
 
     @property
     def folder_options(self):

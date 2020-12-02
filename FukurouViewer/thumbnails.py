@@ -6,10 +6,11 @@ from datetime import datetime
 from urllib.parse import unquote
 
 from PySide2.QtCore import QSize
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import insert, select, update
 
-from PySide2 import QtQuick, QtGui, QtCore, QtQml
+from PySide2 import QtQuick, QtGui, QtCore
 
+from .config import Config
 from .images import ImageGenerator
 from .utils import Utils
 from . import user_database
@@ -28,7 +29,7 @@ class ThumbnailProvider(QtQuick.QQuickImageProvider):
 class ThumbnailCache(object):
     logger = logging.getLogger("ThumbnailCache")
 
-    THUMBS_DIR = Utils.fv_path("thumbs")
+    THUMBS_DIR = Config.fv_path("thumbs")
     THUMBNAIL_EXT = ".png"
     TMP_THUMB_PATH = os.path.join(THUMBS_DIR, "tmp" + THUMBNAIL_EXT)
 

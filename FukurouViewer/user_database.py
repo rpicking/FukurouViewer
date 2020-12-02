@@ -1,23 +1,25 @@
 import os
 import contextlib
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Union
 
 import migrate
 import sqlalchemy
+from migrate.versioning import api
 
 from sqlalchemy import Column, ForeignKey, Text, Integer
-from sqlalchemy.ext.declarative import as_declarative, declared_attr
-from migrate.versioning import api
+from sqlalchemy.ext.declarative import as_declarative
 from threading import Lock
 from sqlalchemy.orm import backref, relationship, scoped_session
 from enum import Enum
 
+from FukurouViewer.config import Config
+from FukurouViewer.db_utils import DBUtils
 from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
 
 DB_NAME = "db.sqlite"
-DATABASE_FILE = Utils.fv_path(DB_NAME)
+DATABASE_FILE = Config.fv_path(DB_NAME)
 DATABASE_URI = "sqlite:///" + DATABASE_FILE
 MIGRATE_REPO = Utils.base_path("migrate_repo/")
 lock = Lock()
@@ -53,6 +55,28 @@ class Base(object):
     def save(self):
         with get_session(self, acquire=True) as session:
             session.commit()
+
+    @classmethod
+    def select_first(cls, where=None, order=None, limit=None, offset=None) -> Optional['Base']:
+        result = DBUtils.select_first(cls, where=where, order=order, limit=limit, offset=offset)
+        if result is None:
+            return None
+        return cls.get(**result)
+
+    @classmethod
+    def select(cls, where=None, order=None, limit=None, offset=None) -> Optional[list]:
+        results = DBUtils.select(cls, where=where, order=order, limit=limit, offset=offset)
+        if results is None:
+            return None
+        return [cls.get(**item) for item in results]
+
+    @classmethod
+    def update(cls, values: dict, where=None):
+        return DBUtils.update(cls, values, where=where)
+
+    @classmethod
+    def insert(cls, values: Union[dict, List[dict]]) -> List[int]:
+        return DBUtils.insert(cls, values)
 
 
 class History(Base):
@@ -209,6 +233,12 @@ class Folder(Base):
             path = Utils.base_path(path)
 
         return Path(path)
+
+    @staticmethod
+    def get_by_id(folder_uid: str) -> Optional['Folder']:
+        if folder_uid is None:
+            return None
+        return Folder.select_first(where=Folder.uid == folder_uid)
 
 
 class Downloads(Base):
