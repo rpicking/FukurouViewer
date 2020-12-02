@@ -4,7 +4,6 @@ import argparse
 from enum import Enum
 from threading import RLock
 
-from PySide2.QtCore import Slot
 from sqlalchemy import insert, select, update
 
 from FukurouViewer.grid import FilteredGridModel, SortType, GalleryGridModel
@@ -18,6 +17,7 @@ from .iconprovider import IconImageProvider
 from .images import FullImageProvider
 from .threads import ThreadManager
 from .tray import SystemTrayIcon
+from .user_database import Folder
 from .utils import Utils
 from .config import Config
 from .logger import Logger
@@ -33,9 +33,9 @@ class Program(QtWidgets.QApplication, Logger):
     GITHUB = "https://github.com/rpicking/FukurouViewer"
     BASE_PATH = Utils.base_path()
     QML_DIR = os.path.join(BASE_PATH, "qml")
-    THUMB_DIR = Utils.fv_path("thumbs")
-    FAVICON_DIR = Utils.fv_path("favicons")
-    TMP_DIR = Utils.fv_path("tmp")  # 2nd definition in imageprovider need to find solution for only 1
+    THUMB_DIR = Config.fv_path("thumbs")
+    FAVICON_DIR = Config.fv_path("favicons")
+    TMP_DIR = Config.fv_path("tmp")  # 2nd definition in imageprovider need to find solution for only 1
     gallery_lock = RLock()
 
     class SortMethodMap(Enum):
@@ -54,6 +54,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.setApplicationName("FukurouViewer")
         self.setOrganizationDomain(self.GITHUB)
         self.version = "0.2.0"
+        user_database.setup()
         self.setQuitOnLastWindowClosed(False)
 
         # id = QtGui.QFontDatabase.addApplicationFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf"))
@@ -78,16 +79,10 @@ class Program(QtWidgets.QApplication, Logger):
         # history manager
         self.history = History()
 
-        with user_database.get_session(self, acquire=True) as session:
-            results = Utils.convert_result(session.execute(
-                select([user_database.Folder]).where(user_database.Folder.id == 1)))
-            if results:
-                results = results[0]
 
-        aDirectory = results.get("path") if results else None
 
         # main filtered gridmodel
-        self.mainFilteredGridModel = FilteredGridModel(aDirectory, SortType.DATE_MODIFIED)
+        self.mainFilteredGridModel = FilteredGridModel(None, SortType.DATE_MODIFIED)
         self.galleryGridModel = GalleryGridModel()
 
         self.threadManager = ThreadManager(self)
@@ -103,7 +98,6 @@ class Program(QtWidgets.QApplication, Logger):
             os.makedirs(self.FAVICON_DIR)
         if not os.path.exists(self.TMP_DIR):
             os.makedirs(self.TMP_DIR)
-        user_database.setup()
 
         self.setDoubleClickInterval(300)
         self.trayIcon.show()
@@ -173,7 +167,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.app_window.closeApplication.connect(self.close)
         self.app_window.downloader_task.connect(self.downloader_task)
 
-    @Slot(str, str, result="QVariant")
+    @QtCore.Slot(str, str, result="QVariant")
     def loadGallery(self, filepath, type: str) -> dict:
 
         if FileType.has_value(type):

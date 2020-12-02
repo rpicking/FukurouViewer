@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 import hashlib
 
@@ -9,6 +10,8 @@ from typing import List
 class Utils:
     """Utility functions for FukurouViewer application
     """
+    IS_BUILD = getattr(sys, 'frozen', False)
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable)) if IS_BUILD else os.path.dirname(os.path.abspath(__file__))
 
     @staticmethod
     def convert_result(result: ResultProxy) -> List[dict]:

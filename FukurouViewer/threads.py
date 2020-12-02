@@ -1,12 +1,9 @@
 import os
 import sys
 import json
-import queue
 import linecache
-import threading
 
 from PySide2 import QtCore
-from collections import namedtuple
 from watchdog.observers import Observer
 from sqlalchemy import delete, select, update
 from watchdog.events import FileSystemEventHandler
@@ -23,11 +20,6 @@ isWindows = os.name == "nt"
 if isWindows:
     import win32pipe
     import win32file
-#
-# os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
-# import pygame.mixer as mixer
-#
-# mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
 
 
 class MessengerThread(BaseThread):

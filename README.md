@@ -69,9 +69,16 @@ install_host.bat
 ```
 ./install_host.sh
 ```
-This will all the chrome extension to launch the messenger python script to communicate with the FukurouViewer
+This will allow the chrome extension to launch the messenger python script to communicate with the FukurouViewer
 application.
 
+
+##### Build
+
+In top level directory run
+```
+pyinstaller main.spec
+```
 * TODO: compiling platform specific executable or including all modules with release  
 
 Technologies

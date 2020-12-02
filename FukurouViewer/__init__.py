@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 
+from .config import Config
 from .utils import Utils
 
 # Create saved directory
@@ -12,7 +13,7 @@ from .logger import Logger
 from . import program
 
 # setup logging
-log_dir = Utils.fv_path("logs")
+log_dir = Config.fv_path("logs")
 if not os.path.exists(log_dir):
     os.mkdir(log_dir)
 
