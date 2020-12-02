@@ -102,13 +102,7 @@ class Program(QtWidgets.QApplication, Logger):
         self.setDoubleClickInterval(300)
         self.trayIcon.show()
 
-        # ARGUMENTS
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-d", "--downloader", help="start program in downloader mode", action="store_true")
-        parser.add_argument("-a", "--app", help="open application on launch", action="store_true")
-        args = parser.parse_args()
-
-        self.start_application(args.app)
+        self.start_application(args.main)
 
         self.threadManager.startThreads()
 

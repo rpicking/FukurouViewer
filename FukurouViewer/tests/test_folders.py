@@ -2,14 +2,13 @@ import unittest
 from pathlib import Path
 
 from FukurouViewer import Utils
-from FukurouViewer.db_utils import DBUtils
 from FukurouViewer.user_database import Folder
 
 
 class FoldersTest(unittest.TestCase):
     def test_select_folder(self):
-        uid = "ITBMS6"
-        folder = DBUtils.get_folder(uid)
+        uid = "BLAN5S"
+        folder = Folder.get_by_id(uid)
         self.assertEqual(uid, folder.uid)
 
     def test_regular_path(self):

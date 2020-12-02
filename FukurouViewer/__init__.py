@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import logging
@@ -5,9 +6,18 @@ import logging
 from .config import Config
 from .utils import Utils
 
-# Create saved directory
-if not os.path.exists(Utils.fv_path()):
-    os.mkdir(Utils.fv_path())
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--downloader", help="start program in downloader mode", action="store_true")
+parser.add_argument("-m", "--main", help="open application on launch", action="store_true")
+parser.add_argument("-a", "--appData", type=str, help="Set the FukurouViewer appdata directory")
+args = parser.parse_args()
+
+if args.appData:
+    Config.appData = args.appData
+
+if not os.path.exists(Config.appData):
+    os.mkdir(Config.appData)
 
 from .logger import Logger
 from . import program
@@ -26,4 +36,4 @@ requests_log.setLevel(logging.WARNING)
 requests_log.propagate = False
 
 app = program.Program(sys.argv)
-app.setup(sys.argv)
+app.setup(args)
