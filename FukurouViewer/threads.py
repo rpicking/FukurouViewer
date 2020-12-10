@@ -68,6 +68,8 @@ class MessengerThread(BaseThread):
                     payload = {"task": "none"}
                 elif task == "saveManga":
                     self.downloadManager.queueItem(msg)
+                elif task == "galleryCheck":
+                    payload = self.check_gallery(msg)
 
                 self.send_message(payload)
 
@@ -173,6 +175,11 @@ class MessengerThread(BaseThread):
         except Exception:
             self.log_exception()
             return {'task': 'delete', 'type': 'crash'}
+
+    def check_gallery(self, msg):
+        galleries = DBUtils.select(user_database.Gallery, user_database.Gallery.url == msg.get("url"))
+        exists = galleries is not None and len(galleries) > 0
+        return {"task": "galleryCheck", "exists": exists}
 
     # logs raised general exception
     def log_exception(self):
