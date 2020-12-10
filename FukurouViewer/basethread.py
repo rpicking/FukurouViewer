@@ -2,7 +2,7 @@ import threading
 from collections import namedtuple
 from queue import Queue
 
-from FukurouViewer import Logger
+from FukurouViewer.logger import Logger
 
 
 class BaseThread(threading.Thread, Logger):
@@ -12,9 +12,10 @@ class BaseThread(threading.Thread, Logger):
         super().__init__()
         self.daemon = True
         self.queue = Queue()
+        self.program = None
 
-    def setup(self):
-        pass
+    def setup(self, program):
+        self.program = program
         # basesignals.exception.connect
 
     def _run(self):

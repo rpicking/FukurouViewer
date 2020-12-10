@@ -1,17 +1,15 @@
-import os
-from abc import abstractmethod
-from typing import Optional, Union
+from typing import Union
 from urllib.parse import unquote
 
 import ffmpeg
 from PySide2 import QtQuick, QtGui, QtCore
 from PySide2.QtCore import QSize
 
-import FukurouViewer
-from FukurouViewer import Utils
+from FukurouViewer.buffer import ImageBuffer
+from FukurouViewer.files import FileItem, FileSystemItem, DirectoryItem
 from FukurouViewer.filetype import FileType
-from FukurouViewer.foundation import FileItem, FileSystemItem, DirectoryItem
 from FukurouViewer.gallery import ZipArchiveGallery, DirectoryGallery
+from FukurouViewer.utils import Utils
 
 
 class FullImageProvider(QtQuick.QQuickImageProvider):
@@ -21,22 +19,6 @@ class FullImageProvider(QtQuick.QQuickImageProvider):
     def requestImage(self, id, size: QSize, requestedSize: QSize):
         image, file = ImageGenerator.requestImage(id, requestedSize)
         return image
-
-
-class ImageBuffer(object):
-
-    @staticmethod
-    def isBufferFilepath(filepath: str):
-        return filepath.startswith(FileItem.BUFFER_SUB_PROVIDER)
-
-    @staticmethod
-    def getFilepath(id: str):
-        return id[len(FileItem.BUFFER_SUB_PROVIDER):]
-
-    @staticmethod
-    def getFileItem(id: str) -> FileSystemItem:
-        filepath = ImageBuffer.getFilepath(id)
-        return FukurouViewer.app.galleryGridModel.getFile(filepath)
 
 
 class ImageGenerator(object):

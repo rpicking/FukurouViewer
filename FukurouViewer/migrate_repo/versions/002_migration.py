@@ -18,5 +18,5 @@ def upgrade(migrate_engine):
 def downgrade(migrate_engine):
     meta = MetaData(bind=migrate_engine)
     history = Table('history', meta, autoload=True)
-    history.c.folder.drop()
+    history.c.collection.drop()
     history.c.dead.drop()

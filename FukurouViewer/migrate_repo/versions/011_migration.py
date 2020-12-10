@@ -10,7 +10,7 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
     history = Table('history', meta, autoload=True)
 
-    history.c.folder.drop()
+    history.c.collection.drop()
 
     folders = Table('folders', meta, autoload=True)
     folder_id_c = Column('folder_id', Integer, ForeignKey('folders.id'))
@@ -24,4 +24,4 @@ def downgrade(migrate_engine):
     folder_old_c = Column('folder', Text)
     folder_old_c.create(history)
 
-    history.c.folder_id.drop()
+    history.c.collection_id.drop()

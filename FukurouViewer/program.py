@@ -1,23 +1,22 @@
 import os
 import sys
-import argparse
 from enum import Enum
 from threading import RLock
 
 from sqlalchemy import insert, select, update
 
-from FukurouViewer.grid import FilteredGridModel, SortType, GalleryGridModel
 from . import user_database
 from .blowupview import BlowUpItem
 from .downloads.downloaditem import DownloadItem
 from .downloads.frontend import DownloadsModel, DownloadUIManager, Download
+from .files import SortType
 from .filetype import FileType
 from .gallery import ZipArchiveGallery, DirectoryGallery
+from .grid import FilteredGridModel, GalleryGridModel
 from .iconprovider import IconImageProvider
 from .images import FullImageProvider
 from .threads import ThreadManager
 from .tray import SystemTrayIcon
-from .user_database import Folder
 from .utils import Utils
 from .config import Config
 from .logger import Logger
@@ -54,7 +53,6 @@ class Program(QtWidgets.QApplication, Logger):
         self.setApplicationName("FukurouViewer")
         self.setOrganizationDomain(self.GITHUB)
         self.version = "0.2.0"
-        user_database.setup()
         self.setQuitOnLastWindowClosed(False)
 
         # id = QtGui.QFontDatabase.addApplicationFont(os.path.join(self.QML_DIR, "fonts/Lato-Regular.ttf"))
@@ -233,7 +231,7 @@ class Program(QtWidgets.QApplication, Logger):
     def send_folders(self):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.Folder]).order_by(user_database.Folder.order)))
+                select([user_database.Collection]).order_by(user_database.Collection.order)))
             self.app_window.receiveFolders.emit(results)
 
     # add new folder entry into database
@@ -242,7 +240,7 @@ class Program(QtWidgets.QApplication, Logger):
         order = Foundation.last_order()
 
         with user_database.get_session(self) as session:
-            session.execute(insert(user_database.Folder).values(
+            session.execute(insert(user_database.Collection).values(
                 {
                     "name": name,
                     "uid": uid,
@@ -266,8 +264,8 @@ class Program(QtWidgets.QApplication, Logger):
         folders = folders.toVariant()
         with user_database.get_session(self) as session:
             for folder in folders:
-                session.execute(update(user_database.Folder).where(
-                    user_database.Folder.id == folder.get("id")).values(
+                session.execute(update(user_database.Collection).where(
+                    user_database.Collection.id == folder.get("id")).values(
                     {
                         "order": folder.get("order")
                     }))

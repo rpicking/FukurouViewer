@@ -9,9 +9,10 @@ import pycurl
 from sqlalchemy import delete
 
 import FukurouViewer
-from FukurouViewer import Utils, user_database
+from FukurouViewer import user_database
 from FukurouViewer.config import Config
 from FukurouViewer.basethread import BaseThread
+from FukurouViewer.utils import Utils
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from pygame import mixer
@@ -41,9 +42,9 @@ class DownloadThread(BaseThread):
 
         self.curl = None
 
-    def setup(self):
-        super().setup()
-        FukurouViewer.app.app_window.downloader_task.connect(self.receive_ui_task)
+    def setup(self, program):
+        super().setup(program)
+        program.app_window.downloader_task.connect(self.receive_ui_task)
 
     def _run(self):
         try:

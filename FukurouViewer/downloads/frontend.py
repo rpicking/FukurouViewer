@@ -2,9 +2,10 @@ from PySide2 import QtCore
 
 from sqlalchemy import select
 
-from FukurouViewer import user_database, Utils
+from FukurouViewer import user_database
 from FukurouViewer.downloads.downloaditem import DownloadItem
 from FukurouViewer.foundation import Foundation, BaseModel
+from FukurouViewer.utils import Utils
 
 
 class DownloadUIManager(QtCore.QObject):

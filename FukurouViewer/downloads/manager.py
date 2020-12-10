@@ -3,10 +3,11 @@ from queue import Queue
 
 from sqlalchemy import select
 
-import FukurouViewer
-from FukurouViewer import Logger, user_database, Utils
+from FukurouViewer import user_database
 from .downloaditem import DownloadItem
 from .threads import DownloadThread
+from ..logger import Logger
+from ..utils import Utils
 
 
 class DownloadManager(Logger):
@@ -18,11 +19,11 @@ class DownloadManager(Logger):
         self.queue = Queue()
         self.threads = []
 
-    def setup(self):
-        FukurouViewer.app.app_window.resume_download.connect(self.resume_download)
+    def setup(self, program):
+        program.app_window.resume_download.connect(self.resume_download)
         for i in range(self.THREAD_COUNT):
             thread = DownloadThread(self, self.signals)
-            thread.setup()
+            thread.setup(program)
             thread.start()
             self.threads.append(thread)
 

@@ -14,7 +14,7 @@ from FukurouViewer import user_database
 from FukurouViewer.config import Config
 from FukurouViewer.foundation import Foundation
 from FukurouViewer.gallery import GenericGallery
-from FukurouViewer.user_database import Folder
+from FukurouViewer.user_database import Collection
 
 
 class DownloadItem:
@@ -54,7 +54,7 @@ class DownloadItem:
         self.download_favicon()
 
         # folder
-        self.folder = Folder.get_by_id(msg.get("uid", None))
+        self.folder = Collection.get_by_id(msg.get("uid", None))
 
         self.dir = msg.get("dir", self.folder.absolute_path)
         self.filepath = msg.get("filepath", None)

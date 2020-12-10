@@ -1,6 +1,5 @@
 import os
 import contextlib
-from pathlib import Path
 from typing import Optional, List, Union
 
 import migrate
@@ -10,11 +9,14 @@ from migrate.versioning import api
 from sqlalchemy import Column, ForeignKey, Text, Integer
 from sqlalchemy.ext.declarative import as_declarative
 from threading import Lock
-from sqlalchemy.orm import backref, relationship, scoped_session
+from sqlalchemy.orm import backref, relationship, scoped_session, Session
 from enum import Enum
 
+from FukurouViewer import gallery
 from FukurouViewer.config import Config
 from FukurouViewer.db_utils import DBUtils
+from FukurouViewer.files import DirectoryItem
+from FukurouViewer.filetype import FileType
 from FukurouViewer.utils import Utils
 from FukurouViewer.logger import Logger
 
@@ -92,14 +94,14 @@ class History(Base):
     filepath = Column(Text)
     favicon_url = Column(Text, default="-1")
     dead = Column(sqlalchemy.Boolean, default=False)
-    folder_id = Column(Integer, ForeignKey("folders.id"))
-    gallery_id = Column(Integer, ForeignKey('gallery.id'))
+    collection_id = Column(Integer, ForeignKey("collection.id"))
+    gallery_id = Column(Integer, ForeignKey("gallery.id"))
 
-    folder = relationship("Folder", foreign_keys=[folder_id])
+    collection = relationship("Collection", foreign_keys=[collection_id])
     gallery = relationship("Gallery", backref=backref("history_items", lazy="joined"), foreign_keys=[gallery_id])
 
     def __init__(self, id=None, filename="", src_url="", page_url="", domain="", time_added=0, type=1, filepath="",
-                 favicon_url=None, dead=False, folder=None, gallery=None):
+                 favicon_url=None, dead=False, collection=None, gallery=None):
         self.id = id
         self.filename = filename
         self.src_url = src_url
@@ -111,15 +113,15 @@ class History(Base):
         self.favicon_url = favicon_url
         self.dead = dead
 
-        self.folder = None
-        if isinstance(folder, Folder):
-            self.folder_id = folder.id
-            self.folder = folder
-        elif isinstance(folder, dict):
-            self.folder = Folder(**folder)
-            self.folder_id = self.folder.id
+        self.collection = None
+        if isinstance(collection, Collection):
+            self.collection_id = collection.id
+            self.collection = collection
+        elif isinstance(collection, dict):
+            self.collection = Collection(**collection)
+            self.collection_id = self.collection.id
         else:
-            self.folder_id = folder
+            self.collection_id = collection
 
         self.gallery = None
         if isinstance(gallery, Gallery):
@@ -134,6 +136,17 @@ class History(Base):
 
 class Gallery(Base):
     __tablename__ = "gallery"
+
+    class Type(Enum):
+        # Gallery represented as directory with files inside it
+        GALLERY = 0
+        # Gallery packaged into single file format i.e. cbz, zip, cbr, rar
+        GALLERY_ARCHIVE = 1
+        # misc. collection of files/folders
+        COLLECTION_MISC = 2
+        # folder containing only GALLERY or GALLERY_ARCHIVE files/directories.  Other individual items in directory
+        # will be ignored
+        COLLECTION_GALLERY = 3
 
     id = Column(Integer, primary_key=True)
     title = Column(Text)
@@ -176,19 +189,16 @@ class Gallery(Base):
         galleryTagMap.add()
 
 
-class Folder(Base):
-    __tablename__ = "folders"
+class Collection(Base):
+    """Collection"""
+    __tablename__ = "collection"
 
     class Type(Enum):
         # Gallery represented as directory with files inside it
         GALLERY = 0
-        # Gallery packaged into single file format i.e. cbz, zip, cbr, rar
-        GALLERY_ARCHIVE = 1
-        # misc. collection of files/folders
-        COLLECTION_MISC = 2
-        # folder containing only GALLERY or GALLERY_ARCHIVE files/directories.  Other individual items in directory
+        # folder containing GALLERY or GALLERY_ARCHIVE files/directories.  Other individual items in directory
         # will be ignored
-        COLLECTION_GALLERY = 3
+        COLLECTION_GALLERY = 1
 
     id = Column(Integer, primary_key=True)
     name = Column(Text)
@@ -196,49 +206,53 @@ class Folder(Base):
     path = Column(Text, nullable=False)
     color = Column(Text)
     order = Column(Integer)
-    type = Column(Integer, default=0)
+    type = Column(sqlalchemy.Enum(Type), default=Type.GALLERY)
 
-    def __init__(self, id=None, name="", uid="", path="", color="", order=None, type=None):
+    def __init__(self, id=None, name="", uid="", path="", color="", order=None, type=None, recursive=False):
         self.id = id
         self.name = name
         self.uid = uid
         self.path = path
         self.color = color
         self.order = order
-        self.type = type
 
-        self.absolute_path = Folder.parse_path(self.path)
+        self.directory = DirectoryItem(self.path, recursive=recursive)
+        self.type = type if type is not None else Collection.determine_type(self.directory)
+        self.galleries: List[gallery.Gallery] = []
+
+    @property
+    def count(self):
+        return len(self.galleries)
 
     @staticmethod
-    def parse_path(path: str) -> Optional[Path]:
-        """Given a path, return an absolute path, substituting a relative or drive relative path variables when required.
-           Given D:/Dir/FukurouViewer/program.py
-             ../Test/ -> D:/Dir/Test/
-             ?:/Other/Test -> D:/Other/Test"""
+    def get_by_id(collection_uid: str) -> Optional['Collection']:
+        if collection_uid is None:
+            return None
+        return Collection.select_first(where=Collection.uid == collection_uid)
+
+    @staticmethod
+    def get_by_path(path: str) -> Optional['Collection']:
         if path is None:
             return None
 
-        # windows drive replacement
-        if path.startswith("?:/"):
-            drive, tail = os.path.splitdrive(Utils.base_path())
-            path = path.replace("?:", drive)
-
-        # UNC path replacement
-        if path.startswith("//?/"):
-            drive, tail = os.path.splitdrive(Utils.base_path())
-            path = path.replace("//?", drive)
-
-        # relative path replacement
-        if path.startswith("../") or path.startswith("./"):
-            path = Utils.base_path(path)
-
-        return Path(path)
+        return Collection.select_first(where=Collection.path == path)
 
     @staticmethod
-    def get_by_id(folder_uid: str) -> Optional['Folder']:
-        if folder_uid is None:
-            return None
-        return Folder.select_first(where=Folder.uid == folder_uid)
+    def determine_type(directory: DirectoryItem) -> Type:
+        if directory is None or not directory.exists:
+            return Collection.Type.GALLERY
+
+        for file in directory.files:
+            if file.type is not FileType.ARCHIVE:
+                return Collection.Type.GALLERY
+
+        if len(directory.files) > 0:
+            return Collection.Type.COLLECTION_GALLERY
+
+        if len(directory.directories) > 0:
+            return Collection.Type.COLLECTION_GALLERY
+
+        return Collection.Type.GALLERY
 
 
 class Downloads(Base):
@@ -255,12 +269,12 @@ class Downloads(Base):
     domain = Column(Text)
     favicon_url = Column(Text)
     timestamp = Column(Integer)
-    folder_id = Column(Integer, ForeignKey(Folder.id))
+    collection_id = Column(Integer, ForeignKey(Collection.id))
 
-    folder = relationship("Folder", foreign_keys=[folder_id])
+    collection = relationship("Collection", foreign_keys=[collection_id])
 
     def __init__(self, id=None, filepath="", filename="", base_name="", ext="", total_size=None, srcUrl="", pageUrl="",
-                 domain="", favicon_url="", timestamp=None, folder=None):
+                 domain="", favicon_url="", timestamp=None, collection=None):
         self.id = id
         self.filepath = filepath
         self.filename = filename
@@ -273,14 +287,14 @@ class Downloads(Base):
         self.favicon_url = favicon_url
         self.timestamp = timestamp
 
-        if isinstance(folder, Folder):
-            self.folder_id = folder.id
-            self.folder = folder
-        elif isinstance(folder, dict):
-            self.folder = Folder(**folder)
-            self.folder_id = self.folder.id
+        if isinstance(collection, Collection):
+            self.collection_id = collection.id
+            self.collection = collection
+        elif isinstance(collection, dict):
+            self.collection = Collection(**collection)
+            self.collection_id = self.collection.id
         else:
-            self.folder_id = folder
+            self.collection_id = collection
 
 
 class Thumbnail(Base):
@@ -379,7 +393,7 @@ class ItemTagMapping(Base):
             self.tag_id = tag
 
 
-def setup():
+def upgrade():
     Database.logger.debug("Setting up database.")
     if not os.path.exists(DATABASE_FILE):
         Base.metadata.create_all(engine)
@@ -399,7 +413,9 @@ def get_session(requester, acquire=False) -> session_maker:
     try:
         if acquire:
             lock.acquire()
-        session = scoped_session(session_maker)
+
+        session = Session(engine)
+        session.expire_on_commit = False
         yield session
         session.commit()
     except Exception:
@@ -412,4 +428,4 @@ def get_session(requester, acquire=False) -> session_maker:
 
 
 if __name__ == "__main__":
-    setup()
+    upgrade()

@@ -13,6 +13,7 @@ def upgrade(migrate_engine):
     timestamp_c = Column('timestamp', Integer)
     timestamp_c.create(downloads)
 
+
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
     downloads = Table('downloads', meta, autoload=True)

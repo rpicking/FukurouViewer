@@ -6,8 +6,9 @@ from typing import Union, Optional
 
 from PySide2.QtCore import Slot, Qt, QSortFilterProxyModel
 
-from FukurouViewer.foundation import BaseModel, FileItem, SortType, DirectoryItem
-from FukurouViewer.gallery import ZipArchiveGallery, Gallery
+from FukurouViewer.files import DirectoryItem, SortType, FileItem
+from FukurouViewer.foundation import BaseModel
+from FukurouViewer.gallery import Gallery
 
 
 class GridModel(BaseModel):

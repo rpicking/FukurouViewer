@@ -2,7 +2,8 @@ from typing import Optional, List, Union
 
 from sqlalchemy import select, update, insert
 
-from FukurouViewer import user_database, Utils
+from FukurouViewer import user_database
+from FukurouViewer.utils import Utils
 
 
 class DBUtils:

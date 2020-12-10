@@ -3,8 +3,9 @@ import os
 from PySide2 import QtQuick, QtWidgets, QtCore
 from sqlalchemy import select
 
-from FukurouViewer import Utils, user_database
+from FukurouViewer import user_database
 from .config import Config
+from .utils import Utils
 
 
 class IconImageProvider(QtQuick.QQuickImageProvider):

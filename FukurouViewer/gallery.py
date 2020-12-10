@@ -7,15 +7,14 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from time import time
 from pathlib import Path
-from typing import List, Union, Optional, Dict, ValuesView, Iterable
+from typing import List, Union, Optional, Dict, Iterable
 from sqlalchemy import delete, insert, select, update
 
-from .foundation import FileItem, DirectoryItem, FileSystemItem
+from .files import FileSystemItem, FileItem, DirectoryItem
 from .request_manager import ex_request_manager
 from . import user_database
 from .utils import Utils
 from .logger import Logger
-from .config import Config
 from .search import Search
 
 
@@ -338,6 +337,10 @@ class Gallery(ABC, Logger):
         """Returns an iterable of all file items in the Gallery"""
         return self.filesDict.values()
 
+    @property
+    def count(self) -> int:
+        return len(self.filesDict)
+
     def get_file(self, filepath: str) -> Optional[FileItem]:
         """Given a filepath, returns relavant FileItem if one exists"""
         return self.filesDict.get(filepath, None)
@@ -376,7 +379,7 @@ class DirectoryGallery(Gallery):
             self.add_file(file)
 
     def load(self):
-        return
+        pass
 
 
 class ZipArchiveGallery(Gallery):

@@ -13,6 +13,7 @@ def upgrade(migrate_engine):
     total_size_c = Column('total_size', Integer)
     total_size_c.create(downloads)
 
+
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
     downloads = Table('downloads', meta, autoload=True)

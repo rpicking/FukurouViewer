@@ -8,13 +8,14 @@ from watchdog.observers import Observer
 from sqlalchemy import delete, select, update
 from watchdog.events import FileSystemEventHandler
 
-import FukurouViewer
-from FukurouViewer import user_database, Utils
+from FukurouViewer import user_database
 from FukurouViewer.basethread import BaseThread
+from FukurouViewer.db_utils import DBUtils
 from FukurouViewer.downloads.downloaditem import DownloadItem
 from FukurouViewer.downloads.frontend import Download_UI_Signals
 from FukurouViewer.downloads.manager import DownloadManager
-from FukurouViewer.foundation import FileItem
+from FukurouViewer.files import FileItem
+from FukurouViewer.utils import Utils
 
 isWindows = os.name == "nt"
 if isWindows:
@@ -39,13 +40,11 @@ class MessengerThread(BaseThread):
                                                   win32pipe.PIPE_ACCESS_DUPLEX,
                                                   win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
                                                   win32pipe.PIPE_UNLIMITED_INSTANCES, 65536, 65536, 300, None)
-            # win32pipe.ConnectNamedPipe(self.pipe, None)
-            return
-
-        # non windows platform
-        self.pipe = self.PIPE_PATH
-        if not os.path.exists(self.pipe):
-            os.mkfifo(self.pipe)
+        else:
+            # non windows platform
+            self.pipe = self.PIPE_PATH
+            if not os.path.exists(self.pipe):
+                os.mkfifo(self.pipe)
 
     def _run(self):
         win32pipe.ConnectNamedPipe(self.pipe, None)
@@ -121,7 +120,7 @@ class MessengerThread(BaseThread):
                 pipe.write(jsonStr)
 
     def create_download_item(self, msg):
-        """creates DownloadItem to put in queue 
+        """creates DownloadItem to put in queue
             adds download item to UI """
         item = DownloadItem(self.downloadManager, msg)
         self.signals.create.emit(item)
@@ -132,7 +131,7 @@ class MessengerThread(BaseThread):
         payload = {'task': 'sync'}
         with user_database.get_session(self, acquire=True) as session:
             payload['folders'] = Utils.convert_result(session.execute(
-                select([user_database.Folder.name, user_database.Folder.uid]).order_by(user_database.Folder.order)))
+                select([user_database.Collection.name, user_database.Collection.uid]).order_by(user_database.Collection.order)))
         return payload
 
     # edit folder info in database
@@ -151,8 +150,8 @@ class MessengerThread(BaseThread):
 
             try:
                 with user_database.get_session(self, acquire=True) as session:
-                    session.execute(update(user_database.Folder).where(
-                        user_database.Folder.uid == folder.get('uid')).values(values))
+                    session.execute(update(user_database.Collection).where(
+                        user_database.Collection.uid == folder.get('uid')).values(values))
             except Exception:
                 self.log_exception()
                 return {'task': 'edit', 'type': 'error', 'msg': 'not all folders found'}
@@ -169,7 +168,7 @@ class MessengerThread(BaseThread):
                 self.logger.debug("deleting folder with uid: " + uid)
 
                 with user_database.get_session(self) as session:
-                    session.execute(delete(user_database.Folder).where(user_database.Folder.uid == folder.get('uid')))
+                    session.execute(delete(user_database.Collection).where(user_database.Collection.uid == folder.get('uid')))
                 return {'type': 'success', 'task': 'delete', 'name': name, 'uid': uid}
         except Exception:
             self.log_exception()
@@ -203,8 +202,8 @@ class SearchThread(BaseThread):
 class GalleryThread(BaseThread):
     running = False
 
-    def setup(self):
-        super().setup()
+    def setup(self, program):
+        super().setup(program)
         # signals for find galleries done in program.py
         # signal for set scan folder in program.py
 
@@ -213,7 +212,7 @@ class GalleryThread(BaseThread):
             self.running = False
             path = self.queue.get()
             self.running = True
-            with FukurouViewer.app.gallery_lock:
+            with self.program.gallery_lock:
                 print("HUH")
 
 
@@ -232,8 +231,8 @@ class FolderWatcherThread(BaseThread):
         def on_any_event(self, event):
             self.eventThread.queue.put([event])
 
-    def setup(self):
-        super().setup()
+    def setup(self, program):
+        super().setup(program)
         self.observer = Observer()
         self.observer.start()
         self.set_folders()
@@ -247,14 +246,13 @@ class FolderWatcherThread(BaseThread):
         self.observer.unschedule_all()
         with user_database.get_session(self, acquire=True) as session:
             folders = Utils.convert_result(session.execute(
-                select([user_database.Folder.path]).order_by(user_database.Folder.order)))
+                select([user_database.Collection.path]).order_by(user_database.Collection.order)))
         for folder in folders:
             if os.path.exists(folder.get('path')):
                 self.observer.schedule(self.Handler(self.eventThread), folder.get('path'), recursive=True)
 
 
 class EventThread(BaseThread):
-
     class Signals(QtCore.QObject):
         moved = QtCore.Signal(str, str)
         created = QtCore.Signal(str)
@@ -266,8 +264,8 @@ class EventThread(BaseThread):
         self.gridModel = gridModel
         self.signals = self.Signals()
 
-    def setup(self):
-        super().setup()
+    def setup(self, program):
+        super().setup(program)
         self.signals.moved.connect(self.file_moved_event)
         self.signals.created.connect(self.file_created_event)
         self.signals.deleted.connect(self.file_deleted_event)
@@ -336,24 +334,25 @@ class EventThread(BaseThread):
 
 class ThreadManager:
 
-    def __init__(self, app):
-        self.signals = Download_UI_Signals(app)
+    def __init__(self, program):
+        self.program = program
+        self.signals = Download_UI_Signals(program)
 
         self.searchThread = SearchThread()
         self.downloadManager = DownloadManager(self.searchThread, self.signals)
         # self.gallery_thread = GalleryThread()
-        self.eventThread = EventThread(app.mainFilteredGridModel.gridModel)
+        self.eventThread = EventThread(program.mainFilteredGridModel.gridModel)
         self.folderWatcherThread = FolderWatcherThread(self.eventThread)
         self.messengerThread = MessengerThread(self.downloadManager, self.signals, isWindows)
 
     def startThreads(self):
-        self.startThread(self.messengerThread)
-        self.startThread(self.downloadManager)
-        self.startThread(self.searchThread)
-        self.startThread(self.eventThread)
-        self.startThread(self.folderWatcherThread)
+        self.startThread(self.messengerThread, self.program)
+        self.startThread(self.downloadManager, self.program)
+        self.startThread(self.searchThread, self.program)
+        self.startThread(self.eventThread, self.program)
+        self.startThread(self.folderWatcherThread, self.program)
 
     @staticmethod
-    def startThread(thread):
-        thread.setup()
+    def startThread(thread, program):
+        thread.setup(program)
         thread.start()

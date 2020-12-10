@@ -3,6 +3,9 @@ from migrate import *
 
 
 from migrate.changeset import schema
+
+from FukurouViewer.user_database import Collection
+
 meta = MetaData()
 
 folders = Table(
@@ -13,8 +16,8 @@ folders = Table(
     Column('path', Text, nullable=False),
     Column('color', Text),
     Column('order', Integer),
-    Column('type', Integer, default=0),
-)
+    Column('type', Enum(Collection.Type), default=0))
+
 
 def upgrade(migrate_engine):
     meta.bind = migrate_engine

@@ -1,7 +1,8 @@
 from PySide2 import QtWidgets, QtGui, QtCore
 from sqlalchemy import select
 
-from FukurouViewer import user_database, Utils
+from FukurouViewer import user_database
+from FukurouViewer.utils import Utils
 
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
@@ -21,7 +22,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def createMenu(self):
         with user_database.get_session(self, acquire=True) as session:
             results = Utils.convert_result(session.execute(
-                select([user_database.Folder]).order_by(user_database.Folder.order)))
+                select([user_database.Collection]).order_by(user_database.Collection.order)))
 
         for folder in results:
             name = folder.get("name")
