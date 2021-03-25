@@ -19,7 +19,7 @@ PySide2==5.13.0
 python-libmagic==0.4.0
 python-magic==0.4.15
 pywin32==224
-PyYAML==5.1.2
+PyYAML==5.4
 requests==2.22.0
 shiboken2==5.13.0
 sip==4.19.8
